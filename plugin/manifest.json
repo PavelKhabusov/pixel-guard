@@ -1,0 +1,12 @@
+{
+  "name": "pixel-guard",
+  "id": "pixel-guard-local",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:8971", "https://localhost:8972"]
+  }
+}

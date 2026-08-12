@@ -1,0 +1,10 @@
+reports/
+snapshots/
+node_modules/
+_local/
+plugin/code.js
+config/cert/
+
+config/pages.json
+maps/*.map.json
+!maps/*.example.map.json

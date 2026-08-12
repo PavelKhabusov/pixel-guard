@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "pixel-guard bridge",
+  "version": "0.1.0",
+  "description": "Живой мост Figma ↔ сайт: подсветка элемента и сверка стилей с макетом",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://localhost:8971/*", "https://localhost:8972/*", "<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "pixel-guard" }
+}

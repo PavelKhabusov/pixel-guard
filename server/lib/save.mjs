@@ -1,0 +1,23 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const slug = (s) =>
+  s.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'frame';
+
+export function saveFrames(frames, snapDir) {
+  fs.mkdirSync(snapDir, { recursive: true });
+  const saved = [];
+  for (const f of frames) {
+    const base = slug(f.frameName);
+    const { png, ...meta } = f;
+    meta.savedAt = new Date().toISOString();
+    fs.writeFileSync(path.join(snapDir, `${base}.json`), JSON.stringify(meta, null, 1));
+    saved.push(`snapshots/${base}.json`);
+    if (png) {
+      fs.writeFileSync(path.join(snapDir, `${base}.png`), Buffer.from(png, 'base64'));
+      saved.push(`snapshots/${base}.png`);
+    }
+    console.log(`[ingest] ${f.frameName} → ${base}.json${png ? ' + png' : ''} (${f.width}×${f.height})`);
+  }
+  return saved;
+}

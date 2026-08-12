@@ -1,0 +1,133 @@
+import http from 'node:http';
+import https from 'node:https';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { ensureCert } from './lib/cert.mjs';
+import { saveFrames } from './lib/save.mjs';
+import { subscribe, publish, peers } from './lib/bus.mjs';
+import { ensureLocalConfigs } from './lib/bootstrap.mjs';
+
+const PORT = Number(process.env.PORT || 8971);
+const TLS_PORT = Number(process.env.TLS_PORT || PORT + 1);
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const SNAP = path.join(ROOT, 'snapshots');
+const CERT_DIR = path.join(ROOT, 'config', 'cert');
+const MAX_BODY = 300 * 1024 * 1024;
+
+ensureLocalConfigs(ROOT);
+
+const isLoopback = (ip = '') =>
+  ip === '::1' || ip === '127.0.0.1' || ip.startsWith('127.') || ip === '::ffff:127.0.0.1' || ip.startsWith('::ffff:127.');
+
+const handler = (req, res) => {
+  if (!isLoopback(req.socket.remoteAddress)) {
+    console.warn(`[ingest] отказано не-локальному клиенту: ${req.socket.remoteAddress}`);
+    return res.writeHead(403).end();
+  }
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.writeHead(204).end();
+
+  const url = new URL(req.url, 'http://localhost');
+
+  if (req.method === 'GET' && url.pathname === '/ping') {
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ ok: true, service: 'pixel-guard', peers: peers() }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/bus') {
+    subscribe(url.searchParams.get('role') ?? 'unknown', res);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/emit') {
+    return readBody(req, res, ({ event, payload, to }) => {
+      const sent = publish(event, payload, to);
+      res.end(JSON.stringify({ ok: true, sent }));
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/snapshot') {
+    const want = url.searchParams.get('frame');
+    const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json')) : [];
+    const hit = want
+      ? files.find((f) => f === want || f === `${want}.json` || readJsonSafe(path.join(SNAP, f))?.frameId === want)
+      : files[0];
+    res.setHeader('Content-Type', 'application/json');
+    if (!hit) return res.writeHead(404).end(JSON.stringify({ ok: false, error: 'нет снапшота' }));
+    return res.end(fs.readFileSync(path.join(SNAP, hit), 'utf8'));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/snapshots') {
+    const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json')) : [];
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify(files.map((f) => {
+      const j = readJsonSafe(path.join(SNAP, f)) ?? {};
+      return { file: f, frameName: j.frameName, frameId: j.frameId, breakpoints: j.breakpoints ?? [] };
+    })));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/map') {
+    const p = path.join(ROOT, 'maps', `${url.searchParams.get('page') ?? 'home'}.map.json`);
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '{}');
+  }
+
+  if (req.method === 'POST' && url.pathname === '/ingest') {
+    return readBody(req, res, ({ frames }) => {
+      const saved = saveFrames(frames, SNAP);
+      publish('snapshot', { saved, frames: frames.map((f) => ({ frameId: f.frameId, frameName: f.frameName, breakpoints: f.breakpoints ?? [] })) });
+      res.end(JSON.stringify({ ok: true, saved }));
+    });
+  }
+
+  res.writeHead(404).end();
+};
+
+function readJsonSafe(p) {
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
+}
+
+function readBody(req, res, onJson) {
+  const chunks = [];
+  let size = 0;
+  req.on('data', (c) => {
+    size += c.length;
+    if (size > MAX_BODY) { res.writeHead(413).end(); req.destroy(); return; }
+    chunks.push(c);
+  });
+  req.on('end', () => {
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      onJson(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
+    } catch (e) {
+      console.error('[ingest] error:', e.message);
+      res.writeHead(400).end(JSON.stringify({ ok: false, error: e.message }));
+    }
+  });
+}
+
+const listenLocal = (server, port, done) => {
+  server.on('error', (e) => {
+    if (e.code !== 'EAFNOSUPPORT' && e.code !== 'EADDRNOTAVAIL') throw e;
+    server.listen(port, '127.0.0.1', done);
+  });
+  server.listen(port, '::', done);
+};
+
+listenLocal(http.createServer(handler), PORT, () =>
+  console.log(`pixel-guard ingest: http://localhost:${PORT} → ${SNAP}  (Figma Desktop)`)
+);
+
+try {
+  const { key, cert, created, certPath } = ensureCert(CERT_DIR);
+  listenLocal(https.createServer({ key, cert }, handler), TLS_PORT, () => {
+    console.log(`pixel-guard ingest: https://localhost:${TLS_PORT} → ${SNAP}  (Figma в браузере)`);
+    if (created) console.log(`  сертификат создан: ${path.relative(ROOT, certPath)}`);
+    console.log(`  один раз открой https://localhost:${TLS_PORT}/ping и прими самоподписанный сертификат`);
+  });
+} catch (e) {
+  console.warn(`pixel-guard: HTTPS не поднят (${e.message}). Веб-Figma сможет только скачать JSON вручную.`);
+}

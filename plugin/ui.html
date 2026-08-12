@@ -1,0 +1,139 @@
+<style>
+  body { font: 12px/1.5 Inter, sans-serif; margin: 0; padding: 14px; color: #eee; background: #2c2c2c; }
+  h3 { margin: 0 0 10px; font-size: 13px; }
+  label { display: flex; align-items: center; gap: 6px; margin: 8px 0; }
+  input[type=number] { width: 70px; background: #1e1e1e; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 4px 6px; }
+  select { flex: 1; background: #1e1e1e; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 4px 6px; }
+  button { width: 100%; margin-top: 10px; padding: 8px; border: 0; border-radius: 6px; background: #bf2120; color: #fff; font-weight: 600; cursor: pointer; }
+  button.alt { background: #3a3a3a; margin-top: 6px; }
+  button:disabled { opacity: .5; cursor: default; }
+  #log { margin-top: 10px; padding: 8px; min-height: 70px; background: #1e1e1e; border-radius: 6px; white-space: pre-wrap; word-break: break-word; color: #9d9; }
+  #log.err { color: #f88; }
+  #log a { color: #8bf; }
+</style>
+<h3>pixel-guard — снапшот выделенных frame’ов</h3>
+<label>Режим <select id="mode">
+  <option value="auto">авто</option>
+  <option value="https">HTTPS (Figma в браузере)</option>
+  <option value="http">HTTP (Figma Desktop)</option>
+  <option value="download">только скачать файл</option>
+</select></label>
+<label>Порт <input id="port" type="number" value="8971"></label>
+<label><input id="png" type="checkbox"> экспортировать PNG (тяжелее)</label>
+<label><input id="live" type="checkbox"> живой режим (выделение → браузер)</label>
+<button id="go">Export snapshot</button>
+<button id="save" class="alt" disabled>Скачать JSON</button>
+<div id="log">Выдели frame(’ы) на канвасе и жми Export.</div>
+<script>
+  const isWeb = location.protocol === 'https:' || parent !== window && /figma\.com$/.test(document.referrer.split('/')[2] || '');
+  const el = (id) => document.getElementById(id);
+  const log = (t, err) => { const l = el('log'); l.textContent = t; l.className = err ? 'err' : ''; };
+  const btn = el('go');
+  const saveBtn = el('save');
+  let lastFrames = null;
+
+  const resolveMode = () => {
+    const m = el('mode').value;
+    return m === 'auto' ? (isWeb ? 'https' : 'http') : m;
+  };
+
+  const download = (frames) => {
+    const blob = new Blob([JSON.stringify({ frames }, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = frames.length === 1 ? `${frames[0].frameName.replace(/[^\wЀ-ӿ-]+/g, '-')}.pg.json` : 'snapshot.pg.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    log(`Скачан ${a.download}.\nПоложи его в snapshots/ и распакуй:\n  npm run import -- <файл>`);
+  };
+
+  saveBtn.onclick = () => { if (lastFrames) download(lastFrames); };
+
+  btn.onclick = () => {
+    btn.disabled = true;
+    log('Собираю дерево нод…');
+    parent.postMessage({ pluginMessage: {
+      type: 'export',
+      port: +el('port').value || 8971,
+      png: el('png').checked,
+      mode: resolveMode(),
+    } }, '*');
+  };
+
+  const busBase = () => {
+    const tls = resolveMode() === 'https';
+    const port = (+el('port').value || 8971) + (tls ? 1 : 0);
+    return `${tls ? 'https' : 'http'}://localhost:${port}`;
+  };
+
+  onmessage = async (e) => {
+    const msg = e.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === 'selection') {
+      if (!el('live').checked) return;
+      try {
+        const r = await fetch(`${busBase()}/emit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'select', payload: msg.node, to: 'extension' }),
+        });
+        const j = await r.json();
+        log(j.sent ? `→ ${msg.node.name} (в браузер)` : `→ ${msg.node.name}: браузер не подключён`);
+      } catch (err) {
+        log(`живой режим: сервер недоступен (${err})`, true);
+      }
+      return;
+    }
+    if (msg.type === 'status') log(msg.text);
+    if (msg.type === 'error') { log(msg.text, true); btn.disabled = false; }
+    if (msg.type === 'payload') {
+      lastFrames = msg.frames;
+      saveBtn.disabled = false;
+      const bpInfo = msg.frames
+        .map((f) => {
+          const bp = (f.breakpoints || []).map((b) => `${b.viewport} ${b.width}px`).join(', ');
+          return bp ? `${f.frameName}: ${bp}` : null;
+        })
+        .filter(Boolean)
+        .join('\n');
+      const mode = msg.mode;
+      if (mode === 'download') { download(msg.frames); btn.disabled = false; return; }
+      const tls = mode === 'https';
+      const port = tls ? msg.port + 1 : msg.port;
+      const scheme = tls ? 'https' : 'http';
+      const bases = [`${scheme}://localhost:${port}`];
+      const body = JSON.stringify({ frames: msg.frames });
+      let lastErr = null;
+      for (const base of bases) {
+        log(`Отправляю ${msg.frames.length} frame(’ов) на ${base}…`);
+        try {
+          const r = await fetch(`${base}/ingest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          });
+          const j = await r.json();
+          log(
+            r.ok
+              ? `Готово:\n${j.saved.join('\n')}${bpInfo ? `\n\nБрейкпоинты:\n${bpInfo}` : ''}`
+              : `Сервер ответил ${r.status}: ${JSON.stringify(j)}`,
+            !r.ok
+          );
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (lastErr) {
+        log(
+          tls
+            ? `Не достучался до ${bases.join(' и ')}: ${lastErr}.\n1) запусти: npm run server\n2) открой ${bases[0]}/ping и прими самоподписанный сертификат\n3) или жми «Скачать JSON»`
+            : `Не достучался до ${bases.join(' и ')}: ${lastErr}.\nЗапусти: npm run server (или переключи режим на HTTPS/скачивание)`,
+          true
+        );
+      }
+      btn.disabled = false;
+    }
+  };
+</script>

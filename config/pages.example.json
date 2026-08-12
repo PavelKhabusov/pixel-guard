@@ -1,0 +1,10 @@
+{
+  "home": {
+    "url": "https://example.com/",
+    "frames": {
+      "desktop": null,
+      "tablet": null,
+      "mobile": null
+    }
+  }
+}

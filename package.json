@@ -1,0 +1,16 @@
+{
+  "name": "pixel-guard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "server": "node server/ingest.mjs",
+    "import": "node server/import.mjs",
+    "qa": "node server/run.mjs",
+    "build:plugin": "esbuild plugin/code.ts --bundle --target=es2017 --outfile=plugin/code.js"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.2",
+    "esbuild": "^0.23.0",
+    "playwright": "^1.62.1"
+  }
+}

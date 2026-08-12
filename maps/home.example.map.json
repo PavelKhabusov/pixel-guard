@@ -1,0 +1,11 @@
+{
+  "_comment": "Ключ — Figma id ноды (995:1234, у инстансов I995:1234;567:890) или имя-путь (hero/title). Значение — привязка к DOM.",
+
+  "995:1234": { "selector": "h1.hero__title" },
+
+  "hero/subtitle": { "selector": ".hero__subtitle", "tolerance": { "px": 2 } },
+
+  "995:5678": { "selector": "footer.site-footer", "ignore": ["height"] },
+
+  "not-implemented-yet": { "skip": "блок ещё не свёрстан" }
+}
