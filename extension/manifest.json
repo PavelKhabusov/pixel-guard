@@ -21,8 +21,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "pixel-guard",
+    "default_title": "pixel-guard — открыть сайдбар",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

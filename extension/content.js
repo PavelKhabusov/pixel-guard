@@ -1,23 +1,10 @@
 let map = {};
 let box = null;
-let panel = null;
+let bar = null;
+let tab = null;
+let lastNode = null;
 
-const ensureUi = () => {
-  if (!box) {
-    box = document.createElement('div');
-    box.className = 'pg-box';
-    document.documentElement.appendChild(box);
-  }
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.className = 'pg-panel';
-    panel.addEventListener('click', (e) => {
-      if (e.target.classList.contains('pg-close')) panel.classList.remove('pg-on');
-    });
-    document.documentElement.appendChild(panel);
-  }
-};
-
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const px = (s) => (s == null ? null : Math.round(parseFloat(s) * 10) / 10);
 
 const parseColor = (s) => {
@@ -34,6 +21,65 @@ function figmaLineHeight(lh, size) {
   return null;
 }
 
+function toggle(on) {
+  buildUi();
+  const next = on ?? !bar.classList.contains('pg-open');
+  bar.classList.toggle('pg-open', next);
+  if (!next) box.classList.remove('pg-on');
+  if (next) poll();
+}
+
+function buildUi() {
+  if (bar) return;
+  box = document.createElement('div');
+  box.className = 'pg-box';
+
+  bar = document.createElement('aside');
+  bar.className = 'pg-sidebar';
+  bar.innerHTML = `
+    <div class="pg-head">
+      <h4>pixel-guard</h4>
+      <div class="pg-stat"><span><span class="pg-dot off" id="pg-dot"></span><span id="pg-state">сервер недоступен</span></span></div>
+      <div class="pg-stat"><span>плагин Figma</span><code id="pg-figma">—</code></div>
+      <div class="pg-stat"><span>нод в карте</span><code id="pg-mapn">0</code></div>
+      <div class="pg-hint" id="pg-hint"></div>
+    </div>
+    <div class="pg-body" id="pg-body"><div class="pg-empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
+    <div class="pg-log" id="pg-log"></div>`;
+
+  const close = document.createElement('button');
+  close.className = 'pg-close';
+  close.textContent = '×';
+  close.title = 'Закрыть (значок расширения — открыть снова)';
+  close.onclick = () => toggle(false);
+  bar.querySelector('.pg-head').appendChild(close);
+
+  document.documentElement.append(box, bar);
+  addEventListener('scroll', () => { if (lastNode) place(lastNode.el); }, { passive: true });
+}
+
+const logLine = (t) => {
+  const l = document.getElementById('pg-log');
+  if (!l) return;
+  const d = document.createElement('div');
+  d.textContent = t;
+  l.prepend(d);
+  while (l.children.length > 20) l.lastChild.remove();
+};
+
+function setStatus(s) {
+  buildUi();
+  const figma = s.peers?.figma ?? 0;
+  document.getElementById('pg-dot').className = `pg-dot ${s.connected ? 'on' : 'off'}`;
+  document.getElementById('pg-state').textContent = s.connected ? 'подключён к серверу' : 'сервер недоступен';
+  document.getElementById('pg-figma').textContent = figma ? `${figma} ✓` : 'нет';
+  document.getElementById('pg-mapn').textContent = Object.keys(map).filter((k) => !k.startsWith('_')).length;
+  const hint = document.getElementById('pg-hint');
+  if (!s.connected) hint.innerHTML = 'Сервер не отвечает — запусти <b>npm run server</b>.';
+  else if (!figma) hint.innerHTML = 'Открой плагин <b>pixel-guard</b> в Figma и включи <b>живой режим</b>.';
+  else hint.innerHTML = 'Готово: кликай ноду в Figma.';
+}
+
 function diff(node, el) {
   const s = getComputedStyle(el);
   const r = el.getBoundingClientRect();
@@ -46,8 +92,8 @@ function diff(node, el) {
 
   const hug = node.autoResize === 'WIDTH_AND_HEIGHT' || node.autoResize === 'TRUNCATE';
   if (!hug) cmp('width', node.w, px(r.width), 2);
-  if (node.type === 'TEXT' && node.renderH != null) cmp('height', node.renderH, px(r.height), 4);
-  else if (node.type !== 'TEXT') cmp('height', node.h, px(r.height), 2);
+  if (node.type === 'TEXT') { if (node.renderH != null) cmp('height', node.renderH, px(r.height), 4); }
+  else cmp('height', node.h, px(r.height), 2);
 
   const f = node.font;
   if (f) {
@@ -78,33 +124,45 @@ function diff(node, el) {
   return out;
 }
 
-function show(node) {
-  ensureUi();
-  const sel = map[node.figmaId]?.selector || map[node.path]?.selector;
-  const el = sel ? document.querySelector(sel) : null;
-
-  if (!el) {
-    box.classList.remove('pg-on');
-    panel.className = 'pg-panel pg-on pg-miss';
-    panel.innerHTML = `<button class="pg-close">×</button>
-      <b>${esc(node.name || node.figmaId)}</b>
-      <div class="pg-note">${sel ? `не найден в DOM:<br><code>${esc(sel)}</code>` : 'нет привязки в maps/home.map.json'}</div>`;
-    return;
-  }
-
+function place(el) {
   const r = el.getBoundingClientRect();
   Object.assign(box.style, {
     top: `${r.top + scrollY}px`, left: `${r.left + scrollX}px`,
     width: `${r.width}px`, height: `${r.height}px`,
   });
   box.classList.add('pg-on');
+}
+
+function show(node) {
+  toggle(true);
+  const body = document.getElementById('pg-body');
+  const sel = map[node.figmaId]?.selector || map[node.path]?.selector;
+  const entry = map[node.figmaId] || map[node.path];
+  const el = sel ? document.querySelector(sel) : null;
+  logLine(`← ${node.name || node.figmaId}`);
+
+  if (entry?.skip) {
+    box.classList.remove('pg-on');
+    body.innerHTML = `<div class="pg-node">${esc(node.name || node.figmaId)}</div>
+      <div class="pg-note">skip: ${esc(entry.skip)}</div>`;
+    return;
+  }
+  if (!el) {
+    box.classList.remove('pg-on');
+    lastNode = null;
+    body.innerHTML = `<div class="pg-node">${esc(node.name || node.figmaId)}</div>
+      <div class="pg-note">${sel ? `не найден в DOM:<br><code>${esc(sel)}</code>` : 'нет привязки в карте'}</div>
+      <div class="pg-empty">Добавь в maps/&lt;page&gt;.map.json:<br><code>"${esc(node.figmaId)}": { "selector": "…" }</code></div>`;
+    return;
+  }
+
+  lastNode = { el };
+  place(el);
   el.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
   const rows = diff(node, el);
   const bad = rows.filter((x) => !x.pass);
-  panel.className = `pg-panel pg-on ${bad.length ? 'pg-bad' : 'pg-good'}`;
-  panel.innerHTML = `<button class="pg-close">×</button>
-    <b>${esc(node.name || node.figmaId)}</b>
+  body.innerHTML = `<div class="pg-node">${esc(node.name || node.figmaId)}</div>
     <div class="pg-sel"><code>${esc(sel)}</code></div>
     <div class="pg-score">${rows.length - bad.length} ✓ · ${bad.length} ✗</div>
     <table>${rows.map((x) => `<tr class="${x.pass ? 'ok' : 'no'}">
@@ -112,13 +170,27 @@ function show(node) {
       <td>${x.delta && !x.pass ? esc(x.delta) : ''}</td></tr>`).join('')}</table>`;
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const loadMap = () =>
+  new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'pg-fetch', path: '/map?page=home' }, (m) => {
+      if (m && !m.error) map = m;
+      resolve(map);
+    });
+  });
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'pg-select') show(msg.node);
-  if (msg.type === 'pg-map') map = msg.map || {};
+  if (msg.type === 'pg-map') { map = msg.map || {}; return; }
+  if (msg.type === 'pg-status') { setStatus(msg.status); return; }
+  if (msg.type === 'pg-toggle') { toggle(); return; }
+  if (msg.type === 'pg-select') {
+    if (Object.keys(map).length) show(msg.node);
+    else loadMap().then(() => show(msg.node));
+  }
 });
 
-chrome.runtime.sendMessage({ type: 'pg-fetch', path: '/map?page=home' }, (m) => {
-  if (m && !m.error) map = m;
-});
+const poll = () => {
+  if (!bar?.classList.contains('pg-open') || document.hidden) return;
+  chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s && setStatus(s));
+};
+
+setInterval(poll, 5000);

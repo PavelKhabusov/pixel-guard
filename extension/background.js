@@ -1,26 +1,43 @@
 const BASE = 'http://localhost:8971';
-let status = { connected: false, peers: {} };
+let status = { connected: false, peers: {}, targets: 0 };
 let abort = null;
 
+let shownBadge = null;
 const badge = (text, color) => {
+  if (shownBadge === text) return;
+  shownBadge = text;
   chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color });
 };
 
+const SKIP = /^(chrome|edge|about|devtools|chrome-extension):|^https?:\/\/(www\.)?figma\.com\//;
+
 function toTabs(message) {
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-    for (const t of tabs) chrome.tabs.sendMessage(t.id, message).catch(() => {});
+  chrome.tabs.query({}, (tabs) => {
+    const targets = tabs.filter((t) => t.url && !SKIP.test(t.url));
+    status.targets = targets.length;
+    for (const t of targets) chrome.tabs.sendMessage(t.id, message).catch(() => {});
   });
 }
 
 function handle(event, data) {
-  if (event === 'hello') { status.connected = true; badge('on', '#5e8f6b'); return; }
+  if (event === 'hello') {
+    status.connected = true;
+    if (offTimer) { clearTimeout(offTimer); offTimer = null; }
+    badge('on', '#5e8f6b');
+    return;
+  }
   if (event === 'peers') { status.peers = JSON.parse(data); return; }
   if (event === 'select') { toTabs({ type: 'pg-select', node: JSON.parse(data) }); return; }
   if (event === 'snapshot') { toTabs({ type: 'pg-snapshot', info: JSON.parse(data) }); return; }
 }
 
+let connecting = false;
+let offTimer = null;
+
 async function connect() {
+  if (connecting) return;
+  connecting = true;
   if (abort) abort.abort();
   abort = new AbortController();
   try {
@@ -46,10 +63,16 @@ async function connect() {
   } catch (e) {
     if (abort?.signal.aborted) return;
     status.connected = false;
-    badge('off', '#a86a6a');
+    if (!offTimer) offTimer = setTimeout(() => { offTimer = null; if (!status.connected) badge('off', '#a86a6a'); }, 5000);
     setTimeout(connect, 3000);
+  } finally {
+    connecting = false;
   }
 }
+
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.id) chrome.tabs.sendMessage(tab.id, { type: 'pg-toggle' }).catch(() => {});
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-status') { reply(status); return true; }

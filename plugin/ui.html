@@ -66,6 +66,21 @@
     return `${tls ? 'https' : 'http'}://localhost:${port}`;
   };
 
+  let bus = null;
+  const setLive = (on) => {
+    if (bus) { bus.close(); bus = null; }
+    if (!on) { log('живой режим выключен'); return; }
+    const base = busBase();
+    bus = new EventSource(`${base}/bus?role=figma`);
+    bus.addEventListener('hello', () => log(`живой режим: подключён к ${base}`));
+    bus.addEventListener('peers', (e) => {
+      const p = JSON.parse(e.data);
+      log(`живой режим: браузер ${p.extension ? `подключён (${p.extension})` : 'не подключён'}`);
+    });
+    bus.onerror = () => log(`живой режим: нет связи с ${base}.\nЗапусти npm run server${base.startsWith('https') ? ` и прими сертификат на ${base}/ping` : ''}`, true);
+  };
+  el('live').onchange = (e) => setLive(e.target.checked);
+
   onmessage = async (e) => {
     const msg = e.data.pluginMessage;
     if (!msg) return;
