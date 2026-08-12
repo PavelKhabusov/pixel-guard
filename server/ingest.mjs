@@ -71,8 +71,9 @@ const handler = (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/map') {
     const p = path.join(ROOT, 'maps', `${url.searchParams.get('page') ?? 'home'}.map.json`);
+    const shared = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');
-    return res.end(fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '{}');
+    return res.end(JSON.stringify({ ...shared, ...(readJsonSafe(p) ?? {}) }));
   }
 
   if (req.method === 'POST' && url.pathname === '/ingest') {

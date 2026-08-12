@@ -80,9 +80,26 @@ function diff(node, el) {
   return out;
 }
 
+function lookup(node) {
+  const direct = map[node.figmaId] || map[node.path];
+  if (direct) return direct;
+
+  const cand = [node.component, node.name].filter(Boolean).map((s) => s.toLowerCase());
+  for (const [key, entry] of Object.entries(map)) {
+    if (!key.startsWith('@')) continue;
+    const [namePart, sizePart] = key.slice(1).split('~');
+    const names = namePart.toLowerCase().split('|').map((s) => s.trim());
+    if (!names.some((n) => cand.includes(n))) continue;
+    const [maxW, maxH] = (sizePart ?? '').split('x').map((v) => (v ? Number(v) : Infinity));
+    if ((node.w ?? 0) > (maxW ?? Infinity) || (node.h ?? 0) > (maxH ?? Infinity)) continue;
+    return entry;
+  }
+  return undefined;
+}
+
 function analyse(node) {
   const name = node.name || node.figmaId;
-  const entry = map[node.figmaId] || map[node.path];
+  const entry = lookup(node);
   const sel = entry?.selector;
 
   if (entry?.skip) {
