@@ -119,10 +119,12 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
     };
   }
 
-  if (node.type === 'INSTANCE') {
+  if (node.type === 'INSTANCE' || node.type === 'COMPONENT') {
     try {
-      const mc = (node as InstanceNode).mainComponent;
+      const mc = node.type === 'INSTANCE' ? (node as InstanceNode).mainComponent : (node as ComponentNode);
       if (mc) o.component = mc.parent?.type === 'COMPONENT_SET' ? mc.parent.name : mc.name;
+      const key = mainKey(node);
+      if (key) o.componentKey = key;
     } catch (_) { /* dynamic-page mode */ }
     if (box && box.width <= ICON_MAX && box.height <= ICON_MAX) {
       o.icon = true;
@@ -176,7 +178,110 @@ figma.on('selectionchange', () => {
   });
 });
 
+function mainKey(node: SceneNode): string | null {
+  if (node.type === 'INSTANCE') {
+    try {
+      const mc = (node as InstanceNode).mainComponent;
+      if (mc) return mc.parent?.type === 'COMPONENT_SET' ? mc.parent.id : mc.id;
+    } catch (_) { /* dynamic-page mode */ }
+    return null;
+  }
+  if (node.type === 'COMPONENT') {
+    return node.parent?.type === 'COMPONENT_SET' ? node.parent.id : node.id;
+  }
+  return null;
+}
+
+function collectModules(pages: any[]): any[] {
+  const byKey: Record<string, any> = {};
+  for (const pg of pages) {
+    for (const fr of pg.frames) {
+      const seenHere = new Set<string>();
+      const visit = (n: any) => {
+        if (n.componentKey) {
+          const m = (byKey[n.componentKey] ||= {
+            key: n.componentKey, name: n.component || n.name,
+            pages: [], instances: 0, sizes: [],
+          });
+          m.instances++;
+          if (!seenHere.has(n.componentKey)) {
+            seenHere.add(n.componentKey);
+            const where = `${pg.page}/${fr.frameName}`;
+            if (!m.pages.includes(where)) m.pages.push(where);
+          }
+          const size = `${n.w}x${n.h}`;
+          if (!m.sizes.includes(size)) m.sizes.push(size);
+          return;
+        }
+        for (const c of n.children ?? []) visit(c);
+      };
+      visit(fr.tree);
+    }
+  }
+  return Object.values(byKey)
+    .map((m: any) => ({ ...m, shared: m.pages.length > 1 }))
+    .sort((a: any, b: any) => Number(b.shared) - Number(a.shared) || b.pages.length - a.pages.length);
+}
+
+async function exportProject(png: boolean) {
+  const pages: any[] = [];
+  for (const page of figma.root.children) {
+    figma.ui.postMessage({ type: 'status', text: `Страница: ${page.name}…` });
+    await page.loadAsync();
+    const roots = page.children.filter(
+      (n): n is FrameNode | ComponentNode | SectionNode =>
+        n.visible && (n.type === 'FRAME' || n.type === 'COMPONENT' || n.type === 'SECTION')
+    );
+    if (!roots.length) continue;
+    const frames: any[] = [];
+    for (const frame of roots) {
+      const box = frame.absoluteBoundingBox;
+      if (!box) continue;
+      figma.ui.postMessage({ type: 'status', text: `${page.name} → ${frame.name}…` });
+      const item: any = {
+        frameId: frame.id,
+        frameName: frame.name,
+        width: box.width,
+        height: box.height,
+        breakpoints: detectBreakpoints(frame),
+        tree: serialize(frame, { x: box.x, y: box.y }),
+      };
+      if (png) {
+        const bytes = await frame.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
+        item.png = figma.base64Encode(bytes);
+      }
+      frames.push(item);
+    }
+    pages.push({ page: page.name, pageId: page.id, frames });
+  }
+
+  return {
+    kind: 'project',
+    fileKey: figma.fileKey ?? null,
+    fileName: figma.root.name,
+    frameName: `${figma.root.name} (проект)`,
+    pages,
+    modules: collectModules(pages),
+  };
+}
+
 figma.ui.onmessage = async (msg: any) => {
+  if (msg.type === 'export-project') {
+    try {
+      const project = await exportProject(!!msg.png);
+      const shared = project.modules.filter((m: any) => m.shared).length;
+      figma.ui.postMessage({
+        type: 'project',
+        project,
+        port: msg.port,
+        mode: msg.mode || 'http',
+        summary: `${project.pages.length} стр · ${project.pages.reduce((s: number, p: any) => s + p.frames.length, 0)} frame · ${project.modules.length} модулей (${shared} сквозных)`,
+      });
+    } catch (e: any) {
+      figma.ui.postMessage({ type: 'error', text: `Экспорт проекта: ${e.message}` });
+    }
+    return;
+  }
   if (msg.type !== 'export') return;
   const selection = figma.currentPage.selection.filter(
     (n): n is FrameNode | ComponentNode | SectionNode =>

@@ -76,7 +76,27 @@ const handler = (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/ingest') {
-    return readBody(req, res, ({ frames }) => {
+    return readBody(req, res, ({ frames, project }) => {
+      if (project) {
+        const saved = [];
+        for (const pg of project.pages ?? []) saved.push(...saveFrames(pg.frames, SNAP));
+        fs.mkdirSync(SNAP, { recursive: true });
+        const meta = {
+          fileName: project.fileName,
+          savedAt: new Date().toISOString(),
+          pages: (project.pages ?? []).map((p) => ({
+            page: p.page,
+            frames: p.frames.map((f) => ({ frameId: f.frameId, frameName: f.frameName, breakpoints: f.breakpoints ?? [] })),
+          })),
+          modules: project.modules ?? [],
+        };
+        fs.writeFileSync(path.join(SNAP, '_project.json'), JSON.stringify(meta, null, 1));
+        saved.push('snapshots/_project.json');
+        const shared = meta.modules.filter((m) => m.shared).length;
+        console.log(`[ingest] проект «${project.fileName}»: ${meta.pages.length} стр, ${saved.length - 1} frame, ${meta.modules.length} модулей (${shared} сквозных)`);
+        publish('snapshot', { saved, project: true });
+        return res.end(JSON.stringify({ ok: true, saved }));
+      }
       const saved = saveFrames(frames, SNAP);
       publish('snapshot', { saved, frames: frames.map((f) => ({ frameId: f.frameId, frameName: f.frameName, breakpoints: f.breakpoints ?? [] })) });
       res.end(JSON.stringify({ ok: true, saved }));

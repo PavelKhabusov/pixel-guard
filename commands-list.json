@@ -1,9 +1,40 @@
 {
   "commands": [
-    { "name": "▶ Ingest server", "command": "npm run server", "type": "terminal", "group": "pixel-guard" },
-    { "name": "🔨 Build plugin", "command": "npm run build:plugin", "type": "terminal", "group": "pixel-guard" },
-    { "name": "🔐 Принять сертификат (веб-Figma)", "command": "xdg-open https://localhost:8972/ping", "type": "terminal", "group": "pixel-guard" },
-    { "name": "🧩 Расширения Chrome", "command": "xdg-open chrome://extensions", "type": "terminal", "group": "pixel-guard" },
-    { "name": "🔍 QA: home desktop", "command": "npm run qa -- --page home --viewport desktop", "type": "terminal", "group": "pixel-guard" }
+    {
+      "name": "▶ Ingest server",
+      "command": "npm run server",
+      "type": "terminal",
+      "group": "pixel-guard"
+    },
+    {
+      "name": "🔨 Build plugin",
+      "command": "npm run build:plugin",
+      "type": "terminal",
+      "group": "pixel-guard"
+    },
+    {
+      "name": "🔐 Принять сертификат (веб-Figma)",
+      "command": "xdg-open https://localhost:8972/ping",
+      "type": "terminal",
+      "group": "pixel-guard"
+    },
+    {
+      "name": "⇄ Сквозные модули",
+      "command": "npm run modules -- --shared",
+      "type": "terminal",
+      "group": "pixel-guard"
+    },
+    {
+      "name": "🧩 Расширения Chrome",
+      "command": "xdg-open chrome://extensions",
+      "type": "terminal",
+      "group": "pixel-guard"
+    },
+    {
+      "name": "🔍 QA: home desktop",
+      "command": "npm run qa -- --page home --viewport desktop",
+      "type": "terminal",
+      "group": "pixel-guard"
+    }
   ]
 }

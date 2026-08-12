@@ -6,7 +6,8 @@
     "server": "node server/ingest.mjs",
     "import": "node server/import.mjs",
     "qa": "node server/run.mjs",
-    "build:plugin": "esbuild plugin/code.ts --bundle --target=es2017 --outfile=plugin/code.js"
+    "build:plugin": "esbuild plugin/code.ts --bundle --target=es2017 --outfile=plugin/code.js",
+    "modules": "node server/modules.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",

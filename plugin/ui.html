@@ -22,6 +22,7 @@
 <label><input id="png" type="checkbox"> экспортировать PNG (тяжелее)</label>
 <label><input id="live" type="checkbox"> живой режим (выделение → браузер)</label>
 <button id="go">Export snapshot</button>
+<button id="goall" class="alt">Экспорт всего проекта</button>
 <button id="save" class="alt" disabled>Скачать JSON</button>
 <div id="log">Выдели frame(’ы) на канвасе и жми Export.</div>
 <script>
@@ -48,6 +49,17 @@
   };
 
   saveBtn.onclick = () => { if (lastFrames) download(lastFrames); };
+
+  el('goall').onclick = () => {
+    btn.disabled = true;
+    log('Обхожу все страницы проекта…');
+    parent.postMessage({ pluginMessage: {
+      type: 'export-project',
+      port: +el('port').value || 8971,
+      png: el('png').checked,
+      mode: resolveMode(),
+    } }, '*');
+  };
 
   btn.onclick = () => {
     btn.disabled = true;
@@ -100,6 +112,26 @@
       return;
     }
     if (msg.type === 'status') log(msg.text);
+    if (msg.type === 'project') {
+      lastFrames = [msg.project];
+      saveBtn.disabled = false;
+      const base = msg.mode === 'https' ? `https://localhost:${msg.port + 1}` : `http://localhost:${msg.port}`;
+      log(`Собрано: ${msg.summary}\nОтправляю на ${base}…`);
+      if (msg.mode === 'download') { download([msg.project]); btn.disabled = false; return; }
+      try {
+        const r = await fetch(`${base}/ingest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project: msg.project }),
+        });
+        const j = await r.json();
+        log(r.ok ? `Готово: ${msg.summary}\n${j.saved.join('\n')}` : `Сервер ответил ${r.status}`, !r.ok);
+      } catch (err) {
+        log(`Не достучался до ${base}: ${err}.\nЗапусти npm run server или жми «Скачать JSON».`, true);
+      }
+      btn.disabled = false;
+      return;
+    }
     if (msg.type === 'error') { log(msg.text, true); btn.disabled = false; }
     if (msg.type === 'payload') {
       lastFrames = msg.frames;

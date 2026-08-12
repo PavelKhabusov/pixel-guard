@@ -29,9 +29,10 @@ if (!width) { console.error(`Нет viewport "${viewport}" в config/viewports.j
 const frameId = pageCfg.frames?.[viewport];
 let snapPath = args.snapshot;
 if (!snapPath) {
-  for (const f of fs.readdirSync(path.join(ROOT, 'snapshots')).filter((f) => f.endsWith('.json'))) {
+  for (const f of fs.readdirSync(path.join(ROOT, 'snapshots')).filter((f) => f.endsWith('.json') && !f.startsWith('_'))) {
     const p = path.join(ROOT, 'snapshots', f);
     const j = readJson(p);
+    if (!j.tree) continue;
     const hasBp = j.breakpoints?.some((b) => b.viewport === viewport);
     if (frameId ? j.frameId === frameId || findNode(j.tree, frameId) : hasBp) { snapPath = p; break; }
   }
