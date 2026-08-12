@@ -12,11 +12,27 @@ const badge = (text, color) => {
 
 const SKIP = /^(chrome|edge|about|devtools|chrome-extension):|^https?:\/\/(www\.)?figma\.com\//;
 
+const toPanel = (message) => chrome.runtime.sendMessage(message).catch(() => {});
+
 function toTabs(message) {
   chrome.tabs.query({}, (tabs) => {
     const targets = tabs.filter((t) => t.url && !SKIP.test(t.url));
     status.targets = targets.length;
-    for (const t of targets) chrome.tabs.sendMessage(t.id, message).catch(() => {});
+    if (message.type !== 'pg-select') {
+      for (const t of targets) chrome.tabs.sendMessage(t.id, message).catch(() => {});
+      return;
+    }
+    let answered = false;
+    for (const t of targets) {
+      chrome.tabs.sendMessage(t.id, message).then((result) => {
+        if (!result || answered) return;
+        if (result.found || result.skip) answered = true;
+        toPanel({ type: 'pg-panel-result', result });
+      }).catch(() => {});
+    }
+    setTimeout(() => {
+      if (!answered) toPanel({ type: 'pg-panel-result', result: { name: message.node.name || message.node.figmaId, figmaId: message.node.figmaId, found: false } });
+    }, 400);
   });
 }
 
@@ -70,12 +86,22 @@ async function connect() {
   }
 }
 
+chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
+
 chrome.action.onClicked.addListener((tab) => {
-  if (tab.id) chrome.tabs.sendMessage(tab.id, { type: 'pg-toggle' }).catch(() => {});
+  if (tab.windowId != null) chrome.sidePanel?.open({ windowId: tab.windowId }).catch(() => {});
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
-  if (msg.type === 'pg-status') { reply(status); return true; }
+  if (msg.type === 'pg-status') {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+      if (!t || SKIP.test(t.url ?? '')) return reply(status);
+      chrome.tabs.sendMessage(t.id, { type: 'pg-mapsize' })
+        .then((n) => reply({ ...status, mapSize: n ?? 0 }))
+        .catch(() => reply(status));
+    });
+    return true;
+  }
   if (msg.type === 'pg-reconnect') { connect(); reply({ ok: true }); return true; }
   if (msg.type === 'pg-emit') {
     fetch(`${BASE}/emit`, {

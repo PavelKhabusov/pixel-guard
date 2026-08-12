@@ -1,10 +1,7 @@
 let map = {};
 let box = null;
-let bar = null;
-let tab = null;
-let lastNode = null;
+let lastEl = null;
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const px = (s) => (s == null ? null : Math.round(parseFloat(s) * 10) / 10);
 
 const parseColor = (s) => {
@@ -21,63 +18,22 @@ function figmaLineHeight(lh, size) {
   return null;
 }
 
-function toggle(on) {
-  buildUi();
-  const next = on ?? !bar.classList.contains('pg-open');
-  bar.classList.toggle('pg-open', next);
-  if (!next) box.classList.remove('pg-on');
-  if (next) poll();
-}
-
-function buildUi() {
-  if (bar) return;
+function ensureBox() {
+  if (box) return;
   box = document.createElement('div');
   box.className = 'pg-box';
-
-  bar = document.createElement('aside');
-  bar.className = 'pg-sidebar';
-  bar.innerHTML = `
-    <div class="pg-head">
-      <h4>pixel-guard</h4>
-      <div class="pg-stat"><span><span class="pg-dot off" id="pg-dot"></span><span id="pg-state">сервер недоступен</span></span></div>
-      <div class="pg-stat"><span>плагин Figma</span><code id="pg-figma">—</code></div>
-      <div class="pg-stat"><span>нод в карте</span><code id="pg-mapn">0</code></div>
-      <div class="pg-hint" id="pg-hint"></div>
-    </div>
-    <div class="pg-body" id="pg-body"><div class="pg-empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
-    <div class="pg-log" id="pg-log"></div>`;
-
-  const close = document.createElement('button');
-  close.className = 'pg-close';
-  close.textContent = '×';
-  close.title = 'Закрыть (значок расширения — открыть снова)';
-  close.onclick = () => toggle(false);
-  bar.querySelector('.pg-head').appendChild(close);
-
-  document.documentElement.append(box, bar);
-  addEventListener('scroll', () => { if (lastNode) place(lastNode.el); }, { passive: true });
+  document.documentElement.appendChild(box);
+  addEventListener('scroll', () => { if (lastEl) place(lastEl); }, { passive: true });
 }
 
-const logLine = (t) => {
-  const l = document.getElementById('pg-log');
-  if (!l) return;
-  const d = document.createElement('div');
-  d.textContent = t;
-  l.prepend(d);
-  while (l.children.length > 20) l.lastChild.remove();
-};
-
-function setStatus(s) {
-  buildUi();
-  const figma = s.peers?.figma ?? 0;
-  document.getElementById('pg-dot').className = `pg-dot ${s.connected ? 'on' : 'off'}`;
-  document.getElementById('pg-state').textContent = s.connected ? 'подключён к серверу' : 'сервер недоступен';
-  document.getElementById('pg-figma').textContent = figma ? `${figma} ✓` : 'нет';
-  document.getElementById('pg-mapn').textContent = Object.keys(map).filter((k) => !k.startsWith('_')).length;
-  const hint = document.getElementById('pg-hint');
-  if (!s.connected) hint.innerHTML = 'Сервер не отвечает — запусти <b>npm run server</b>.';
-  else if (!figma) hint.innerHTML = 'Открой плагин <b>pixel-guard</b> в Figma и включи <b>живой режим</b>.';
-  else hint.innerHTML = 'Готово: кликай ноду в Figma.';
+function place(el) {
+  ensureBox();
+  const r = el.getBoundingClientRect();
+  Object.assign(box.style, {
+    top: `${r.top + scrollY}px`, left: `${r.left + scrollX}px`,
+    width: `${r.width}px`, height: `${r.height}px`,
+  });
+  box.classList.add('pg-on');
 }
 
 function diff(node, el) {
@@ -124,50 +80,27 @@ function diff(node, el) {
   return out;
 }
 
-function place(el) {
-  const r = el.getBoundingClientRect();
-  Object.assign(box.style, {
-    top: `${r.top + scrollY}px`, left: `${r.left + scrollX}px`,
-    width: `${r.width}px`, height: `${r.height}px`,
-  });
-  box.classList.add('pg-on');
-}
-
-function show(node) {
-  toggle(true);
-  const body = document.getElementById('pg-body');
-  const sel = map[node.figmaId]?.selector || map[node.path]?.selector;
+function analyse(node) {
+  const name = node.name || node.figmaId;
   const entry = map[node.figmaId] || map[node.path];
-  const el = sel ? document.querySelector(sel) : null;
-  logLine(`← ${node.name || node.figmaId}`);
+  const sel = entry?.selector;
 
   if (entry?.skip) {
-    box.classList.remove('pg-on');
-    body.innerHTML = `<div class="pg-node">${esc(node.name || node.figmaId)}</div>
-      <div class="pg-note">skip: ${esc(entry.skip)}</div>`;
-    return;
-  }
-  if (!el) {
-    box.classList.remove('pg-on');
-    lastNode = null;
-    body.innerHTML = `<div class="pg-node">${esc(node.name || node.figmaId)}</div>
-      <div class="pg-note">${sel ? `не найден в DOM:<br><code>${esc(sel)}</code>` : 'нет привязки в карте'}</div>
-      <div class="pg-empty">Добавь в maps/&lt;page&gt;.map.json:<br><code>"${esc(node.figmaId)}": { "selector": "…" }</code></div>`;
-    return;
+    if (box) box.classList.remove('pg-on');
+    return { name, figmaId: node.figmaId, skip: entry.skip };
   }
 
-  lastNode = { el };
+  const el = sel ? document.querySelector(sel) : null;
+  if (!el) {
+    if (box) box.classList.remove('pg-on');
+    lastEl = null;
+    return { name, figmaId: node.figmaId, selector: sel, found: false };
+  }
+
+  lastEl = el;
   place(el);
   el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-
-  const rows = diff(node, el);
-  const bad = rows.filter((x) => !x.pass);
-  body.innerHTML = `<div class="pg-node">${esc(node.name || node.figmaId)}</div>
-    <div class="pg-sel"><code>${esc(sel)}</code></div>
-    <div class="pg-score">${rows.length - bad.length} ✓ · ${bad.length} ✗</div>
-    <table>${rows.map((x) => `<tr class="${x.pass ? 'ok' : 'no'}">
-      <td>${esc(x.prop)}</td><td>${esc(x.fig)}</td><td>→</td><td>${esc(x.act)}</td>
-      <td>${x.delta && !x.pass ? esc(x.delta) : ''}</td></tr>`).join('')}</table>`;
+  return { name, figmaId: node.figmaId, selector: sel, found: true, rows: diff(node, el) };
 }
 
 const loadMap = () =>
@@ -178,19 +111,15 @@ const loadMap = () =>
     });
   });
 
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-map') { map = msg.map || {}; return; }
-  if (msg.type === 'pg-status') { setStatus(msg.status); return; }
-  if (msg.type === 'pg-toggle') { toggle(); return; }
+  if (msg.type === 'pg-mapsize') { reply(Object.keys(map).filter((k) => !k.startsWith('_')).length); return true; }
   if (msg.type === 'pg-select') {
-    if (Object.keys(map).length) show(msg.node);
-    else loadMap().then(() => show(msg.node));
+    const run = () => reply(analyse(msg.node));
+    if (Object.keys(map).length) run();
+    else loadMap().then(run);
+    return true;
   }
 });
 
-const poll = () => {
-  if (!bar?.classList.contains('pg-open') || document.hidden) return;
-  chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s && setStatus(s));
-};
-
-setInterval(poll, 5000);
+loadMap();

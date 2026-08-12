@@ -1,0 +1,44 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pixel-guard</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 0;
+    background: #222b36; color: #dde5ee;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  .head { padding: 12px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
+  .head h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+  .stat { display: flex; justify-content: space-between; margin: 3px 0; color: #b9c6d4; }
+  .stat code { color: #8fb5da; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.on { background: #7fb08a; } .dot.off { background: #c98b8b; }
+  .hint { margin-top: 8px; padding: 7px 8px; border-radius: 6px; background: #1a222b;
+          color: #b9c6d4; font-size: 11px; line-height: 1.4; }
+  .hint b { color: #dde5ee; }
+  .body { flex: 1; overflow: auto; padding: 12px 14px; }
+  .empty { color: #6f7f8f; font-size: 11px; }
+  .node { margin-bottom: 4px; font-size: 13px; font-family: Inter, system-ui, sans-serif; }
+  .sel { margin: 4px 0 8px; color: #8fb5da; word-break: break-all; }
+  .score { margin: 0 0 8px; color: #b9c6d4; }
+  .note { margin: 6px 0; color: #d4b483; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 4px 2px 0; vertical-align: top; }
+  tr.ok td { color: #9ec9a8; }
+  tr.no td { color: #e8a0a0; }
+  .log { border-top: 1px solid #34424f; padding: 8px 14px; max-height: 110px; overflow: auto;
+         color: #6f7f8f; font-size: 11px; }
+  .log div { margin: 2px 0; }
+</style>
+<div class="head">
+  <h4>pixel-guard</h4>
+  <div class="stat"><span><span class="dot off" id="dot"></span><span id="state">сервер недоступен</span></span></div>
+  <div class="stat"><span>плагин Figma</span><code id="figma">—</code></div>
+  <div class="stat"><span>нод в карте</span><code id="mapn">0</code></div>
+  <div class="hint" id="hint"></div>
+</div>
+<div class="body" id="body"><div class="empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
+<div class="log" id="log"></div>
+<script src="panel.js"></script>
