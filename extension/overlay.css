@@ -9,3 +9,18 @@
   border-radius: 2px;
 }
 .pg-box.pg-on { display: block; }
+
+.pg-overlay {
+  position: absolute;
+  left: 0;
+  z-index: 2147483645;
+  pointer-events: none;
+  display: none;
+}
+.pg-overlay img { display: block; }
+.pg-overlay.pg-diff { mix-blend-mode: difference; }
+.pg-obox {
+  position: absolute;
+  border: 1px solid rgba(123, 167, 212, 0.9);
+  background: rgba(123, 167, 212, 0.06);
+}

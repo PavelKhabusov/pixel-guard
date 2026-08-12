@@ -48,8 +48,16 @@ function diff(node, el) {
 
   const hug = node.autoResize === 'WIDTH_AND_HEIGHT' || node.autoResize === 'TRUNCATE';
   if (!hug) cmp('width', node.w, px(r.width), 2);
-  if (node.type === 'TEXT') { if (node.renderH != null) cmp('height', node.renderH, px(r.height), 4); }
-  else cmp('height', node.h, px(r.height), 2);
+  if (node.type === 'TEXT') {
+    const act = px(r.height);
+    const lo = node.renderH ?? node.h;
+    const hi = Math.max(node.h ?? 0, node.renderH ?? 0);
+    if (act != null && lo != null) {
+      const pass = act >= lo - 10 && act <= hi + 10;
+      out.push({ prop: 'height', fig: `${lo === hi ? lo : lo + '…' + hi}px`, act: `${act}px`, pass,
+        delta: pass ? '' : `${act < lo ? '' : '+'}${Math.round((act < lo ? act - lo : act - hi) * 10) / 10}px` });
+    }
+  } else cmp('height', node.h, px(r.height), 2);
 
   const f = node.font;
   if (f) {
@@ -140,3 +148,53 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 loadMap();
+
+let ov = null;
+
+function buildOverlay() {
+  if (ov) return ov;
+  ov = document.createElement('div');
+  ov.className = 'pg-overlay';
+  document.documentElement.appendChild(ov);
+  return ov;
+}
+
+function showOverlay(data, opts) {
+  buildOverlay();
+  const anchor = document.querySelector(opts.anchor || 'body');
+  const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
+  const scale = opts.fit && data.w ? innerWidth / data.w : 1;
+
+  ov.style.top = `${top}px`;
+  ov.style.width = `${data.w * scale}px`;
+  ov.style.height = `${data.h * scale}px`;
+  ov.style.opacity = String(opts.opacity ?? 0.5);
+  ov.style.display = 'block';
+  ov.classList.toggle('pg-diff', !!opts.diff);
+
+  ov.innerHTML = '';
+  if (data.png && opts.mode !== 'boxes') {
+    const img = document.createElement('img');
+    img.src = `http://localhost:8971${data.png}`;
+    img.style.width = '100%';
+    ov.appendChild(img);
+  } else {
+    for (const b of data.boxes) {
+      const d = document.createElement('div');
+      d.className = 'pg-obox';
+      d.style.cssText = `left:${b.x * scale}px;top:${b.y * scale}px;width:${b.w * scale}px;height:${b.h * scale}px`;
+      d.title = `${b.name} · ${b.w}×${b.h}`;
+      ov.appendChild(d);
+    }
+  }
+  return { boxes: data.boxes.length, png: !!data.png, scale: Math.round(scale * 100) / 100 };
+}
+
+function hideOverlay() {
+  if (ov) ov.style.display = 'none';
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-overlay-show') { reply(showOverlay(msg.data, msg.opts ?? {})); return true; }
+  if (msg.type === 'pg-overlay-hide') { hideOverlay(); reply({ ok: true }); return true; }
+});

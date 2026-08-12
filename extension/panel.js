@@ -49,3 +49,43 @@ chrome.runtime.onMessage.addListener((msg) => {
 const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s && setStatus(s));
 poll();
 setInterval(poll, 3000);
+
+const ovState = { on: false, opacity: 0.5, mode: 'auto', diff: false, data: null };
+
+const toActiveTab = (msg) =>
+  new Promise((resolve) => {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+      if (!t) return resolve(null);
+      chrome.tabs.sendMessage(t.id, msg).then(resolve).catch(() => resolve(null));
+    });
+  });
+
+async function applyOverlay() {
+  const note = $('ov-note');
+  if (!ovState.on) { await toActiveTab({ type: 'pg-overlay-hide' }); note.textContent = ''; return; }
+  if (!ovState.data) {
+    const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: '/overlay' }, res));
+    if (!d || d.error || d.ok === false) { note.textContent = 'снапшот не найден — экспортируй макет плагином'; return; }
+    ovState.data = d;
+  }
+  const r = await toActiveTab({
+    type: 'pg-overlay-show',
+    data: ovState.data,
+    opts: { opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff, fit: true },
+  });
+  note.textContent = r
+    ? `${ovState.data.frame} · ${ovState.data.w}px · ${r.png && ovState.mode !== 'boxes' ? 'картинка' : r.boxes + ' блоков'} · масштаб ${r.scale}`
+    : 'вкладка не отвечает';
+  if (!ovState.data.png && ovState.mode !== 'boxes') {
+    note.textContent += ' — PNG нет, включи чекбокс PNG при экспорте';
+  }
+}
+
+$('ov-on').onchange = (e) => { ovState.on = e.target.checked; applyOverlay(); };
+$('ov-op').oninput = (e) => {
+  ovState.opacity = e.target.value / 100;
+  $('ov-val').textContent = `${e.target.value}%`;
+  if (ovState.on) applyOverlay();
+};
+$('ov-mode').onchange = (e) => { ovState.mode = e.target.value; if (ovState.on) applyOverlay(); };
+$('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };

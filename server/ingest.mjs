@@ -69,6 +69,41 @@ const handler = (req, res) => {
     })));
   }
 
+  if (req.method === 'GET' && url.pathname === '/overlay') {
+    const want = url.searchParams.get('frame');
+    const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json') && !f.startsWith('_')) : [];
+    res.setHeader('Content-Type', 'application/json');
+    for (const f of files) {
+      const j = readJsonSafe(path.join(SNAP, f));
+      if (!j?.tree) continue;
+      const root = want ? findById(j.tree, want) : j.tree;
+      if (!root) continue;
+      const png = path.join(SNAP, f.replace(/\.json$/, '.png'));
+      const boxes = [];
+      const walk = (n, depth) => {
+        if (depth > 4) return;
+        if (depth > 0 && (n.w ?? 0) >= 12 && (n.h ?? 0) >= 12) {
+          boxes.push({ id: n.id, name: n.name, x: n.x - (root.x ?? 0), y: n.y - (root.y ?? 0), w: n.w, h: n.h, type: n.type });
+        }
+        for (const c of n.children ?? []) walk(c, depth + 1);
+      };
+      walk(root, 0);
+      return res.end(JSON.stringify({
+        frame: j.frameName, w: root.w, h: root.h, boxes,
+        png: fs.existsSync(png) ? `/png?file=${encodeURIComponent(path.basename(png))}` : null,
+      }));
+    }
+    return res.writeHead(404).end(JSON.stringify({ ok: false, error: 'нет снапшота' }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/png') {
+    const f = path.basename(url.searchParams.get('file') ?? '');
+    const p = path.join(SNAP, f);
+    if (!f.endsWith('.png') || !fs.existsSync(p)) return res.writeHead(404).end();
+    res.setHeader('Content-Type', 'image/png');
+    return res.end(fs.readFileSync(p));
+  }
+
   if (req.method === 'GET' && url.pathname === '/map') {
     const p = path.join(ROOT, 'maps', `${url.searchParams.get('page') ?? 'home'}.map.json`);
     const shared = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
@@ -106,6 +141,15 @@ const handler = (req, res) => {
 
   res.writeHead(404).end();
 };
+
+function findById(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children ?? []) {
+    const r = findById(c, id);
+    if (r) return r;
+  }
+  return null;
+}
 
 function readJsonSafe(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }

@@ -41,6 +41,12 @@
       "command": "npm run qa:all",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "🔗 Automap: home",
+      "command": "npm run automap -- --page home --viewport desktop",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }

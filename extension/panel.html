@@ -18,6 +18,11 @@
   .hint { margin-top: 8px; padding: 7px 8px; border-radius: 6px; background: #1a222b;
           color: #b9c6d4; font-size: 11px; line-height: 1.4; }
   .hint b { color: #dde5ee; }
+  .ovl { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
+  .ovl-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; color: #b9c6d4; }
+  .ovl-row input[type=range] { flex: 1; accent-color: #7ba7d4; }
+  .ovl-row select { background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
+  .ovl-note { font-size: 10px; color: #6f7f8f; margin-top: 4px; }
   .body { flex: 1; overflow: auto; padding: 12px 14px; }
   .empty { color: #6f7f8f; font-size: 11px; }
   .node { margin-bottom: 4px; font-size: 13px; font-family: Inter, system-ui, sans-serif; }
@@ -38,6 +43,15 @@
   <div class="stat"><span>плагин Figma</span><code id="figma">—</code></div>
   <div class="stat"><span>нод в карте</span><code id="mapn">0</code></div>
   <div class="hint" id="hint"></div>
+</div>
+<div class="ovl">
+  <label class="ovl-row"><input type="checkbox" id="ov-on"> наложить макет</label>
+  <div class="ovl-row"><input type="range" id="ov-op" min="0" max="100" value="50"><span id="ov-val">50%</span></div>
+  <div class="ovl-row">
+    <select id="ov-mode"><option value="auto">картинка</option><option value="boxes">каркас блоков</option></select>
+    <label><input type="checkbox" id="ov-diff"> difference</label>
+  </div>
+  <div class="ovl-note" id="ov-note"></div>
 </div>
 <div class="body" id="body"><div class="empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
 <div class="log" id="log"></div>
