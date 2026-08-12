@@ -1,13 +1,18 @@
 export function findNode(tree, key) {
   if (key.startsWith('@')) {
-    const name = key.slice(1).toLowerCase();
-    let found = null;
-    walk(tree, (n) => {
-      if (found) return;
-      const comp = (n.component ?? '').toLowerCase();
-      if (comp === name || (!comp && n.name.toLowerCase() === name && (n.type === 'COMPONENT' || n.type === 'INSTANCE'))) found = n;
-    });
-    return found;
+    const [namePart, sizePart] = key.slice(1).split('~');
+    const names = namePart.toLowerCase().split('|').map((s) => s.trim());
+    const [maxW, maxH] = (sizePart ?? '').split('x').map((v) => (v ? Number(v) : Infinity));
+    const fits = (n) => (n.w ?? 0) <= (maxW ?? Infinity) && (n.h ?? 0) <= (maxH ?? Infinity);
+    for (const name of names) {
+      let found = null;
+      walk(tree, (n) => {
+        if (found) return;
+        if (((n.component ?? '').toLowerCase() === name || n.name.toLowerCase() === name) && fits(n)) found = n;
+      });
+      if (found) return found;
+    }
+    return null;
   }
   if (key.includes(':')) {
     let found = null;

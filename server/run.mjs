@@ -86,7 +86,10 @@ for (const [key, entry] of Object.entries(map)) {
   if (key.startsWith('_')) continue;
   if (entry.skip) { results.push({ key, status: 'skip', reason: entry.skip }); continue; }
   const fig = findNode(root, key);
-  if (!fig) { results.push({ key, selector: entry.selector, status: 'map-error' }); continue; }
+  if (!fig) {
+    results.push({ key, selector: entry.selector, status: key.startsWith('@') ? 'absent' : 'map-error' });
+    continue;
+  }
 
   const dom = await pg.evaluate(([sel, props]) => {
     const el = document.querySelector(sel);
@@ -110,7 +113,7 @@ for (const [key, entry] of Object.entries(map)) {
 }
 await browser.close();
 
-const score = { pass: 0, failed: 0, missing: 0, skip: 0, 'map-error': 0 };
+const score = { pass: 0, failed: 0, missing: 0, skip: 0, absent: 0, 'map-error': 0 };
 for (const r of results) score[r.status]++;
 const report = {
   page, viewport, url, frame: snapshot.frameName, frameId: root.id, generatedAt: new Date().toISOString(),
@@ -123,7 +126,7 @@ fs.writeFileSync(`${base}.json`, JSON.stringify(report, null, 1));
 fs.writeFileSync(`${base}.html`, renderHtml(report));
 
 for (const r of results) {
-  const mark = { pass: '✓', failed: '✗', missing: '⚠ missing', skip: '— skip', 'map-error': '⚠ map' }[r.status];
+  const mark = { pass: '✓', failed: '✗', missing: '⚠ missing', skip: '— skip', absent: '· нет на странице', 'map-error': '⚠ map' }[r.status];
   console.log(` ${mark} ${r.key}${r.diffs?.length ? ` — ${r.diffs.length} расхождений` : ''}`);
   for (const d of r.diffs ?? []) console.log(`     ${d.prop}: ${d.figma} → ${d.actual}${d.delta ? ` (${d.delta})` : ''}`);
 }
