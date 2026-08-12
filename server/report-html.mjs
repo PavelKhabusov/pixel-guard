@@ -17,8 +17,8 @@ export function renderHtml(report) {
 <style>
   body{font:14px/1.5 system-ui;margin:24px;max-width:960px;background:#fafafa;color:#222}
   h1{font-size:20px} code{background:#eee;padding:1px 5px;border-radius:4px;font-size:12px}
-  section{background:#fff;border:1px solid #e5e5e5;border-left:4px solid #4caf50;border-radius:6px;padding:10px 14px;margin:10px 0}
-  section.failed{border-left-color:#bf2120} section.missing,section.map-error{border-left-color:#ff9800}
+  section{background:#fff;border:1px solid #e5e5e5;border-left:4px solid #7fb08a;border-radius:6px;padding:10px 14px;margin:10px 0}
+  section.failed{border-left-color:#c98b8b} section.missing,section.map-error{border-left-color:#d4b483}
   h3{margin:0;font-size:14px} small{color:#888;font-weight:400;margin-left:8px}
   .badge{display:inline-block;min-width:18px}
   table{border-collapse:collapse;margin-top:8px;font-size:13px}

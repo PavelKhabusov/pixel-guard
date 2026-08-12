@@ -14,7 +14,7 @@ function toTabs(message) {
 }
 
 function handle(event, data) {
-  if (event === 'hello') { status.connected = true; badge('on', '#2e7d32'); return; }
+  if (event === 'hello') { status.connected = true; badge('on', '#5e8f6b'); return; }
   if (event === 'peers') { status.peers = JSON.parse(data); return; }
   if (event === 'select') { toTabs({ type: 'pg-select', node: JSON.parse(data) }); return; }
   if (event === 'snapshot') { toTabs({ type: 'pg-snapshot', info: JSON.parse(data) }); return; }
@@ -46,7 +46,7 @@ async function connect() {
   } catch (e) {
     if (abort?.signal.aborted) return;
     status.connected = false;
-    badge('off', '#b71c1c');
+    badge('off', '#a86a6a');
     setTimeout(connect, 3000);
   }
 }
