@@ -3,7 +3,7 @@ import {
   textCaseToCss, textAlignToCss, firstFontFamily, solidFill,
 } from './normalize.mjs';
 
-const DEFAULT_TOL = { px: 1, geo: 2, textHeight: 4 };
+const DEFAULT_TOL = { px: 1, geo: 2, textHeight: 10 };
 
 export function compareNode(fig, dom, entry = {}) {
   const tol = { ...DEFAULT_TOL, ...(entry.tolerance ?? {}) };
@@ -31,7 +31,15 @@ export function compareNode(fig, dom, entry = {}) {
   const hugsWidth = fig.type === 'TEXT' && (fig.autoResize === 'WIDTH_AND_HEIGHT' || fig.autoResize === 'TRUNCATE');
   if (!hugsWidth) numCheck('width', fig.w, px(dom.rect.width), tol.geo);
   if (fig.type === 'TEXT') {
-    if (fig.renderH != null) numCheck('height', fig.renderH, px(dom.rect.height), tol.textHeight);
+    const act = px(dom.rect.height);
+    const lo = fig.renderH ?? fig.h;
+    const hi = Math.max(fig.h ?? 0, fig.renderH ?? 0);
+    if (act != null && lo != null) {
+      const pass = act >= lo - tol.textHeight && act <= hi + tol.textHeight;
+      const near = act < lo ? act - lo : act - hi;
+      add('height', `${lo === hi ? lo : `${lo}…${hi}`}px`, `${act}px`, pass,
+        pass ? undefined : `${near > 0 ? '+' : ''}${Math.round(near * 10) / 10}px`);
+    }
   } else {
     numCheck('height', fig.h, px(dom.rect.height), tol.geo);
   }

@@ -13,7 +13,7 @@ ensureLocalConfigs(ROOT);
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
-  if (a.startsWith('--')) args[a.slice(2)] = process.argv[i + 1]?.startsWith('--') ? true : process.argv[++i];
+  if (a.startsWith('--')) args[a.slice(2)] = (process.argv[i + 1] ?? '--').startsWith('--') ? true : process.argv[++i];
 }
 const page = args.page ?? 'home';
 const viewport = args.viewport ?? 'desktop';

@@ -8,7 +8,8 @@
     "qa": "node server/run.mjs",
     "build:plugin": "esbuild plugin/code.ts --bundle --target=es2017 --outfile=plugin/code.js",
     "modules": "node server/modules.mjs",
-    "qa:all": "node server/all.mjs"
+    "qa:all": "node server/all.mjs",
+    "automap": "node server/automap.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",
