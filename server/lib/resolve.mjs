@@ -1,4 +1,14 @@
 export function findNode(tree, key) {
+  if (key.startsWith('@')) {
+    const name = key.slice(1).toLowerCase();
+    let found = null;
+    walk(tree, (n) => {
+      if (found) return;
+      const comp = (n.component ?? '').toLowerCase();
+      if (comp === name || (!comp && n.name.toLowerCase() === name && (n.type === 'COMPONENT' || n.type === 'INSTANCE'))) found = n;
+    });
+    return found;
+  }
   if (key.includes(':')) {
     let found = null;
     walk(tree, (n) => {

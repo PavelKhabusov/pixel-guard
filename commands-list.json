@@ -35,6 +35,12 @@
       "command": "npm run qa -- --page home --viewport desktop",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "🔍 QA: все страницы",
+      "command": "npm run qa:all",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }

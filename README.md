@@ -105,11 +105,33 @@ npm run import -- ~/Downloads/<frame>.pg.json
 Схема: плагин → `POST /emit` → сервер → SSE → background.js → content.js.
 Значок расширения показывает `on`/`off`, попап — кто сейчас на шине.
 
+## Сквозные модули: `maps/_shared.map.json`
+
+Блоки, живущие на всех страницах (header, footer, Авито-блок), привязываются
+**один раз** в `maps/_shared.map.json` — он подмешивается в карту каждой страницы,
+причём карта страницы имеет приоритет.
+
+Ключ `@имя` ищет ноду по имени компонента Figma, а не по id. Это важно: у
+desktop/tablet/mobile один и тот же блок имеет **разные id**, но общий компонент —
+поэтому одна строка покрывает все три брейкпоинта на всех страницах сразу.
+
+```json
+{
+  "@header": { "selector": "div.header-wrap", "ignore": ["height"] },
+  "@footer": { "selector": "footer.pr-footer", "ignore": ["height"] },
+  "@menu":   { "skip": "открывается по клику, в статичном DOM нет" }
+}
+```
+
+Какие модули сквозные — покажет `npm run modules -- --shared` после экспорта проекта.
+
 ## Прогон сверки
 
 ```bash
 npm run qa -- --page home --viewport desktop           # снапшот ищется по frameId из config/pages.json
 npm run qa -- --page home --snapshot snapshots/x.json  # или явно
+npm run qa:all                                         # все страницы × все брейкпоинты + сводка
+npm run qa:all -- --viewport desktop                   # только один брейкпоинт
 ```
 
 Карта привязок — `maps/<page>.map.json`: ключ = имя-путь ноды (`hero/title`) или её id

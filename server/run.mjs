@@ -60,7 +60,9 @@ if (root.w && Math.abs(root.w - width) > 1) {
 
 const mapPath = path.join(ROOT, 'maps', `${page}.map.json`);
 if (!fs.existsSync(mapPath)) { console.error(`Нет карты ${mapPath}`); process.exit(2); }
-const map = readJson(mapPath);
+const sharedPath = path.join(ROOT, 'maps', '_shared.map.json');
+const shared = fs.existsSync(sharedPath) ? readJson(sharedPath) : {};
+const map = { ...shared, ...readJson(mapPath) };
 
 const url = args.url ?? pageCfg.url;
 console.log(`pixel-guard: ${page} @ ${viewport} (${width}px) → ${url}\n  снапшот: ${path.relative(ROOT, snapPath)} (${snapshot.frameName} → ${root.name} ${root.w}px)`);
