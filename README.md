@@ -1,7 +1,30 @@
+<div align="center">
+
+<img src="extension/icon.svg" width="96" alt="pixel-guard">
+
 # pixel-guard
 
-Pixel-perfect QA: сверка живой вёрстки с макетами Figma по элементам (computed CSS +
-геометрия) без Figma REST API. План и архитектура — [PLAN.md](PLAN.md).
+**Pixel-perfect QA вёрстки по макетам Figma** — сверка живой страницы с макетом
+*по элементам* (computed CSS + геометрия), а не картинкой. Без Figma REST API
+и его лимитов: данные тянет свой плагин через Plugin API.
+
+![Status](https://img.shields.io/badge/status-personal%20%2F%20WIP-orange)
+![Platform](https://img.shields.io/badge/platform-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-1f1f1f)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+![Node](https://img.shields.io/badge/Node-%3E%3D20-339933?logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Figma](https://img.shields.io/badge/Figma-Plugin%20API-F24E1E?logo=figma&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white)
+![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)
+![esbuild](https://img.shields.io/badge/esbuild-FFCF00?logo=esbuild&logoColor=black)
+
+</div>
+
+---
+
+Отчёт машиночитаемый: селектор + свойство + `figma → actual`, чтобы правку можно
+было сделать не открывая макет. План и архитектура — [PLAN.md](PLAN.md).
 
 ## Установка
 
@@ -23,7 +46,7 @@ npm run server   # создаст config/pages.json и maps/home.map.json из *
 ## Снапшот макета
 
 1. `npm run server` (или кнопка «▶ Ingest server») — поднимает сразу два слушателя:
-   `http://127.0.0.1:8971` для Desktop и `https://127.0.0.1:8972` для браузера.
+   `http://localhost:8971` для Desktop и `https://localhost:8972` для браузера.
 2. В Figma выделить frame(’ы) → запустить плагин **pixel-guard** → Export snapshot.
 3. Результат: `snapshots/<frame>.json` (+ `.png`, если включён чекбокс).
 
@@ -34,7 +57,7 @@ npm run server   # создаст config/pages.json и maps/home.map.json из *
 Страница плагина живёт на `https://www.figma.com`, поэтому запрос на `http://` браузер
 режет как mixed content — отсюда отдельный HTTPS-слушатель на порту 8972 с
 самоподписанным сертификатом (генерируется сам в `config/cert/`, из git исключён).
-Один раз открой <https://127.0.0.1:8972/ping> (кнопка «🔐 Принять сертификат») и прими
+Один раз открой <https://localhost:8972/ping> (кнопка «🔐 Принять сертификат») и прими
 предупреждение — дальше Export snapshot работает как в Desktop.
 
 Если с сертификатом не сложилось — режим «только скачать файл» (или кнопка «Скачать
