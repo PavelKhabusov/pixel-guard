@@ -51,7 +51,7 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
-const ovState = { on: false, opacity: 0.5, mode: 'auto', diff: false, data: null };
+const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, align: 'left' };
 
 const toActiveTab = (msg) =>
   new Promise((resolve) => {
@@ -72,13 +72,16 @@ async function applyOverlay() {
   const r = await toActiveTab({
     type: 'pg-overlay-show',
     data: ovState.data,
-    opts: { opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff, fit: true },
+    opts: {
+      opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff,
+      offsetX: ovState.offsetX, offsetY: ovState.offsetY, align: ovState.align,
+    },
   });
-  note.textContent = r
-    ? `${ovState.data.frame} · ${ovState.data.w}px · ${r.png && ovState.mode !== 'boxes' ? 'картинка' : r.boxes + ' блоков'} · масштаб ${r.scale}`
-    : 'вкладка не отвечает';
-  if (!ovState.data.png && ovState.mode !== 'boxes') {
-    note.textContent += ' — PNG нет, включи чекбокс PNG при экспорте';
+  if (!r) { note.textContent = 'вкладка не отвечает'; return; }
+  const d = ovState.data;
+  note.textContent = `${d.frame} · макет ${d.w}px · окно ${await tabWidth()}px · ${r.mode === 'image' ? 'PNG' : r.boxes + ' нод'}`;
+  if (ovState.mode === 'image' && !d.png) {
+    note.textContent += ' — PNG нет, переэкспортируй с чекбоксом PNG';
   }
 }
 
@@ -89,6 +92,13 @@ $('ov-op').oninput = (e) => {
   if (ovState.on) applyOverlay();
 };
 $('ov-mode').onchange = (e) => { ovState.mode = e.target.value; if (ovState.on) applyOverlay(); };
+$('ov-x').oninput = (e) => { ovState.offsetX = +e.target.value || 0; if (ovState.on) applyOverlay(); };
+$('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; if (ovState.on) applyOverlay(); };
+$('ov-center').onchange = (e) => { ovState.align = e.target.checked ? 'center' : 'left'; if (ovState.on) applyOverlay(); };
+
+const tabWidth = () => new Promise((res) => {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t?.width ?? '?'));
+});
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
 
 let curNode = null;

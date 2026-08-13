@@ -163,31 +163,70 @@ function showOverlay(data, opts) {
   buildOverlay();
   const anchor = document.querySelector(opts.anchor || 'body');
   const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
-  const scale = opts.fit && data.w ? innerWidth / data.w : 1;
 
-  ov.style.top = `${top}px`;
-  ov.style.width = `${data.w * scale}px`;
-  ov.style.height = `${data.h * scale}px`;
-  ov.style.opacity = String(opts.opacity ?? 0.5);
-  ov.style.display = 'block';
+  // масштаб 1:1 — макет снят под конкретный брейкпоинт, растягивать нельзя.
+  // при align=center центрируем, иначе прижимаем влево к контенту страницы.
+  const scale = opts.scale ?? 1;
+  const left = opts.align === 'center' ? Math.max(0, (innerWidth - data.w * scale) / 2) : 0;
+
+  Object.assign(ov.style, {
+    top: `${top + (opts.offsetY ?? 0)}px`,
+    left: `${left + (opts.offsetX ?? 0)}px`,
+    width: `${data.w * scale}px`,
+    height: `${data.h * scale}px`,
+    opacity: String(opts.opacity ?? 0.5),
+    display: 'block',
+    transform: scale === 1 ? '' : `scale(${scale})`,
+    transformOrigin: '0 0',
+  });
   ov.classList.toggle('pg-diff', !!opts.diff);
+  ov.classList.toggle('pg-outline', opts.mode === 'outline');
 
   ov.innerHTML = '';
-  if (data.png && opts.mode !== 'boxes') {
+  if (data.png && opts.mode === 'image') {
     const img = document.createElement('img');
     img.src = `http://localhost:8971${data.png}`;
-    img.style.width = '100%';
+    img.style.cssText = `width:${data.w}px;height:${data.h}px;display:block`;
     ov.appendChild(img);
-  } else {
-    for (const b of data.boxes) {
-      const d = document.createElement('div');
-      d.className = 'pg-obox';
-      d.style.cssText = `left:${b.x * scale}px;top:${b.y * scale}px;width:${b.w * scale}px;height:${b.h * scale}px`;
-      d.title = `${b.name} · ${b.w}×${b.h}`;
-      ov.appendChild(d);
-    }
+    return { boxes: 0, png: true, mode: 'image', scale };
   }
-  return { boxes: data.boxes.length, png: !!data.png, scale: Math.round(scale * 100) / 100 };
+
+  const frag = document.createFragment ? document.createFragment() : document.createDocumentFragment();
+  for (const b of data.boxes) {
+    const d = document.createElement('div');
+    d.className = 'pg-obox';
+    const css = [
+      `left:${b.x}px`, `top:${b.y}px`, `width:${b.w}px`, `height:${b.h}px`,
+    ];
+    if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
+    if (opts.mode !== 'outline') {
+      if (b.fill) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
+      if (b.radius != null) {
+        css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
+      }
+      if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
+    }
+    if (b.text != null && b.font && opts.mode !== 'outline') {
+      d.textContent = b.text;
+      const f = b.font;
+      css.push(
+        `color:${b.fill || '#000'}`,
+        `font-family:'${f.family}',sans-serif`,
+        `font-size:${f.size}px`,
+        `font-weight:${f.weight}`,
+        `line-height:${f.lineHeight ? f.lineHeight + 'px' : 'normal'}`,
+        `text-align:${({ LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify' }[f.align] || 'left')}`,
+        'background:none', 'white-space:pre-wrap', 'overflow:hidden',
+      );
+      if (f.letterSpacing) css.push(`letter-spacing:${f.letterSpacing}px`);
+      if (f.case === 'UPPER') css.push('text-transform:uppercase');
+    }
+    d.style.cssText = css.join(';');
+    d.title = `${b.name} · ${b.w}×${b.h}${b.fill ? ' · ' + b.fill : ''}`;
+    frag.appendChild(d);
+  }
+  ov.appendChild(frag);
+  return { boxes: data.boxes.length, png: !!data.png, mode: opts.mode, scale };
 }
 
 function hideOverlay() {

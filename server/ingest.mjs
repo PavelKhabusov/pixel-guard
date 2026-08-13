@@ -79,11 +79,34 @@ const handler = (req, res) => {
       const root = want ? findById(j.tree, want) : j.tree;
       if (!root) continue;
       const png = path.join(SNAP, f.replace(/\.json$/, '.png'));
+      const depthLimit = Number(url.searchParams.get('depth') ?? 8);
       const boxes = [];
       const walk = (n, depth) => {
-        if (depth > 4) return;
-        if (depth > 0 && (n.w ?? 0) >= 12 && (n.h ?? 0) >= 12) {
-          boxes.push({ id: n.id, name: n.name, x: n.x - (root.x ?? 0), y: n.y - (root.y ?? 0), w: n.w, h: n.h, type: n.type });
+        if (depth > depthLimit) return;
+        const small = (n.w ?? 0) < 4 || (n.h ?? 0) < 4;
+        if (depth > 0 && !small) {
+          const fill = Array.isArray(n.fills) ? n.fills.find((f) => f.type === 'solid') : null;
+          boxes.push({
+            id: n.id, name: n.name, type: n.type,
+            x: Math.round((n.x - (root.x ?? 0)) * 10) / 10,
+            y: Math.round((n.y - (root.y ?? 0)) * 10) / 10,
+            w: n.w, h: n.h,
+            fill: fill ? fill.color : null,
+            fillOpacity: fill ? fill.opacity ?? 1 : null,
+            radius: n.cornerRadius ?? null,
+            stroke: n.strokes?.[0]?.color ?? null,
+            strokeWeight: n.strokeWeight === 'mixed' ? 1 : n.strokeWeight ?? null,
+            opacity: n.opacity ?? 1,
+            text: n.type === 'TEXT' ? n.text ?? '' : null,
+            font: n.type === 'TEXT' && n.font ? {
+              family: n.font.family, size: n.font.size, weight: n.font.weight,
+              align: n.font.align, case: n.font.case,
+              lineHeight: n.font.lineHeight?.unit === 'PIXELS' ? n.font.lineHeight.value
+                : n.font.lineHeight?.unit === 'PERCENT' ? (n.font.lineHeight.value / 100) * n.font.size : null,
+              letterSpacing: n.font.letterSpacing?.unit === 'PIXELS' ? n.font.letterSpacing.value
+                : n.font.letterSpacing?.unit === 'PERCENT' ? (n.font.letterSpacing.value / 100) * n.font.size : null,
+            } : null,
+          });
         }
         for (const c of n.children ?? []) walk(c, depth + 1);
       };

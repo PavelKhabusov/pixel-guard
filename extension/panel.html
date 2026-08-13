@@ -21,6 +21,7 @@
   .ovl { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
   .ovl-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; color: #b9c6d4; }
   .ovl-row input[type=range] { flex: 1; accent-color: #7ba7d4; }
+  .ovl-row input[type=number] { width: 58px; background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
   .ovl-row select { background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
   .ovl-note { font-size: 10px; color: #6f7f8f; margin-top: 4px; }
   .bind { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
@@ -55,8 +56,17 @@
   <label class="ovl-row"><input type="checkbox" id="ov-on"> наложить макет</label>
   <div class="ovl-row"><input type="range" id="ov-op" min="0" max="100" value="50"><span id="ov-val">50%</span></div>
   <div class="ovl-row">
-    <select id="ov-mode"><option value="auto">картинка</option><option value="boxes">каркас блоков</option></select>
+    <select id="ov-mode">
+      <option value="render">макет (цвета, текст)</option>
+      <option value="image">картинка PNG</option>
+      <option value="outline">только рамки</option>
+    </select>
     <label><input type="checkbox" id="ov-diff"> difference</label>
+  </div>
+  <div class="ovl-row">
+    <span>сдвиг X</span><input type="number" id="ov-x" value="0" step="10">
+    <span>Y</span><input type="number" id="ov-y" value="0" step="10">
+    <label><input type="checkbox" id="ov-center"> по центру</label>
   </div>
   <div class="ovl-note" id="ov-note"></div>
 </div>
