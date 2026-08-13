@@ -234,6 +234,10 @@ function showOverlay(data, opts) {
   ov.innerHTML = '';
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
 
+  // «только макет»: приглушаем саму страницу, иначе её текст читается
+  // вперемешку с макетным и кажется, что в шапке чужие пункты
+  document.documentElement.classList.toggle('pg-solo', !!opts.solo);
+
   if (data.png && opts.mode === 'image') {
     const anchor = document.querySelector(opts.anchor || 'body');
     const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
@@ -304,7 +308,10 @@ function showOverlay(data, opts) {
     }
   }
 
-  if (opts.showUnanchored !== false) {
+  // Ноды без якоря кладутся по координатам макета и на длинной странице
+  // залезают в чужие блоки (пункты из середины макета попадали в шапку).
+  // Поэтому по умолчанию не рисуем — только по явному чекбоксу.
+  if (opts.showUnanchored === true) {
     const bodyTop = document.body.getBoundingClientRect().top + scrollY;
     for (const b of data.boxes) {
       if (b.anchor) continue;
@@ -336,6 +343,7 @@ function showOverlay(data, opts) {
 function hideOverlay() {
   if (ov) ov.style.display = 'none';
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
+  document.documentElement.classList.remove('pg-solo');
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {

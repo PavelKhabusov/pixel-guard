@@ -61,3 +61,10 @@
   pointer-events: none;
 }
 .pg-obox > svg { display: block; width: 100%; height: 100%; }
+
+/* режим «только макет»: страница приглушена, наложение читается чисто */
+html.pg-solo body > *:not(.pg-overlay):not(.pg-box):not(.pg-pick):not(.pg-pick-tip) {
+  opacity: 0.12 !important;
+  filter: grayscale(1);
+}
+html.pg-solo .pg-overlay { opacity: 1 !important; }

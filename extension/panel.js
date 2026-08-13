@@ -51,7 +51,7 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
-const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true };
+const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false };
 
 const toActiveTab = (msg) =>
   new Promise((resolve) => {
@@ -79,6 +79,7 @@ async function applyOverlay() {
       opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff,
       offsetX: ovState.offsetX, offsetY: ovState.offsetY,
       showUnanchored: ovState.loose, autoScale: ovState.autoScale !== false,
+      solo: ovState.solo,
     },
   });
   if (!r) { note.textContent = 'вкладка не отвечает'; return; }
@@ -107,6 +108,7 @@ $('ov-x').oninput = (e) => { ovState.offsetX = +e.target.value || 0; if (ovState
 $('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; if (ovState.on) applyOverlay(); };
 $('ov-loose').onchange = (e) => { ovState.loose = e.target.checked; if (ovState.on) applyOverlay(); };
 $('ov-scale').onchange = (e) => { ovState.autoScale = e.target.checked; if (ovState.on) applyOverlay(); };
+$('ov-solo').onchange = (e) => { ovState.solo = e.target.checked; if (ovState.on) applyOverlay(); };
 
 const activeTab = () => new Promise((res) => {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));
@@ -127,11 +129,28 @@ async function showVpNote() {
     + (diff > 80 ? ' — ширина сильно расходится, блоки масштабируются' : '');
 }
 
+// Переключатель меняет и ОКНО браузера: сравнивать desktop-вёрстку
+// с мобильным макетом бессмысленно — сайт должен перестроиться сам.
+async function resizeWindowTo(vp) {
+  const ref = VP_W[vp];
+  if (!ref) return;
+  const tab = await activeTab();
+  if (!tab?.windowId) return;
+  const win = await chrome.windows.get(tab.windowId).catch(() => null);
+  if (!win) return;
+  // ширина окна = ширина вьюпорта + хром браузера и боковая панель
+  const chromeW = (win.width ?? 0) - (tab.width ?? 0);
+  await chrome.windows.update(tab.windowId, { width: ref + Math.max(0, chromeW), state: 'normal' })
+    .catch(() => {});
+  await new Promise((r) => setTimeout(r, 400));
+}
+
 document.querySelectorAll('.vp-btn').forEach((b) => {
-  b.onclick = () => {
+  b.onclick = async () => {
     document.querySelectorAll('.vp-btn').forEach((x) => x.classList.toggle('on', x === b));
     vpChoice = b.dataset.vp;
     ovState.data = null;
+    if (vpChoice !== 'auto' && $('vp-resize').checked) await resizeWindowTo(vpChoice);
     showVpNote();
     if (ovState.on) applyOverlay();
   };
