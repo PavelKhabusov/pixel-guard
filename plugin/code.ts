@@ -48,6 +48,8 @@ function serEffects(effects: readonly Effect[]): any[] {
 
 const ICON_MAX = 48;
 
+const svgJobs: Array<{ node: SceneNode; box: any }> = [];
+
 function serialize(node: SceneNode, root: { x: number; y: number }): any {
   const o: any = { id: node.id, name: node.name, type: node.type };
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
@@ -128,10 +130,12 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
     } catch (_) { /* dynamic-page mode */ }
     if (box && box.width <= ICON_MAX && box.height <= ICON_MAX) {
       o.icon = true;
+      svgJobs.push({ node, box: o });
       return o;
     }
   }
   if (node.type === 'VECTOR' || node.type === 'BOOLEAN_OPERATION' || node.type === 'STAR' || node.type === 'LINE') {
+    svgJobs.push({ node, box: o });
     return o;
   }
 
@@ -140,6 +144,22 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
     if (kids.length) o.children = kids;
   }
   return o;
+}
+
+const SVG_LIMIT = 400;
+
+async function attachSvg(label: string) {
+  const jobs = svgJobs.splice(0, svgJobs.length).slice(0, SVG_LIMIT);
+  if (!jobs.length) return;
+  figma.ui.postMessage({ type: 'status', text: `SVG (${jobs.length}): ${label}…` });
+  for (const j of jobs) {
+    try {
+      const bytes = await (j.node as any).exportAsync({ format: 'SVG' });
+      let out = '';
+      for (const b of bytes) out += String.fromCharCode(b);
+      if (out.length <= 20000) j.box.svg = out;
+    } catch (_) { /* нода не экспортируется — пропускаем */ }
+  }
 }
 
 const BREAKPOINTS: Array<[string, number]> = [['desktop', 1920], ['tablet', 912], ['mobile', 357]];
@@ -238,6 +258,7 @@ async function exportProject(png: boolean) {
       const box = frame.absoluteBoundingBox;
       if (!box) continue;
       figma.ui.postMessage({ type: 'status', text: `${page.name} → ${frame.name}…` });
+      svgJobs.length = 0;
       const item: any = {
         frameId: frame.id,
         frameName: frame.name,
@@ -246,6 +267,7 @@ async function exportProject(png: boolean) {
         breakpoints: detectBreakpoints(frame),
         tree: serialize(frame, { x: box.x, y: box.y }),
       };
+      await attachSvg(page.name + ' → ' + frame.name);
       if (png) {
         const bytes = await frame.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
         item.png = figma.base64Encode(bytes);
@@ -295,7 +317,9 @@ figma.ui.onmessage = async (msg: any) => {
   for (const frame of selection) {
     const box = frame.absoluteBoundingBox!;
     figma.ui.postMessage({ type: 'status', text: `Обход: ${frame.name}…` });
+    svgJobs.length = 0;
     const tree = serialize(frame, { x: box.x, y: box.y });
+    await attachSvg(frame.name);
     const item: any = {
       fileKey: figma.fileKey ?? null,
       fileName: figma.root.name,

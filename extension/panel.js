@@ -51,7 +51,7 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
-const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false };
+const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true };
 
 const toActiveTab = (msg) =>
   new Promise((resolve) => {
@@ -78,14 +78,15 @@ async function applyOverlay() {
     opts: {
       opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff,
       offsetX: ovState.offsetX, offsetY: ovState.offsetY,
-      showUnanchored: ovState.loose,
+      showUnanchored: ovState.loose, autoScale: ovState.autoScale !== false,
     },
   });
   if (!r) { note.textContent = 'вкладка не отвечает'; return; }
   const d = ovState.data;
   const tab = await activeTab();
   const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ окно ${tab?.width}px`;
-  const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} блоков по якорям${r.missing ? `, ${r.missing} не найдено` : ''}`;
+  const sc = r.scale && r.scale !== 1 ? ` · масштаб ${Math.round(r.scale * 100)}%` : '';
+  const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} блоков${r.missing ? `, ${r.missing} нет` : ''}${sc}`;
   note.textContent = `${d.page ? d.page + ' · ' : ''}${d.frame} · ${d.w}px${fit}${anch}`;
   if (!r.anchored && r.mode !== 'image') note.textContent += ' — нет привязок, макет лёг по координатам';
   if (ovState.mode === 'image' && !d.png) {
@@ -105,6 +106,7 @@ $('ov-mode').onchange = (e) => { ovState.mode = e.target.value; if (ovState.on) 
 $('ov-x').oninput = (e) => { ovState.offsetX = +e.target.value || 0; if (ovState.on) applyOverlay(); };
 $('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; if (ovState.on) applyOverlay(); };
 $('ov-loose').onchange = (e) => { ovState.loose = e.target.checked; if (ovState.on) applyOverlay(); };
+$('ov-scale').onchange = (e) => { ovState.autoScale = e.target.checked; if (ovState.on) applyOverlay(); };
 
 const activeTab = () => new Promise((res) => {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));

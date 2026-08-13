@@ -150,6 +150,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 loadMap();
 
 let ov = null;
+let fixedLayer = null;
 
 function buildOverlay() {
   if (ov) return ov;
@@ -163,7 +164,7 @@ function boxStyle(b, opts) {
   const css = [];
   if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
   if (opts.mode !== 'outline') {
-    if (b.fill) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
+    if (b.fill && !b.svg) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
     if (b.radius != null) css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
     if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
   }
@@ -184,18 +185,38 @@ function boxStyle(b, opts) {
   return css;
 }
 
-function makeBox(b, opts, left, top) {
+function makeBox(b, opts, left, top, scale) {
   const d = document.createElement('div');
   d.className = 'pg-obox';
-  if (b.text != null && b.font && opts.mode !== 'outline') d.textContent = b.text;
-  d.style.cssText = [`left:${left}px`, `top:${top}px`, `width:${b.w}px`, `height:${b.h}px`, ...boxStyle(b, opts)].join(';');
+  if (b.svg && opts.mode !== 'outline') {
+    d.innerHTML = b.svg;
+    const svg = d.firstElementChild;
+    if (svg && svg.tagName.toLowerCase() === 'svg') {
+      svg.setAttribute('width', '100%');
+      svg.setAttribute('height', '100%');
+    }
+  } else if (b.text != null && b.font && opts.mode !== 'outline') {
+    d.textContent = b.text;
+  }
+  const css = [`left:${left}px`, `top:${top}px`, `width:${b.w * scale}px`, `height:${b.h * scale}px`, ...boxStyle(b, opts)];
+  if (scale !== 1) css.push(`transform:scale(${scale})`, 'transform-origin:0 0', `width:${b.w}px`, `height:${b.h}px`);
+  d.style.cssText = css.join(';');
   d.title = `${b.name} · ${b.w}×${b.h}${b.fill ? ' · ' + b.fill : ''}`;
   return d;
 }
 
+const isFixed = (el) => {
+  for (let e = el; e && e !== document.body; e = e.parentElement) {
+    const p = getComputedStyle(e).position;
+    if (p === 'fixed' || p === 'sticky') return p;
+  }
+  return null;
+};
+
 /**
- * Поблочное наложение: блок с якорем ставится на свой DOM-элемент, его потомки —
- * относительно него. Иначе футер уезжает вниз из-за разной высоты контента выше.
+ * Поблочное наложение. Каждый блок с привязкой ставится на свой DOM-элемент;
+ * масштаб считается от РЕАЛЬНОЙ ширины элемента (контейнер сайта резиновый,
+ * макет фиксированный), fixed/sticky-блоки рисуются в том же слое координат.
  */
 function showOverlay(data, opts) {
   buildOverlay();
@@ -207,6 +228,7 @@ function showOverlay(data, opts) {
   ov.classList.toggle('pg-diff', !!opts.diff);
   ov.classList.toggle('pg-outline', opts.mode === 'outline');
   ov.innerHTML = '';
+  if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
 
   if (data.png && opts.mode === 'image') {
     const anchor = document.querySelector(opts.anchor || 'body');
@@ -215,54 +237,85 @@ function showOverlay(data, opts) {
     img.src = `http://localhost:8971${data.png}`;
     img.style.cssText = `position:absolute;left:${off.x}px;top:${top + off.y}px;width:${data.w}px;display:block`;
     ov.appendChild(img);
-    return { boxes: 0, png: true, mode: 'image', anchored: 0, placed: 1 };
+    return { boxes: 0, png: true, mode: 'image', anchored: 0, placed: 1, scale: 1 };
   }
 
   const frag = document.createDocumentFragment();
-  const anchored = data.boxes.filter((b) => b.anchor);
+  let fixedFrag = null;
+
+  // один DOM-элемент = один слой: если на него ссылаются несколько ключей
+  // (@Header и @H|header), берём самый крупный блок, иначе слои задваиваются
+  const bySel = new Map();
+  for (const b of data.boxes.filter((x) => x.anchor)) {
+    const prev = bySel.get(b.anchor);
+    if (!prev || b.w * b.h > prev.w * prev.h) bySel.set(b.anchor, b);
+  }
+  const anchored = [...bySel.values()];
+
   const used = [];
-  let placedGroups = 0;
-  let missing = 0;
+  let placed = 0, missing = 0, scaleSum = 0;
 
   for (const a of anchored) {
     const el = document.querySelector(a.anchor);
     if (!el) { missing++; continue; }
     const r = el.getBoundingClientRect();
-    const baseL = r.left + scrollX + off.x;
-    const baseT = r.top + scrollY + off.y;
-    used.push({ x: a.x, y: a.y, w: a.w, h: a.h, dx: baseL - a.x, dy: baseT - a.y });
-    placedGroups++;
+    const fixed = isFixed(el);
 
-    frag.appendChild(makeBox(a, opts, baseL, baseT));
+    // масштаб по фактической ширине: контейнер сайта ужимается, макет — нет
+    const k = opts.autoScale === false ? 1
+      : a.w > 0 && r.width > 0 && Math.abs(r.width - a.w) / a.w < 0.5 ? r.width / a.w : 1;
+    scaleSum += k;
+
+    const baseL = r.left + (fixed ? 0 : scrollX) + off.x;
+    const baseT = r.top + (fixed ? 0 : scrollY) + off.y;
+    used.push({ x: a.x, y: a.y, w: a.w, h: a.h });
+    placed++;
+
+    let target = frag;
+    if (fixed) {
+      if (!fixedFrag) fixedFrag = document.createDocumentFragment();
+      target = fixedFrag;
+    }
+    target.appendChild(makeBox(a, opts, baseL, baseT, k));
     for (const b of data.boxes) {
       if (b === a || b.anchor) continue;
       if (b.x < a.x || b.y < a.y || b.x + b.w > a.x + a.w + 1 || b.y + b.h > a.y + a.h + 1) continue;
-      frag.appendChild(makeBox(b, opts, baseL + (b.x - a.x), baseT + (b.y - a.y)));
+      target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + (b.y - a.y) * k, k));
     }
   }
 
-  // блоки вне заякоренных областей — по координатам макета от body
   if (opts.showUnanchored !== false) {
     const bodyTop = document.body.getBoundingClientRect().top + scrollY;
     for (const b of data.boxes) {
       if (b.anchor) continue;
       const inside = used.some((u) => b.x >= u.x && b.y >= u.y && b.x + b.w <= u.x + u.w + 1 && b.y + b.h <= u.y + u.h + 1);
       if (inside) continue;
-      const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y);
+      const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y, 1);
       d.classList.add('pg-loose');
       frag.appendChild(d);
     }
   }
 
   ov.appendChild(frag);
+  if (fixedFrag) {
+    fixedLayer = document.createElement('div');
+    fixedLayer.className = 'pg-overlay pg-fixed' + (opts.diff ? ' pg-diff' : '') + (opts.mode === 'outline' ? ' pg-outline' : '');
+    fixedLayer.style.opacity = String(opts.opacity ?? 0.5);
+    fixedLayer.style.display = 'block';
+    fixedLayer.appendChild(fixedFrag);
+    document.documentElement.appendChild(fixedLayer);
+  }
+
   return {
     boxes: data.boxes.length, png: !!data.png, mode: opts.mode,
-    anchored: anchored.length, placed: placedGroups, missing,
+    anchored: anchored.length, placed, missing,
+    scale: placed ? Math.round((scaleSum / placed) * 1000) / 1000 : 1,
   };
 }
 
 function hideOverlay() {
   if (ov) ov.style.display = 'none';
+  if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
