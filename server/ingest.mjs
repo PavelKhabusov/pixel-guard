@@ -243,25 +243,22 @@ const handler = (req, res) => {
     if (cached) return sendRender(res, cached, asJson);
 
     const reqId = `r${++renderSeq}`;
-    const timer = setTimeout(() => {
-      if (!renderWaiters.has(reqId)) return;
-      renderWaiters.delete(reqId);
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(504).end(JSON.stringify({ ok: false, error: 'плагин не ответил за 20с' }));
-    }, 20000);
-
-    renderWaiters.set(reqId, (msg) => {
-      clearTimeout(timer);
-      if (msg.error) {
-        res.setHeader('Content-Type', 'application/json');
-        return res.writeHead(422).end(JSON.stringify({ ok: false, error: msg.error }));
-      }
-      renderCache.set(cacheKey, msg.result);
-      if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
-      sendRender(res, msg.result, asJson);
+    const timeout = Math.min(300000, Math.max(5000, Number(url.searchParams.get('timeout') ?? 90) * 1000));
+    const queued = enqueue({
+      reqId, timeout, event: 'render', payload: { reqId, id, format, scale },
+      done: (msg) => {
+        if (msg.error) {
+          res.setHeader('Content-Type', 'application/json');
+          return res.writeHead(504).end(JSON.stringify({
+            ok: false, error: msg.error, reqId, stage: msg.stage ?? 'lost', id, format,
+          }));
+        }
+        renderCache.set(cacheKey, msg.result);
+        if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
+        sendRender(res, msg.result, asJson);
+      },
     });
-
-    publish('render', { reqId, id, format, scale }, 'figma');
+    if (queued > 1) console.log(`[render] ${id} в очереди (${queued})`);
     return;
   }
 
@@ -270,17 +267,31 @@ const handler = (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     if (!peers().figma) return res.writeHead(503).end(JSON.stringify({ ok: false, error: 'плагин Figma не на связи' }));
     const reqId = `f${++renderSeq}`;
-    const timer = setTimeout(() => {
-      if (!renderWaiters.has(reqId)) return;
-      renderWaiters.delete(reqId);
-      res.writeHead(504).end(JSON.stringify({ ok: false, error: 'плагин не ответил за 20с' }));
-    }, 20000);
-    renderWaiters.set(reqId, (msg) => {
-      clearTimeout(timer);
-      res.end(JSON.stringify(msg.error ? { ok: false, error: msg.error } : { ok: true, nodes: msg.nodes }));
+    enqueue({
+      reqId, timeout: 30000, event: 'find', payload: { reqId, query },
+      done: (msg) => {
+        if (msg.error) return res.writeHead(504).end(JSON.stringify({ ok: false, error: msg.error, reqId }));
+        res.end(JSON.stringify({ ok: true, nodes: msg.nodes }));
+      },
     });
-    publish('find', { reqId, query }, 'figma');
     return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/render-ack') {
+    return readBody(req, res, ({ reqId }) => {
+      if (renderBusy?.reqId === reqId) renderBusy.stage = 'rendering';
+      res.end(JSON.stringify({ ok: true }));
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/render-queue') {
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({
+      ok: true,
+      busy: renderBusy ? { reqId: renderBusy.reqId, stage: renderBusy.stage, ms: Date.now() - renderBusy.startedAt } : null,
+      queued: renderQueue.length,
+      cached: renderCache.size,
+    }));
   }
 
   if (req.method === 'POST' && url.pathname === '/render-result') {
@@ -361,6 +372,44 @@ const handler = (req, res) => {
 const renderWaiters = new Map();
 const renderCache = new Map();
 let renderSeq = 0;
+
+/** Плагин Figma однопоточный: пока он рендерит крупную ноду, следующий
+ *  запрос просто ждёт своей очереди и «сгорает» по таймауту. Поэтому
+ *  сериализуем — в работе всегда ровно одно задание. */
+const renderQueue = [];
+let renderBusy = null;
+
+function enqueue(job) {
+  renderQueue.push(job);
+  pumpQueue();
+  return renderQueue.length + (renderBusy ? 1 : 0);
+}
+
+function pumpQueue() {
+  if (renderBusy || !renderQueue.length) return;
+  const job = renderQueue.shift();
+  renderBusy = job;
+  job.stage = 'sent';
+  job.startedAt = Date.now();
+
+  job.timer = setTimeout(() => {
+    renderWaiters.delete(job.reqId);
+    finishJob(job, { error: `плагин не ответил за ${Math.round(job.timeout / 1000)}с`, stage: job.stage, reqId: job.reqId });
+  }, job.timeout);
+
+  renderWaiters.set(job.reqId, (msg) => {
+    clearTimeout(job.timer);
+    finishJob(job, msg);
+  });
+
+  publish(job.event, job.payload, 'figma');
+}
+
+function finishJob(job, msg) {
+  if (renderBusy === job) renderBusy = null;
+  try { job.done(msg); } catch (e) { console.error('[render]', e.message); }
+  setImmediate(pumpQueue);
+}
 
 const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: 'application/pdf' };
 

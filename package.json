@@ -13,7 +13,8 @@
     "patch": "node server/patch.mjs",
     "pixdiff": "node server/pixdiff.mjs",
     "repair": "node server/repair.mjs",
-    "mcp": "node server/mcp.mjs"
+    "mcp": "node server/mcp.mjs",
+    "start": "./start.sh"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",

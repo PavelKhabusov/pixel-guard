@@ -1,6 +1,12 @@
 {
   "commands": [
     {
+      "name": "🚀 Старт (сервер + Figma)",
+      "command": "./start.sh",
+      "type": "terminal",
+      "group": "pixel-guard"
+    },
+    {
       "name": "▶ Ingest server",
       "command": "npm run server",
       "type": "terminal",

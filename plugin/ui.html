@@ -92,6 +92,10 @@
     bus.addEventListener('render', (e) => {
       const req = JSON.parse(e.data);
       log(`рендер: ${req.id} (${req.format || 'PNG'})…`);
+      fetch(`${busBase()}/render-ack`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reqId: req.reqId }),
+      }).catch(() => {});
       parent.postMessage({ pluginMessage: { type: 'render-request', ...req } }, '*');
     });
     bus.addEventListener('find', (e) => {
