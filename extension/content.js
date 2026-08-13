@@ -128,9 +128,9 @@ function analyse(node) {
   return { name, figmaId: node.figmaId, selector: sel, found: true, rows: diff(node, el) };
 }
 
-const loadMap = () =>
+const loadMap = (page) =>
   new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'pg-fetch', path: '/map?page=home' }, (m) => {
+    chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/map?page=${page ?? 'home'}` }, (m) => {
       if (m && !m.error) map = m;
       resolve(map);
     });
@@ -347,4 +347,46 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-pick-start') { startPick(msg.node); reply({ ok: true }); return true; }
   if (msg.type === 'pg-remap') { loadMap().then(() => reply({ ok: true })); return true; }
   if (msg.type === 'pg-pick-stop') { stopPick(); reply({ ok: true }); return true; }
+});
+
+/** Сверяет всю страницу по карте без участия Figma: для каждой привязки
+ *  берём ноду из снапшота (он уже на диске) и сравниваем с DOM. */
+function auditPage(nodesById) {
+  const rows = [];
+  for (const [key, entry] of Object.entries(map)) {
+    if (key.startsWith('_')) continue;
+    if (entry.skip) { rows.push({ key, status: 'skip', reason: entry.skip }); continue; }
+    if (!entry.selector) continue;
+
+    const fig = nodesById[key] ?? nodesById[entry.figmaId];
+    const el = document.querySelector(entry.selector);
+    if (!el) { rows.push({ key, selector: entry.selector, status: 'missing', name: entry.name }); continue; }
+    if (!fig) { rows.push({ key, selector: entry.selector, status: 'nofig', name: entry.name }); continue; }
+
+    const d = diff(fig, el).filter((x) => !(entry.ignore ?? []).includes(x.prop));
+    const bad = d.filter((x) => !x.pass);
+    rows.push({
+      key, selector: entry.selector, name: entry.name ?? fig.name,
+      status: bad.length ? 'failed' : 'pass', rows: d, bad: bad.length, checked: d.length,
+    });
+  }
+  return rows;
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-audit') {
+    const run = () => reply(auditPage(msg.nodes ?? {}));
+    if (Object.keys(map).length) run();
+    else loadMap(msg.page).then(run);
+    return true;
+  }
+});
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-highlight') {
+    const el = document.querySelector(msg.selector);
+    if (el) { lastEl = el; place(el); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    reply({ ok: !!el });
+    return true;
+  }
 });

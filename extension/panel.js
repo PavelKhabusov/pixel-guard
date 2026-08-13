@@ -171,3 +171,41 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 fillPages();
+
+
+async function runAudit() {
+  const note = $('audit-note');
+  note.textContent = 'читаю макет…';
+  const tab = await activeTab();
+  const vp = viewportFor(tab?.width);
+  const path = `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}`;
+  const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
+  if (!data || data.ok === false) { note.textContent = data?.error ?? 'нет данных'; return; }
+
+  const rows = await toActiveTab({ type: 'pg-audit', nodes: data.nodes, page: data.page });
+  if (!rows) { note.textContent = 'вкладка не отвечает — обнови страницу'; return; }
+
+  const n = (s) => rows.filter((r) => r.status === s).length;
+  note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} нет в DOM · ${n('skip')} skip`;
+
+  const order = { failed: 0, missing: 1, nofig: 2, pass: 3, skip: 4 };
+  const label = { pass: '✓', failed: '✗', missing: 'нет в DOM', nofig: 'нет в макете', skip: 'skip' };
+  $('body').innerHTML = rows
+    .sort((a, b) => order[a.status] - order[b.status])
+    .map((r, i) => `<div class="arow ${r.status}" data-i="${i}">
+        <span class="st">${label[r.status]}${r.bad ? ' ' + r.bad : ''}</span>
+        <div class="nm">${esc(r.name || r.key)}</div>
+        <div class="sl">${esc(r.selector ?? r.reason ?? '')}</div>
+      </div>`).join('') || '<div class="empty">в карте нет привязок для этой страницы</div>';
+
+  const sorted = rows.sort((a, b) => order[a.status] - order[b.status]);
+  document.querySelectorAll('.arow').forEach((el) => {
+    el.onclick = () => {
+      const r = sorted[+el.dataset.i];
+      if (r.rows) render({ name: r.name || r.key, figmaId: r.key, selector: r.selector, found: true, rows: r.rows });
+      if (r.selector) toActiveTab({ type: 'pg-highlight', selector: r.selector });
+    };
+  });
+}
+
+$('run-audit').onclick = runAudit;

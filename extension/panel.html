@@ -24,6 +24,17 @@
   .ovl-row input[type=number] { width: 58px; background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
   .ovl-row select { background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
   .ovl-note { font-size: 10px; color: #6f7f8f; margin-top: 4px; }
+  .audit { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
+  .audit button { width: 100%; padding: 7px; border: 0; border-radius: 6px; background: #7ba7d4;
+                  color: #16202a; font-weight: 600; font-size: 12px; cursor: pointer; }
+  .arow { padding: 6px 0; border-bottom: 1px solid #2b3642; cursor: pointer; }
+  .arow:hover { background: #1a222b; }
+  .arow .nm { font-family: Inter, system-ui, sans-serif; font-size: 12px; }
+  .arow .sl { color: #8fb5da; font-size: 11px; word-break: break-all; }
+  .arow .st { float: right; font-size: 11px; }
+  .arow.pass .st { color: #9ec9a8; } .arow.failed .st { color: #e8a0a0; }
+  .arow.missing .st, .arow.nofig .st { color: #d4b483; }
+  .arow.skip { opacity: .55; }
   .bind { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
   .bind-row { display: flex; gap: 6px; }
   .bind select { flex: 1; background: #1a222b; color: #dde5ee; border: 1px solid #3a4756;
@@ -77,6 +88,10 @@
   </div>
   <button id="bind-skip" class="ghost">Пометить skip</button>
   <div class="ovl-note" id="bind-note"></div>
+</div>
+<div class="audit">
+  <button id="run-audit">Проверить страницу</button>
+  <div class="ovl-note" id="audit-note"></div>
 </div>
 <div class="body" id="body"><div class="empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
 <div class="log" id="log"></div>

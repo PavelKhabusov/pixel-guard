@@ -169,6 +169,49 @@ const handler = (req, res) => {
     }));
   }
 
+  // ноды, на которые ссылается карта страницы — для сверки без Figma
+  if (req.method === 'GET' && url.pathname === '/nodes') {
+    const forUrl = url.searchParams.get('url');
+    const viewport = url.searchParams.get('viewport') ?? 'desktop';
+    const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
+    const hit = forUrl ? matchPage(pages, forUrl) : null;
+    const pageKey = hit?.key ?? url.searchParams.get('page') ?? 'home';
+    const frameId = hit?.cfg?.frames?.[viewport] ?? pages[pageKey]?.frames?.[viewport];
+    res.setHeader('Content-Type', 'application/json');
+    if (!frameId) return res.writeHead(404).end(JSON.stringify({ ok: false, error: `нет frame для ${pageKey}/${viewport}` }));
+
+    const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json') && !f.startsWith('_')) : [];
+    for (const f of files) {
+      const j = readJsonSafe(path.join(SNAP, f));
+      const root = j?.tree ? findById(j.tree, frameId) : null;
+      if (!root) continue;
+
+      const pageMap = readJsonSafe(path.join(ROOT, 'maps', `${pageKey}.map.json`)) ?? {};
+      const sharedMap = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
+      const keys = Object.keys({ ...sharedMap, ...pageMap }).filter((k) => !k.startsWith('_'));
+      const out = {};
+      const walk = (n) => {
+        for (const k of keys) {
+          if (out[k]) continue;
+          const isAt = k.startsWith('@');
+          const hitNode = isAt
+            ? (n.type === 'INSTANCE' || n.type === 'COMPONENT')
+              && k.slice(1).split('~')[0].split('|').some((nm) => nm.toLowerCase() === (n.component ?? n.name ?? '').toLowerCase())
+            : n.id === k;
+          if (hitNode) out[k] = n;
+        }
+        for (const c of n.children ?? []) walk(c);
+      };
+      walk(root);
+      for (const k of Object.keys(out)) {
+        const { children, ...rest } = out[k];
+        out[k] = rest;
+      }
+      return res.end(JSON.stringify({ page: pageKey, viewport, frame: j.frameName, nodes: out, found: Object.keys(out).length, wanted: keys.length }));
+    }
+    return res.writeHead(404).end(JSON.stringify({ ok: false, error: `снапшот с frame ${frameId} не найден` }));
+  }
+
   if (req.method === 'GET' && url.pathname === '/png') {
     const f = path.basename(url.searchParams.get('file') ?? '');
     const p = path.join(SNAP, f);
