@@ -222,6 +222,75 @@ const handler = (req, res) => {
     return res.writeHead(404).end(JSON.stringify({ ok: false, error: `снапшот с frame ${frameId} не найден` }));
   }
 
+  // Рендер по требованию: просим плагин отдать картинку конкретной ноды.
+  // Это замена Figma REST API — работает без токена и без лимитов.
+  if (req.method === 'GET' && url.pathname === '/render') {
+    const id = url.searchParams.get('id');
+    if (!id) { res.setHeader('Content-Type', 'application/json'); return res.writeHead(400).end(JSON.stringify({ ok: false, error: 'нужен ?id=<figma node id>' })); }
+    const format = (url.searchParams.get('format') ?? 'PNG').toUpperCase();
+    const scale = Number(url.searchParams.get('scale') ?? 2);
+    const asJson = url.searchParams.get('json') === '1';
+
+    if (!peers().figma) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.writeHead(503).end(JSON.stringify({
+        ok: false, error: 'плагин Figma не на связи — открой pixel-guard в Figma и включи «живой режим»',
+      }));
+    }
+
+    const cacheKey = `${id}:${format}:${scale}`;
+    const cached = renderCache.get(cacheKey);
+    if (cached) return sendRender(res, cached, asJson);
+
+    const reqId = `r${++renderSeq}`;
+    const timer = setTimeout(() => {
+      if (!renderWaiters.has(reqId)) return;
+      renderWaiters.delete(reqId);
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(504).end(JSON.stringify({ ok: false, error: 'плагин не ответил за 20с' }));
+    }, 20000);
+
+    renderWaiters.set(reqId, (msg) => {
+      clearTimeout(timer);
+      if (msg.error) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.writeHead(422).end(JSON.stringify({ ok: false, error: msg.error }));
+      }
+      renderCache.set(cacheKey, msg.result);
+      if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
+      sendRender(res, msg.result, asJson);
+    });
+
+    publish('render', { reqId, id, format, scale }, 'figma');
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/find') {
+    const query = url.searchParams.get('q') ?? '';
+    res.setHeader('Content-Type', 'application/json');
+    if (!peers().figma) return res.writeHead(503).end(JSON.stringify({ ok: false, error: 'плагин Figma не на связи' }));
+    const reqId = `f${++renderSeq}`;
+    const timer = setTimeout(() => {
+      if (!renderWaiters.has(reqId)) return;
+      renderWaiters.delete(reqId);
+      res.writeHead(504).end(JSON.stringify({ ok: false, error: 'плагин не ответил за 20с' }));
+    }, 20000);
+    renderWaiters.set(reqId, (msg) => {
+      clearTimeout(timer);
+      res.end(JSON.stringify(msg.error ? { ok: false, error: msg.error } : { ok: true, nodes: msg.nodes }));
+    });
+    publish('find', { reqId, query }, 'figma');
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/render-result') {
+    return readBody(req, res, (msg) => {
+      const fn = renderWaiters.get(msg.reqId);
+      if (fn) { renderWaiters.delete(msg.reqId); fn(msg); }
+      res.end(JSON.stringify({ ok: true }));
+    });
+  }
+
   if (req.method === 'GET' && url.pathname === '/png') {
     const f = path.basename(url.searchParams.get('file') ?? '');
     const p = path.join(SNAP, f);
@@ -288,6 +357,22 @@ const handler = (req, res) => {
 
   res.writeHead(404).end();
 };
+
+const renderWaiters = new Map();
+const renderCache = new Map();
+let renderSeq = 0;
+
+const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: 'application/pdf' };
+
+function sendRender(res, result, asJson) {
+  if (asJson) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ ok: true, ...result }));
+  }
+  res.setHeader('Content-Type', MIME[result.format] ?? 'application/octet-stream');
+  res.setHeader('X-Node-Name', encodeURIComponent(result.name ?? ''));
+  return res.end(Buffer.from(result.bytes, 'base64'));
+}
 
 function findById(node, id) {
   if (node.id === id) return node;

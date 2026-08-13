@@ -53,6 +53,12 @@
       "command": "npm run patch -- --page home --viewport desktop",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "🔌 MCP: подключить к Claude",
+      "command": "claude mcp add pixel-guard -- node $(pwd)/server/mcp.mjs",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }

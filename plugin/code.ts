@@ -346,7 +346,54 @@ async function exportProject(png: boolean) {
   };
 }
 
+async function renderNode(id: string, format: string, scale: number) {
+  const node = await figma.getNodeByIdAsync(id) as SceneNode | null;
+  if (!node) throw new Error(`нода ${id} не найдена`);
+  if (!('exportAsync' in node)) throw new Error(`нода ${id} (${node.type}) не экспортируется`);
+
+  const settings: any = format === 'SVG'
+    ? { format: 'SVG' }
+    : { format, constraint: { type: 'SCALE', value: scale || 1 } };
+  const bytes = await (node as any).exportAsync(settings);
+
+  const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
+  return {
+    id, name: node.name, type: node.type, format,
+    width: box ? Math.round(box.width) : null,
+    height: box ? Math.round(box.height) : null,
+    bytes: figma.base64Encode(bytes),
+  };
+}
+
 figma.ui.onmessage = async (msg: any) => {
+  if (msg.type === 'render-request') {
+    try {
+      const r = await renderNode(msg.id, msg.format ?? 'PNG', msg.scale ?? 2);
+      figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, result: r });
+    } catch (e: any) {
+      figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, error: e.message });
+    }
+    return;
+  }
+  if (msg.type === 'find-node') {
+    try {
+      const nodes: any[] = [];
+      const q = String(msg.query ?? '').toLowerCase();
+      for (const page of figma.root.children) {
+        await page.loadAsync();
+        for (const n of page.findAll((x) => x.name.toLowerCase().includes(q)).slice(0, 40)) {
+          const box = 'absoluteBoundingBox' in n ? n.absoluteBoundingBox : null;
+          nodes.push({ id: n.id, name: n.name, type: n.type, page: page.name,
+            width: box ? Math.round(box.width) : null, height: box ? Math.round(box.height) : null });
+        }
+        if (nodes.length >= 40) break;
+      }
+      figma.ui.postMessage({ type: 'find-done', reqId: msg.reqId, nodes });
+    } catch (e: any) {
+      figma.ui.postMessage({ type: 'find-done', reqId: msg.reqId, error: e.message });
+    }
+    return;
+  }
   if (msg.type === 'export-project') {
     try {
       const project = await exportProject(!!msg.png);
