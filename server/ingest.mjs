@@ -154,7 +154,15 @@ const handler = (req, res) => {
             } : null,
           });
         }
-        for (const c of n.children ?? []) walk(c, depth + 1);
+        // Не спускаемся внутрь иконок: у ноды есть свой SVG, либо все её
+        // дети — векторы с SVG (обёртка «svg (location)» + два Vector).
+        // Иначе поверх иконки ложатся пустые боксы с чужими цветами.
+        if (n.svgRef || n.svg) return;
+        const kids = n.children ?? [];
+        const vectorish = kids.length > 0 && kids.every((c) =>
+          c.svgRef || c.svg || c.type === 'VECTOR' || c.type === 'BOOLEAN_OPERATION');
+        if (vectorish) return;
+        for (const c of kids) walk(c, depth + 1);
       };
       walk(root, 0);
       return res.end(JSON.stringify({

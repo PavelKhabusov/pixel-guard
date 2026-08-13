@@ -151,6 +151,8 @@ loadMap();
 
 let ov = null;
 let fixedLayer = null;
+let lastOverlay = null;
+let reflowPending = false;
 
 function buildOverlay() {
   if (ov) return ov;
@@ -221,6 +223,7 @@ const isFixed = (el) => {
  */
 function showOverlay(data, opts) {
   buildOverlay();
+  lastOverlay = { data, opts };
   const off = { x: opts.offsetX ?? 0, y: opts.offsetY ?? 0 };
   Object.assign(ov.style, {
     top: '0px', left: '0px', width: '100%', height: '0px',
@@ -273,11 +276,16 @@ function showOverlay(data, opts) {
     const r = el.getBoundingClientRect();
     const fixed = isFixed(el);
 
-    // масштаб по фактической ширине: контейнер сайта ужимается, макет — нет
-    const k = opts.autoScale === false ? 1
-      : a.w > 0 && r.width > 0 && Math.abs(r.width - a.w) / a.w < 0.5 ? r.width / a.w : 1;
+    // Масштабируем ТОЛЬКО резиновый контейнер (расхождение до 12%): при
+    // большей разнице это структурное различие макета и вёрстки — блок
+    // полноширинный в макете и по контейнеру в вёрстке. Сжимать его нельзя:
+    // содержимое поедет и цвета/иконки перестанут совпадать.
+    const rel = a.w > 0 ? Math.abs(r.width - a.w) / a.w : 1;
+    const k = opts.autoScale === false || rel > 0.12 ? 1 : r.width / a.w;
     scaleSum += k;
 
+    // fixed/sticky: координаты от вьюпорта (элемент уже сдвинут скроллом),
+    // остальное — абсолютные координаты документа
     const baseL = r.left + (fixed ? 0 : scrollX) + off.x;
     const baseT = r.top + (fixed ? 0 : scrollY) + off.y;
     used.push({ x: a.x, y: a.y, w: a.w, h: a.h });
@@ -456,3 +464,16 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return true;
   }
 });
+
+
+/** fixed/sticky-шапка меняет высоту и позицию при скролле (верхняя строка
+ *  уезжает), поэтому её слой пересчитываем, а не рисуем один раз. */
+addEventListener('scroll', () => {
+  if (!lastOverlay || !fixedLayer || reflowPending) return;
+  reflowPending = true;
+  requestAnimationFrame(() => {
+    reflowPending = false;
+    if (!lastOverlay || !ov || ov.style.display === 'none') return;
+    showOverlay(lastOverlay.data, lastOverlay.opts);
+  });
+}, { passive: true });
