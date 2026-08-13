@@ -11,7 +11,8 @@
     "qa:all": "node server/all.mjs",
     "automap": "node server/automap.mjs",
     "patch": "node server/patch.mjs",
-    "pixdiff": "node server/pixdiff.mjs"
+    "pixdiff": "node server/pixdiff.mjs",
+    "repair": "node server/repair.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",
