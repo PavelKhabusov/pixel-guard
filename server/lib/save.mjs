@@ -1,15 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { expandTree } from './expand.mjs';
 
 export const slug = (s) =>
   s.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'frame';
 
-export function saveFrames(frames, snapDir) {
+export function saveFrames(frames, snapDir, libs = {}) {
   fs.mkdirSync(snapDir, { recursive: true });
   const saved = [];
   for (const f of frames) {
     const base = slug(f.frameName);
     const { png, ...meta } = f;
+    const compLib = f.compLib ?? libs.compLib;
+    if (compLib && meta.tree) meta.tree = expandTree(meta.tree, compLib);
+    delete meta.compLib;
+    if (libs.svgLib && !meta.svgLib) meta.svgLib = libs.svgLib;
     meta.savedAt = new Date().toISOString();
     fs.writeFileSync(path.join(snapDir, `${base}.json`), JSON.stringify(meta, null, 1));
     saved.push(`snapshots/${base}.json`);

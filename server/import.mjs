@@ -21,7 +21,8 @@ const project = data.kind === 'project' ? data : data.project ?? data.frames?.fi
 
 if (project) {
   const saved = [];
-  for (const pg of project.pages ?? []) saved.push(...saveFrames(pg.frames, SNAP));
+  const libs = { compLib: project.compLib, svgLib: project.svgLib };
+  for (const pg of project.pages ?? []) saved.push(...saveFrames(pg.frames, SNAP, libs));
   fs.writeFileSync(path.join(SNAP, '_project.json'), JSON.stringify({
     fileName: project.fileName,
     savedAt: new Date().toISOString(),

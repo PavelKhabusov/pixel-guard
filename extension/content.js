@@ -164,7 +164,7 @@ function boxStyle(b, opts) {
   const css = [];
   if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
   if (opts.mode !== 'outline') {
-    if (b.fill && !b.svg) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
+    if (b.fill && !b.svg && !b.svgRef) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
     if (b.radius != null) css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
     if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
   }
@@ -185,15 +185,16 @@ function boxStyle(b, opts) {
   return css;
 }
 
-function makeBox(b, opts, left, top, scale) {
+function makeBox(b, opts, left, top, scale, lib) {
   const d = document.createElement('div');
   d.className = 'pg-obox';
-  if (b.svg && opts.mode !== 'outline') {
-    d.innerHTML = b.svg;
-    const svg = d.firstElementChild;
-    if (svg && svg.tagName.toLowerCase() === 'svg') {
-      svg.setAttribute('width', '100%');
-      svg.setAttribute('height', '100%');
+  const svg = b.svg ?? (b.svgRef && lib ? lib[b.svgRef] : null);
+  if (svg && opts.mode !== 'outline') {
+    d.innerHTML = svg;
+    const el = d.firstElementChild;
+    if (el && el.tagName.toLowerCase() === 'svg') {
+      el.setAttribute('width', '100%');
+      el.setAttribute('height', '100%');
     }
   } else if (b.text != null && b.font && opts.mode !== 'outline') {
     d.textContent = b.text;
@@ -250,7 +251,18 @@ function showOverlay(data, opts) {
     const prev = bySel.get(b.anchor);
     if (!prev || b.w * b.h > prev.w * prev.h) bySel.set(b.anchor, b);
   }
-  const anchored = [...bySel.values()];
+  let anchored = [...bySel.values()];
+
+  // Якорь — это контейнер. Мелкая текстовая нода якорем быть не должна:
+  // если её позиция в вёрстке другая (переставили пункт меню), всё её
+  // поддерево уезжает вместе с ней. Такие ноды рисуем внутри родителя.
+  const CONTAINER_MIN = 200;
+  anchored = anchored.filter((b) => {
+    if (b.type === 'TEXT' && (b.w < CONTAINER_MIN || b.h < 40)) return false;
+    return true;
+  });
+  const anchoredSet = new Set(anchored);
+  for (const b of data.boxes) if (b.anchor && !anchoredSet.has(b)) b.anchor = null;
 
   const used = [];
   let placed = 0, missing = 0, scaleSum = 0;
@@ -276,11 +288,11 @@ function showOverlay(data, opts) {
       if (!fixedFrag) fixedFrag = document.createDocumentFragment();
       target = fixedFrag;
     }
-    target.appendChild(makeBox(a, opts, baseL, baseT, k));
+    target.appendChild(makeBox(a, opts, baseL, baseT, k, data.svgLib));
     for (const b of data.boxes) {
       if (b === a || b.anchor) continue;
       if (b.x < a.x || b.y < a.y || b.x + b.w > a.x + a.w + 1 || b.y + b.h > a.y + a.h + 1) continue;
-      target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + (b.y - a.y) * k, k));
+      target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + (b.y - a.y) * k, k, data.svgLib));
     }
   }
 
@@ -290,7 +302,7 @@ function showOverlay(data, opts) {
       if (b.anchor) continue;
       const inside = used.some((u) => b.x >= u.x && b.y >= u.y && b.x + b.w <= u.x + u.w + 1 && b.y + b.h <= u.y + u.h + 1);
       if (inside) continue;
-      const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y, 1);
+      const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y, 1, data.svgLib);
       d.classList.add('pg-loose');
       frag.appendChild(d);
     }

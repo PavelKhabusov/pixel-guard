@@ -133,6 +133,20 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
       svgJobs.push({ node, box: o });
       return o;
     }
+
+    if (dedupe && o.componentKey && box) {
+      const ref = `${o.componentKey}:${Math.round(box.width)}x${Math.round(box.height)}`;
+      if (compCache[ref]) {
+        o.compRef = ref;
+        return o;
+      }
+      if ('children' in node && node.children.length) {
+        const kids = node.children.filter((c) => c.visible).map((c) => serialize(c, { x: box.x, y: box.y }));
+        if (kids.length) compCache[ref] = { children: kids };
+      }
+      o.compRef = ref;
+      return o;
+    }
   }
   if (node.type === 'VECTOR' || node.type === 'BOOLEAN_OPERATION' || node.type === 'STAR' || node.type === 'LINE') {
     svgJobs.push({ node, box: o });
@@ -148,17 +162,53 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
 
 const SVG_LIMIT = 400;
 
+/** Иконки повторяются десятки раз (стрелки, соцсети): экспортируем каждую
+ *  форму ОДИН раз и складываем в общий словарь, ноды ссылаются по svgRef. */
+const svgCache: Record<string, string> = {};
+
+/** Переиспользуемые блоки (header/footer/карточки) не сериализуем повторно:
+ *  первое вхождение кладём в общий словарь, остальные ссылаются по compRef.
+ *  Ключ учитывает размер — один компонент в разных брейкпоинтах отличается. */
+const compCache: Record<string, any> = {};
+let dedupe = false;
+
+function svgKey(node: SceneNode): string {
+  const mc = node.type === 'INSTANCE' ? mainKey(node) : null;
+  const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
+  const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : '?';
+  return mc ? `c:${mc}:${size}` : `n:${node.name}:${size}:${node.type}`;
+}
+
 async function attachSvg(label: string) {
-  const jobs = svgJobs.splice(0, svgJobs.length).slice(0, SVG_LIMIT);
+  const jobs = svgJobs.splice(0, svgJobs.length);
   if (!jobs.length) return;
-  figma.ui.postMessage({ type: 'status', text: `SVG (${jobs.length}): ${label}…` });
+
+  const fresh = jobs.filter((j) => !svgCache[svgKey(j.node)]);
+  const uniq: typeof jobs = [];
+  const seen: Record<string, boolean> = {};
+  for (const j of fresh) {
+    const k = svgKey(j.node);
+    if (seen[k]) continue;
+    seen[k] = true;
+    uniq.push(j);
+  }
+
+  const todo = uniq.slice(0, SVG_LIMIT);
+  if (todo.length) {
+    figma.ui.postMessage({ type: 'status', text: `SVG: ${todo.length} новых из ${jobs.length} · ${label}…` });
+    for (const j of todo) {
+      try {
+        const bytes = await (j.node as any).exportAsync({ format: 'SVG' });
+        let out = '';
+        for (const b of bytes) out += String.fromCharCode(b);
+        if (out.length <= 20000) svgCache[svgKey(j.node)] = out;
+      } catch (_) { /* нода не экспортируется — пропускаем */ }
+    }
+  }
+
   for (const j of jobs) {
-    try {
-      const bytes = await (j.node as any).exportAsync({ format: 'SVG' });
-      let out = '';
-      for (const b of bytes) out += String.fromCharCode(b);
-      if (out.length <= 20000) j.box.svg = out;
-    } catch (_) { /* нода не экспортируется — пропускаем */ }
+    const k = svgKey(j.node);
+    if (svgCache[k]) j.box.svgRef = k;
   }
 }
 
@@ -244,6 +294,7 @@ function collectModules(pages: any[]): any[] {
 }
 
 async function exportProject(png: boolean) {
+  dedupe = true;
   const pages: any[] = [];
   for (const page of figma.root.children) {
     figma.ui.postMessage({ type: 'status', text: `Страница: ${page.name}…` });
@@ -268,6 +319,7 @@ async function exportProject(png: boolean) {
         tree: serialize(frame, { x: box.x, y: box.y }),
       };
       await attachSvg(page.name + ' → ' + frame.name);
+      item.svgLib = svgCache;
       if (png) {
         const bytes = await frame.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
         item.png = figma.base64Encode(bytes);
@@ -279,6 +331,8 @@ async function exportProject(png: boolean) {
 
   return {
     kind: 'project',
+    compLib: compCache,
+    svgLib: svgCache,
     fileKey: figma.fileKey ?? null,
     fileName: figma.root.name,
     frameName: `${figma.root.name} (проект)`,
@@ -321,6 +375,7 @@ figma.ui.onmessage = async (msg: any) => {
     const tree = serialize(frame, { x: box.x, y: box.y });
     await attachSvg(frame.name);
     const item: any = {
+      svgLib: svgCache,
       fileKey: figma.fileKey ?? null,
       fileName: figma.root.name,
       page: figma.currentPage.name,

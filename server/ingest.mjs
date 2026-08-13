@@ -143,6 +143,7 @@ const handler = (req, res) => {
             strokeWeight: n.strokeWeight === 'mixed' ? 1 : n.strokeWeight ?? null,
             opacity: n.opacity ?? 1,
             text: n.type === 'TEXT' ? n.text ?? '' : null,
+            svgRef: n.svgRef ?? null,
             font: n.type === 'TEXT' && n.font ? {
               family: n.font.family, size: n.font.size, weight: n.font.weight,
               align: n.font.align, case: n.font.case,
@@ -159,6 +160,7 @@ const handler = (req, res) => {
       return res.end(JSON.stringify({
         frame: j.frameName, page: matchedPage?.key, matchedBy: matchedPage?.how,
         w: root.w, h: root.h, boxes,
+        svgLib: j.svgLib ?? {},
         anchored: boxes.filter((b) => b.anchor).length,
         png: fs.existsSync(png) ? `/png?file=${encodeURIComponent(path.basename(png))}` : null,
       }));
@@ -251,7 +253,8 @@ const handler = (req, res) => {
     return readBody(req, res, ({ frames, project }) => {
       if (project) {
         const saved = [];
-        for (const pg of project.pages ?? []) saved.push(...saveFrames(pg.frames, SNAP));
+        const libs = { compLib: project.compLib, svgLib: project.svgLib };
+        for (const pg of project.pages ?? []) saved.push(...saveFrames(pg.frames, SNAP, libs));
         fs.mkdirSync(SNAP, { recursive: true });
         const meta = {
           fileName: project.fileName,
