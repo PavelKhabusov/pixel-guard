@@ -211,3 +211,12 @@ async function runAudit() {
 }
 
 $('run-audit').onclick = runAudit;
+
+
+// Панель закрыли — убираем наложение и подсветку со всех вкладок,
+// иначе макет остаётся висеть на странице до перезагрузки.
+const cleanup = () => {
+  chrome.runtime.sendMessage({ type: 'pg-cleanup' });
+};
+addEventListener('pagehide', cleanup);
+addEventListener('beforeunload', cleanup);

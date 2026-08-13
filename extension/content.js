@@ -448,6 +448,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-unhighlight') { if (box) box.classList.remove('pg-on'); lastEl = null; reply({ ok: true }); return true; }
   if (msg.type === 'pg-highlight') {
     const el = document.querySelector(msg.selector);
     if (el) { lastEl = el; place(el); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }

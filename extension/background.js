@@ -94,6 +94,7 @@ chrome.action.onClicked.addListener((tab) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-status') {
+    panelSeen = Date.now();
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
       if (!t || SKIP.test(t.url ?? '')) return reply(status);
       chrome.tabs.sendMessage(t.id, { type: 'pg-mapsize' })
@@ -124,11 +125,33 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return;
   }
   if (msg.type === 'pg-pick-cancel') { toPanel({ type: 'pg-pick-cancelled' }); return; }
+  if (msg.type === 'pg-cleanup') {
+    chrome.tabs.query({}, (tabs) => {
+      for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
+        chrome.tabs.sendMessage(t.id, { type: 'pg-overlay-hide' }).catch(() => {});
+        chrome.tabs.sendMessage(t.id, { type: 'pg-pick-stop' }).catch(() => {});
+        chrome.tabs.sendMessage(t.id, { type: 'pg-unhighlight' }).catch(() => {});
+      }
+    });
+    return;
+  }
   if (msg.type === 'pg-fetch') {
     fetch(`${BASE}${msg.path}`).then((r) => r.json()).then(reply).catch((e) => reply({ ok: false, error: String(e) }));
     return true;
   }
 });
+
+let panelSeen = 0;
+setInterval(() => {
+  if (!panelSeen || Date.now() - panelSeen < 6000) return;
+  panelSeen = 0;
+  chrome.tabs.query({}, (tabs) => {
+    for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
+      chrome.tabs.sendMessage(t.id, { type: 'pg-overlay-hide' }).catch(() => {});
+      chrome.tabs.sendMessage(t.id, { type: 'pg-pick-stop' }).catch(() => {});
+    }
+  });
+}, 3000);
 
 chrome.runtime.onStartup.addListener(connect);
 chrome.runtime.onInstalled.addListener(connect);
