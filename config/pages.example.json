@@ -5,6 +5,20 @@
       "desktop": null,
       "tablet": null,
       "mobile": null
+    },
+    "match": [
+      "/"
+    ]
+  },
+  "product": {
+    "url": "https://example.com/product/example-item/",
+    "match": [
+      "/product/*"
+    ],
+    "frames": {
+      "desktop": null,
+      "tablet": null,
+      "mobile": null
     }
   }
 }

@@ -7,6 +7,7 @@ import { ensureCert } from './lib/cert.mjs';
 import { saveFrames } from './lib/save.mjs';
 import { subscribe, publish, peers } from './lib/bus.mjs';
 import { ensureLocalConfigs } from './lib/bootstrap.mjs';
+import { matchPage } from './lib/pagematch.mjs';
 
 const PORT = Number(process.env.PORT || 8971);
 const TLS_PORT = Number(process.env.TLS_PORT || PORT + 1);
@@ -70,7 +71,31 @@ const handler = (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/overlay') {
-    const want = url.searchParams.get('frame');
+    let want = url.searchParams.get('frame');
+    const forUrl = url.searchParams.get('url');
+    const viewport = url.searchParams.get('viewport') ?? 'desktop';
+    let matchedPage = null;
+
+    if (!want && forUrl) {
+      const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
+      const hit = matchPage(pages, forUrl);
+      if (!hit) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.writeHead(404).end(JSON.stringify({
+          ok: false,
+          error: `для ${forUrl} нет страницы в config/pages.json — добавь url или шаблон в match[]`,
+        }));
+      }
+      matchedPage = { key: hit.key, how: hit.how };
+      want = hit.cfg.frames?.[viewport] ?? null;
+      if (!want) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.writeHead(404).end(JSON.stringify({
+          ok: false, error: `у страницы «${hit.key}» не задан frame для ${viewport}`,
+        }));
+      }
+    }
+
     const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json') && !f.startsWith('_')) : [];
     res.setHeader('Content-Type', 'application/json');
     for (const f of files) {
@@ -80,14 +105,34 @@ const handler = (req, res) => {
       if (!root) continue;
       const png = path.join(SNAP, f.replace(/\.json$/, '.png'));
       const depthLimit = Number(url.searchParams.get('depth') ?? 8);
+
+      // карта привязок этой страницы — чтобы наложение шло поблочно,
+      // каждый блок к своему DOM-элементу, а не одним слепком сверху.
+      const pageKey = matchedPage?.key ?? url.searchParams.get('page');
+      const pageMap = pageKey ? readJsonSafe(path.join(ROOT, 'maps', `${pageKey}.map.json`)) ?? {} : {};
+      const sharedMap = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
+      const anchors = [];
+      for (const [key, entry] of Object.entries({ ...sharedMap, ...pageMap })) {
+        if (key.startsWith('_') || !entry?.selector) continue;
+        anchors.push({ key, selector: entry.selector });
+      }
       const boxes = [];
       const walk = (n, depth) => {
         if (depth > depthLimit) return;
         const small = (n.w ?? 0) < 4 || (n.h ?? 0) < 4;
         if (depth > 0 && !small) {
           const fill = Array.isArray(n.fills) ? n.fills.find((f) => f.type === 'solid') : null;
+          // @-ключ цепляем только к самому компоненту (INSTANCE/COMPONENT),
+          // иначе одноимённый текст внутри секции получает тот же селектор
+          const anchor = anchors.find((a) => a.key === n.id)
+            ?? anchors.find((a) => a.key.startsWith('@')
+              && (n.type === 'INSTANCE' || n.type === 'COMPONENT')
+              && a.key.slice(1).split('~')[0].split('|')
+                   .some((nm) => nm.toLowerCase() === (n.component ?? n.name ?? '').toLowerCase()));
           boxes.push({
             id: n.id, name: n.name, type: n.type,
+            anchor: anchor?.selector ?? null,
+            anchorKey: anchor?.key ?? null,
             x: Math.round((n.x - (root.x ?? 0)) * 10) / 10,
             y: Math.round((n.y - (root.y ?? 0)) * 10) / 10,
             w: n.w, h: n.h,
@@ -112,11 +157,16 @@ const handler = (req, res) => {
       };
       walk(root, 0);
       return res.end(JSON.stringify({
-        frame: j.frameName, w: root.w, h: root.h, boxes,
+        frame: j.frameName, page: matchedPage?.key, matchedBy: matchedPage?.how,
+        w: root.w, h: root.h, boxes,
+        anchored: boxes.filter((b) => b.anchor).length,
         png: fs.existsSync(png) ? `/png?file=${encodeURIComponent(path.basename(png))}` : null,
       }));
     }
-    return res.writeHead(404).end(JSON.stringify({ ok: false, error: 'нет снапшота' }));
+    return res.writeHead(404).end(JSON.stringify({
+      ok: false,
+      error: want ? `снапшот с frame ${want} не найден — переэкспортируй макет` : 'нет снапшотов',
+    }));
   }
 
   if (req.method === 'GET' && url.pathname === '/png') {

@@ -159,74 +159,106 @@ function buildOverlay() {
   return ov;
 }
 
+function boxStyle(b, opts) {
+  const css = [];
+  if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
+  if (opts.mode !== 'outline') {
+    if (b.fill) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
+    if (b.radius != null) css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
+    if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
+  }
+  if (b.text != null && b.font && opts.mode !== 'outline') {
+    const f = b.font;
+    css.push(
+      `color:${b.fill || '#000'}`,
+      `font-family:'${f.family}',sans-serif`,
+      `font-size:${f.size}px`,
+      `font-weight:${f.weight}`,
+      `line-height:${f.lineHeight ? f.lineHeight + 'px' : 'normal'}`,
+      `text-align:${({ LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify' }[f.align] || 'left')}`,
+      'background:none', 'white-space:pre-wrap', 'overflow:hidden',
+    );
+    if (f.letterSpacing) css.push(`letter-spacing:${f.letterSpacing}px`);
+    if (f.case === 'UPPER') css.push('text-transform:uppercase');
+  }
+  return css;
+}
+
+function makeBox(b, opts, left, top) {
+  const d = document.createElement('div');
+  d.className = 'pg-obox';
+  if (b.text != null && b.font && opts.mode !== 'outline') d.textContent = b.text;
+  d.style.cssText = [`left:${left}px`, `top:${top}px`, `width:${b.w}px`, `height:${b.h}px`, ...boxStyle(b, opts)].join(';');
+  d.title = `${b.name} · ${b.w}×${b.h}${b.fill ? ' · ' + b.fill : ''}`;
+  return d;
+}
+
+/**
+ * Поблочное наложение: блок с якорем ставится на свой DOM-элемент, его потомки —
+ * относительно него. Иначе футер уезжает вниз из-за разной высоты контента выше.
+ */
 function showOverlay(data, opts) {
   buildOverlay();
-  const anchor = document.querySelector(opts.anchor || 'body');
-  const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
-
-  // масштаб 1:1 — макет снят под конкретный брейкпоинт, растягивать нельзя.
-  // при align=center центрируем, иначе прижимаем влево к контенту страницы.
-  const scale = opts.scale ?? 1;
-  const left = opts.align === 'center' ? Math.max(0, (innerWidth - data.w * scale) / 2) : 0;
-
+  const off = { x: opts.offsetX ?? 0, y: opts.offsetY ?? 0 };
   Object.assign(ov.style, {
-    top: `${top + (opts.offsetY ?? 0)}px`,
-    left: `${left + (opts.offsetX ?? 0)}px`,
-    width: `${data.w * scale}px`,
-    height: `${data.h * scale}px`,
-    opacity: String(opts.opacity ?? 0.5),
-    display: 'block',
-    transform: scale === 1 ? '' : `scale(${scale})`,
-    transformOrigin: '0 0',
+    top: '0px', left: '0px', width: '100%', height: '0px',
+    opacity: String(opts.opacity ?? 0.5), display: 'block',
   });
   ov.classList.toggle('pg-diff', !!opts.diff);
   ov.classList.toggle('pg-outline', opts.mode === 'outline');
-
   ov.innerHTML = '';
+
   if (data.png && opts.mode === 'image') {
+    const anchor = document.querySelector(opts.anchor || 'body');
+    const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
     const img = document.createElement('img');
     img.src = `http://localhost:8971${data.png}`;
-    img.style.cssText = `width:${data.w}px;height:${data.h}px;display:block`;
+    img.style.cssText = `position:absolute;left:${off.x}px;top:${top + off.y}px;width:${data.w}px;display:block`;
     ov.appendChild(img);
-    return { boxes: 0, png: true, mode: 'image', scale };
+    return { boxes: 0, png: true, mode: 'image', anchored: 0, placed: 1 };
   }
 
-  const frag = document.createFragment ? document.createFragment() : document.createDocumentFragment();
-  for (const b of data.boxes) {
-    const d = document.createElement('div');
-    d.className = 'pg-obox';
-    const css = [
-      `left:${b.x}px`, `top:${b.y}px`, `width:${b.w}px`, `height:${b.h}px`,
-    ];
-    if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
-    if (opts.mode !== 'outline') {
-      if (b.fill) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
-      if (b.radius != null) {
-        css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
-      }
-      if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
+  const frag = document.createDocumentFragment();
+  const anchored = data.boxes.filter((b) => b.anchor);
+  const used = [];
+  let placedGroups = 0;
+  let missing = 0;
+
+  for (const a of anchored) {
+    const el = document.querySelector(a.anchor);
+    if (!el) { missing++; continue; }
+    const r = el.getBoundingClientRect();
+    const baseL = r.left + scrollX + off.x;
+    const baseT = r.top + scrollY + off.y;
+    used.push({ x: a.x, y: a.y, w: a.w, h: a.h, dx: baseL - a.x, dy: baseT - a.y });
+    placedGroups++;
+
+    frag.appendChild(makeBox(a, opts, baseL, baseT));
+    for (const b of data.boxes) {
+      if (b === a || b.anchor) continue;
+      if (b.x < a.x || b.y < a.y || b.x + b.w > a.x + a.w + 1 || b.y + b.h > a.y + a.h + 1) continue;
+      frag.appendChild(makeBox(b, opts, baseL + (b.x - a.x), baseT + (b.y - a.y)));
     }
-    if (b.text != null && b.font && opts.mode !== 'outline') {
-      d.textContent = b.text;
-      const f = b.font;
-      css.push(
-        `color:${b.fill || '#000'}`,
-        `font-family:'${f.family}',sans-serif`,
-        `font-size:${f.size}px`,
-        `font-weight:${f.weight}`,
-        `line-height:${f.lineHeight ? f.lineHeight + 'px' : 'normal'}`,
-        `text-align:${({ LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify' }[f.align] || 'left')}`,
-        'background:none', 'white-space:pre-wrap', 'overflow:hidden',
-      );
-      if (f.letterSpacing) css.push(`letter-spacing:${f.letterSpacing}px`);
-      if (f.case === 'UPPER') css.push('text-transform:uppercase');
-    }
-    d.style.cssText = css.join(';');
-    d.title = `${b.name} · ${b.w}×${b.h}${b.fill ? ' · ' + b.fill : ''}`;
-    frag.appendChild(d);
   }
+
+  // блоки вне заякоренных областей — по координатам макета от body
+  if (opts.showUnanchored !== false) {
+    const bodyTop = document.body.getBoundingClientRect().top + scrollY;
+    for (const b of data.boxes) {
+      if (b.anchor) continue;
+      const inside = used.some((u) => b.x >= u.x && b.y >= u.y && b.x + b.w <= u.x + u.w + 1 && b.y + b.h <= u.y + u.h + 1);
+      if (inside) continue;
+      const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y);
+      d.classList.add('pg-loose');
+      frag.appendChild(d);
+    }
+  }
+
   ov.appendChild(frag);
-  return { boxes: data.boxes.length, png: !!data.png, mode: opts.mode, scale };
+  return {
+    boxes: data.boxes.length, png: !!data.png, mode: opts.mode,
+    anchored: anchored.length, placed: placedGroups, missing,
+  };
 }
 
 function hideOverlay() {

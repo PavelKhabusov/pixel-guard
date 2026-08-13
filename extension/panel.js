@@ -51,7 +51,7 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
-const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, align: 'left' };
+const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false };
 
 const toActiveTab = (msg) =>
   new Promise((resolve) => {
@@ -65,8 +65,11 @@ async function applyOverlay() {
   const note = $('ov-note');
   if (!ovState.on) { await toActiveTab({ type: 'pg-overlay-hide' }); note.textContent = ''; return; }
   if (!ovState.data) {
-    const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: '/overlay' }, res));
-    if (!d || d.error || d.ok === false) { note.textContent = 'снапшот не найден — экспортируй макет плагином'; return; }
+    const tab = await activeTab();
+    const vp = viewportFor(tab?.width);
+    const path = `/overlay?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}`;
+    const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
+    if (!d || d.ok === false || d.error) { note.textContent = d?.error ?? 'снапшот не найден'; return; }
     ovState.data = d;
   }
   const r = await toActiveTab({
@@ -74,18 +77,25 @@ async function applyOverlay() {
     data: ovState.data,
     opts: {
       opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff,
-      offsetX: ovState.offsetX, offsetY: ovState.offsetY, align: ovState.align,
+      offsetX: ovState.offsetX, offsetY: ovState.offsetY,
+      showUnanchored: ovState.loose,
     },
   });
   if (!r) { note.textContent = 'вкладка не отвечает'; return; }
   const d = ovState.data;
-  note.textContent = `${d.frame} · макет ${d.w}px · окно ${await tabWidth()}px · ${r.mode === 'image' ? 'PNG' : r.boxes + ' нод'}`;
+  const tab = await activeTab();
+  const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ окно ${tab?.width}px`;
+  const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} блоков по якорям${r.missing ? `, ${r.missing} не найдено` : ''}`;
+  note.textContent = `${d.page ? d.page + ' · ' : ''}${d.frame} · ${d.w}px${fit}${anch}`;
+  if (!r.anchored && r.mode !== 'image') note.textContent += ' — нет привязок, макет лёг по координатам';
   if (ovState.mode === 'image' && !d.png) {
     note.textContent += ' — PNG нет, переэкспортируй с чекбоксом PNG';
   }
 }
 
-$('ov-on').onchange = (e) => { ovState.on = e.target.checked; applyOverlay(); };
+$('ov-on').onchange = (e) => { ovState.on = e.target.checked; ovState.data = null; applyOverlay(); };
+chrome.tabs.onActivated.addListener(() => { ovState.data = null; if (ovState.on) applyOverlay(); });
+chrome.tabs.onUpdated.addListener((id, info) => { if (info.status === 'complete') { ovState.data = null; if (ovState.on) applyOverlay(); } });
 $('ov-op').oninput = (e) => {
   ovState.opacity = e.target.value / 100;
   $('ov-val').textContent = `${e.target.value}%`;
@@ -94,11 +104,13 @@ $('ov-op').oninput = (e) => {
 $('ov-mode').onchange = (e) => { ovState.mode = e.target.value; if (ovState.on) applyOverlay(); };
 $('ov-x').oninput = (e) => { ovState.offsetX = +e.target.value || 0; if (ovState.on) applyOverlay(); };
 $('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; if (ovState.on) applyOverlay(); };
-$('ov-center').onchange = (e) => { ovState.align = e.target.checked ? 'center' : 'left'; if (ovState.on) applyOverlay(); };
+$('ov-loose').onchange = (e) => { ovState.loose = e.target.checked; if (ovState.on) applyOverlay(); };
 
-const tabWidth = () => new Promise((res) => {
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t?.width ?? '?'));
+const activeTab = () => new Promise((res) => {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));
 });
+
+const viewportFor = (w) => (!w ? 'desktop' : w <= 600 ? 'mobile' : w <= 1100 ? 'tablet' : 'desktop');
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
 
 let curNode = null;
