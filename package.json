@@ -9,11 +9,15 @@
     "build:plugin": "esbuild plugin/code.ts --bundle --target=es2017 --outfile=plugin/code.js",
     "modules": "node server/modules.mjs",
     "qa:all": "node server/all.mjs",
-    "automap": "node server/automap.mjs"
+    "automap": "node server/automap.mjs",
+    "patch": "node server/patch.mjs",
+    "pixdiff": "node server/pixdiff.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",
     "esbuild": "^0.23.0",
-    "playwright": "^1.62.1"
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.62.1",
+    "pngjs": "^7.0.0"
   }
 }
