@@ -112,7 +112,30 @@ const activeTab = () => new Promise((res) => {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));
 });
 
-const viewportFor = (w) => (!w ? 'desktop' : w <= 600 ? 'mobile' : w <= 1100 ? 'tablet' : 'desktop');
+let vpChoice = 'auto';
+const VP_W = { desktop: 1920, tablet: 912, mobile: 357 };
+
+const autoViewport = (w) => (!w ? 'desktop' : w <= 600 ? 'mobile' : w <= 1100 ? 'tablet' : 'desktop');
+const viewportFor = (w) => (vpChoice === 'auto' ? autoViewport(w) : vpChoice);
+
+async function showVpNote() {
+  const tab = await activeTab();
+  const vp = viewportFor(tab?.width);
+  const ref = VP_W[vp];
+  const diff = tab?.width && ref ? Math.abs(tab.width - ref) : 0;
+  $('vp-note').textContent = `${vp} · макет ${ref}px · окно ${tab?.width ?? '?'}px`
+    + (diff > 80 ? ' — ширина сильно расходится, блоки масштабируются' : '');
+}
+
+document.querySelectorAll('.vp-btn').forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll('.vp-btn').forEach((x) => x.classList.toggle('on', x === b));
+    vpChoice = b.dataset.vp;
+    ovState.data = null;
+    showVpNote();
+    if (ovState.on) applyOverlay();
+  };
+});
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
 
 let curNode = null;
@@ -173,6 +196,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 fillPages();
+setTimeout(showVpNote, 300);
 
 
 async function runAudit() {

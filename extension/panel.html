@@ -18,6 +18,11 @@
   .hint { margin-top: 8px; padding: 7px 8px; border-radius: 6px; background: #1a222b;
           color: #b9c6d4; font-size: 11px; line-height: 1.4; }
   .hint b { color: #dde5ee; }
+  .vp { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
+  .vp-row { display: flex; gap: 4px; }
+  .vp-btn { flex: 1; padding: 5px 4px; border: 1px solid #34424f; border-radius: 5px;
+            background: #1a222b; color: #b9c6d4; font-size: 11px; cursor: pointer; }
+  .vp-btn.on { background: #7ba7d4; color: #16202a; border-color: #7ba7d4; font-weight: 600; }
   .ovl { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
   .ovl-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; color: #b9c6d4; }
   .ovl-row input[type=range] { flex: 1; accent-color: #7ba7d4; }
@@ -62,6 +67,15 @@
   <div class="stat"><span>плагин Figma</span><code id="figma">—</code></div>
   <div class="stat"><span>нод в карте</span><code id="mapn">0</code></div>
   <div class="hint" id="hint"></div>
+</div>
+<div class="vp">
+  <div class="vp-row">
+    <button class="vp-btn on" data-vp="auto">авто</button>
+    <button class="vp-btn" data-vp="desktop">ПК</button>
+    <button class="vp-btn" data-vp="tablet">планшет</button>
+    <button class="vp-btn" data-vp="mobile">телефон</button>
+  </div>
+  <div class="ovl-note" id="vp-note"></div>
 </div>
 <div class="ovl">
   <label class="ovl-row"><input type="checkbox" id="ov-on"> наложить макет</label>
