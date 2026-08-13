@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureCert } from './lib/cert.mjs';
 import { saveFrames } from './lib/save.mjs';
-import { subscribe, publish, peers } from './lib/bus.mjs';
+import { subscribe, publish, peers, peerDetails } from './lib/bus.mjs';
 import { ensureLocalConfigs } from './lib/bootstrap.mjs';
 import { matchPage } from './lib/pagematch.mjs';
 
@@ -35,7 +35,16 @@ const handler = (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/ping') {
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ ok: true, service: 'pixel-guard', peers: peers() }));
+    return res.end(JSON.stringify({
+      ok: true, service: 'pixel-guard',
+      peers: peers(),
+      figmaAlive: (peers().figma ?? 0) > 0,
+      connections: peerDetails(),
+      render: {
+        busy: renderBusy ? { reqId: renderBusy.reqId, stage: renderBusy.stage, ms: Date.now() - renderBusy.startedAt } : null,
+        queued: renderQueue.length,
+      },
+    }));
   }
 
   if (req.method === 'GET' && url.pathname === '/bus') {

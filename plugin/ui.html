@@ -7,6 +7,8 @@
   button { width: 100%; margin-top: 10px; padding: 8px; border: 0; border-radius: 6px; background: #7ba7d4; color: #16202a; font-weight: 600; cursor: pointer; }
   button.alt { background: #34424f; color: #dde5ee; margin-top: 6px; }
   button:disabled { opacity: .5; cursor: default; }
+  #bus-state { margin-top: 8px; font-size: 11px; color: #8fb5da; }
+  #bus-state.err { color: #e8a0a0; }
   #log { margin-top: 10px; padding: 8px; min-height: 70px; background: #1a222b; border-radius: 6px; white-space: pre-wrap; word-break: break-word; color: #9ec9a8; }
   #log.err { color: #e8a0a0; }
   #log a { color: #8fb5da; }
@@ -24,6 +26,7 @@
 <button id="go">Export snapshot</button>
 <button id="goall" class="alt">Экспорт всего проекта</button>
 <button id="save" class="alt" disabled>Скачать JSON</button>
+<div id="bus-state">живой режим выключен</div>
 <div id="log">Выдели frame(’ы) на канвасе и жми Export.</div>
 <script>
   const isWeb = location.protocol === 'https:' || parent !== window && /figma\.com$/.test(document.referrer.split('/')[2] || '');
@@ -79,17 +82,32 @@
   };
 
   let bus = null;
-  const setLive = (on) => {
+  let busRetry = 0;
+  let busTimer = null;
+  let lastBeat = 0;
+  let watchdog = null;
+
+  const busStatus = (t, err) => { el('bus-state').textContent = t; el('bus-state').className = err ? 'err' : ''; };
+
+  const connectBus = () => {
     if (bus) { bus.close(); bus = null; }
-    if (!on) { log('живой режим выключен'); return; }
     const base = busBase();
     bus = new EventSource(`${base}/bus?role=figma`);
-    bus.addEventListener('hello', () => log(`живой режим: подключён к ${base}`));
-    bus.addEventListener('peers', (e) => {
-      const p = JSON.parse(e.data);
-      log(`живой режим: браузер ${p.extension ? `подключён (${p.extension})` : 'не подключён'}`);
+
+    bus.addEventListener('hello', () => {
+      busRetry = 0;
+      lastBeat = Date.now();
+      busStatus(`на связи · ${base}`);
+      log(`живой режим: подключён к ${base}`);
     });
+    bus.addEventListener('peers', (e) => {
+      lastBeat = Date.now();
+      const p = JSON.parse(e.data);
+      busStatus(`на связи · браузер ${p.extension ? 'да' : 'нет'}`);
+    });
+    bus.addEventListener('beat', () => { lastBeat = Date.now(); });
     bus.addEventListener('render', (e) => {
+      lastBeat = Date.now();
       const req = JSON.parse(e.data);
       log(`рендер: ${req.id} (${req.format || 'PNG'})…`);
       fetch(`${busBase()}/render-ack`, {
@@ -99,11 +117,44 @@
       parent.postMessage({ pluginMessage: { type: 'render-request', ...req } }, '*');
     });
     bus.addEventListener('find', (e) => {
+      lastBeat = Date.now();
       const req = JSON.parse(e.data);
       parent.postMessage({ pluginMessage: { type: 'find-node', ...req } }, '*');
     });
-    bus.onerror = () => log(`живой режим: нет связи с ${base}.\nЗапусти npm run server${base.startsWith('https') ? ` и прими сертификат на ${base}/ping` : ''}`, true);
+
+    // EventSource в iframe плагина умеет отвалиться молча — переподключаемся сами
+    bus.onerror = () => {
+      if (!el('live').checked) return;
+      busRetry++;
+      const wait = Math.min(15000, 1000 * busRetry);
+      busStatus(`нет связи, переподключаюсь через ${Math.round(wait / 1000)}с (попытка ${busRetry})`, true);
+      clearTimeout(busTimer);
+      busTimer = setTimeout(connectBus, wait);
+    };
   };
+
+  const setLive = (on) => {
+    clearTimeout(busTimer);
+    clearInterval(watchdog);
+    if (!on) {
+      if (bus) { bus.close(); bus = null; }
+      busStatus('живой режим выключен');
+      log('живой режим выключен');
+      return;
+    }
+    busRetry = 0;
+    connectBus();
+    // если сервер молчит дольше 70с (ping идёт раз в 25с) — соединение мертво
+    watchdog = setInterval(() => {
+      if (!el('live').checked || !lastBeat) return;
+      if (Date.now() - lastBeat > 70000) {
+        busStatus('связь потеряна, переподключаюсь…', true);
+        lastBeat = Date.now();
+        connectBus();
+      }
+    }, 15000);
+  };
+
   el('live').onchange = (e) => setLive(e.target.checked);
 
   onmessage = async (e) => {
