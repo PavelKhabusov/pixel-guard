@@ -22,6 +22,7 @@ function setStatus(s) {
 function render(r) {
   const body = $('body');
   logLine(`← ${r.name}`);
+  if (r.figmaId) showBind(r.node ? { ...r.node, figmaId: r.figmaId, name: r.name } : { figmaId: r.figmaId, name: r.name }, r.found || !!r.skip);
   if (r.skip) {
     body.innerHTML = `<div class="node">${esc(r.name)}</div><div class="note">skip: ${esc(r.skip)}</div>`;
     return;
@@ -89,3 +90,62 @@ $('ov-op').oninput = (e) => {
 };
 $('ov-mode').onchange = (e) => { ovState.mode = e.target.value; if (ovState.on) applyOverlay(); };
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
+
+let curNode = null;
+let curPages = [];
+
+const post = (path, body) =>
+  new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-post', path, body }, res));
+
+function guessPage(url) {
+  const hit = curPages.find((p) => p.url && url && new URL(p.url).pathname === new URL(url).pathname);
+  return hit?.key;
+}
+
+async function fillPages() {
+  const list = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: '/pages' }, res));
+  if (!Array.isArray(list)) return;
+  curPages = list;
+  const sel = $('bind-page');
+  sel.innerHTML = list.map((p) => `<option value="${p.key}">${p.key}</option>`).join('');
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+    const g = t && guessPage(t.url);
+    if (g) sel.value = g;
+  });
+}
+
+function showBind(node, found) {
+  curNode = node;
+  $('bind').hidden = !node || found;
+  $('bind-note').textContent = '';
+}
+
+async function saveBinding(entry) {
+  const key = curNode?.figmaId;
+  if (!key) return;
+  const r = await post('/map', { page: $('bind-page').value, key, entry });
+  $('bind-note').textContent = r?.ok ? `записано в ${r.file} (${r.size} ключей)` : `ошибка: ${r?.error ?? '—'}`;
+  if (r?.ok) {
+    await toActiveTab({ type: 'pg-remap' });
+    $('bind').hidden = true;
+  }
+}
+
+$('bind-go').onclick = async () => {
+  if (!curNode) return;
+  $('bind-note').textContent = 'кликни элемент на странице (Esc — отмена)';
+  await toActiveTab({ type: 'pg-pick-start', node: curNode });
+};
+
+$('bind-skip').onclick = () => saveBinding({ skip: 'помечено вручную из панели' });
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'pg-pick-result') {
+    $('bind-note').textContent = `${msg.selector} · ${msg.domSize}`;
+    saveBinding({ selector: msg.selector, source: 'manual', name: curNode?.name });
+    render({ name: curNode?.name ?? '', figmaId: curNode?.figmaId, selector: msg.selector, found: true, rows: msg.rows });
+  }
+  if (msg.type === 'pg-pick-cancelled') $('bind-note').textContent = 'отменено';
+});
+
+fillPages();

@@ -198,3 +198,82 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-overlay-show') { reply(showOverlay(msg.data, msg.opts ?? {})); return true; }
   if (msg.type === 'pg-overlay-hide') { hideOverlay(); reply({ ok: true }); return true; }
 });
+
+let pick = null;
+
+function uniqueSelector(el) {
+  const nice = (e) => {
+    const cls = [...e.classList].filter((c) => !/^(is-|js-|swiper-|wp-|has-|active|current)/.test(c));
+    return e.tagName.toLowerCase() + (e.id ? '#' + CSS.escape(e.id) : '') + cls.slice(0, 3).map((c) => '.' + CSS.escape(c)).join('');
+  };
+  let sel = nice(el);
+  if (document.querySelectorAll(sel).length === 1) return sel;
+  for (let p = el.parentElement, hops = 0; p && p !== document.body && hops < 4; p = p.parentElement, hops++) {
+    sel = nice(p) + ' ' + sel;
+    if (document.querySelectorAll(sel).length === 1) return sel;
+  }
+  const sibs = [...(el.parentElement?.children ?? [])].filter((s) => s.tagName === el.tagName);
+  if (sibs.length > 1) sel += `:nth-of-type(${sibs.indexOf(el) + 1})`;
+  return sel;
+}
+
+function startPick(node) {
+  stopPick();
+  const hi = document.createElement('div');
+  hi.className = 'pg-pick';
+  document.documentElement.appendChild(hi);
+
+  const tip = document.createElement('div');
+  tip.className = 'pg-pick-tip';
+  tip.textContent = `Выбери элемент для «${node.name || node.figmaId}» · Esc — отмена`;
+  document.documentElement.appendChild(tip);
+
+  const onMove = (e) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || el === hi || el === tip) return;
+    pick.el = el;
+    const r = el.getBoundingClientRect();
+    Object.assign(hi.style, {
+      top: `${r.top + scrollY}px`, left: `${r.left + scrollX}px`,
+      width: `${r.width}px`, height: `${r.height}px`, display: 'block',
+    });
+  };
+  const onClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = pick?.el;
+    if (!el) return;
+    const selector = uniqueSelector(el);
+    const r = el.getBoundingClientRect();
+    chrome.runtime.sendMessage({
+      type: 'pg-pick-done',
+      node,
+      selector,
+      domSize: `${Math.round(r.width)}x${Math.round(r.height)}`,
+      rows: diff(node, el),
+    });
+    stopPick();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') { chrome.runtime.sendMessage({ type: 'pg-pick-cancel' }); stopPick(); } };
+
+  pick = { hi, tip, onMove, onClick, onKey, el: null };
+  addEventListener('mousemove', onMove, true);
+  addEventListener('click', onClick, true);
+  addEventListener('keydown', onKey, true);
+}
+
+function stopPick() {
+  if (!pick) return;
+  removeEventListener('mousemove', pick.onMove, true);
+  removeEventListener('click', pick.onClick, true);
+  removeEventListener('keydown', pick.onKey, true);
+  pick.hi.remove();
+  pick.tip.remove();
+  pick = null;
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-pick-start') { startPick(msg.node); reply({ ok: true }); return true; }
+  if (msg.type === 'pg-remap') { loadMap().then(() => reply({ ok: true })); return true; }
+  if (msg.type === 'pg-pick-stop') { stopPick(); reply({ ok: true }); return true; }
+});

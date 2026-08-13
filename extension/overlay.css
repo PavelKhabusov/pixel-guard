@@ -24,3 +24,26 @@
   border: 1px solid rgba(123, 167, 212, 0.9);
   background: rgba(123, 167, 212, 0.06);
 }
+
+.pg-pick {
+  position: absolute;
+  z-index: 2147483646;
+  pointer-events: none;
+  display: none;
+  border: 2px solid #d4b483;
+  background: rgba(212, 180, 131, 0.18);
+}
+.pg-pick-tip {
+  position: fixed;
+  z-index: 2147483647;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: #222b36 !important;
+  color: #dde5ee !important;
+  font: 12px/1.3 Inter, system-ui, sans-serif !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}

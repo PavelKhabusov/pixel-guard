@@ -104,11 +104,31 @@ const handler = (req, res) => {
     return res.end(fs.readFileSync(p));
   }
 
+  if (req.method === 'GET' && url.pathname === '/pages') {
+    const cfg = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify(Object.entries(cfg).map(([key, v]) => ({ key, url: v.url }))));
+  }
+
   if (req.method === 'GET' && url.pathname === '/map') {
     const p = path.join(ROOT, 'maps', `${url.searchParams.get('page') ?? 'home'}.map.json`);
     const shared = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({ ...shared, ...(readJsonSafe(p) ?? {}) }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/map') {
+    return readBody(req, res, ({ page = 'home', key, entry, remove }) => {
+      if (!key) return res.writeHead(400).end(JSON.stringify({ ok: false, error: 'нет key' }));
+      const target = key.startsWith('@') ? path.join(ROOT, 'maps', '_shared.map.json') : path.join(ROOT, 'maps', `${page}.map.json`);
+      const cur = readJsonSafe(target) ?? {};
+      if (remove) delete cur[key];
+      else cur[key] = entry;
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, JSON.stringify(cur, null, 2));
+      console.log(`[map] ${remove ? 'удалено' : 'записано'} ${key} → ${path.relative(ROOT, target)}${entry?.selector ? ` (${entry.selector})` : ''}`);
+      res.end(JSON.stringify({ ok: true, file: path.relative(ROOT, target), size: Object.keys(cur).length }));
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/ingest') {

@@ -23,6 +23,13 @@
   .ovl-row input[type=range] { flex: 1; accent-color: #7ba7d4; }
   .ovl-row select { background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
   .ovl-note { font-size: 10px; color: #6f7f8f; margin-top: 4px; }
+  .bind { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
+  .bind-row { display: flex; gap: 6px; }
+  .bind select { flex: 1; background: #1a222b; color: #dde5ee; border: 1px solid #3a4756;
+                 border-radius: 5px; padding: 5px; font-size: 11px; }
+  .bind button { padding: 5px 10px; border: 0; border-radius: 5px; background: #7ba7d4;
+                 color: #16202a; font-weight: 600; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  .bind button.ghost { width: 100%; margin-top: 6px; background: #34424f; color: #dde5ee; font-weight: 400; }
   .body { flex: 1; overflow: auto; padding: 12px 14px; }
   .empty { color: #6f7f8f; font-size: 11px; }
   .node { margin-bottom: 4px; font-size: 13px; font-family: Inter, system-ui, sans-serif; }
@@ -52,6 +59,14 @@
     <label><input type="checkbox" id="ov-diff"> difference</label>
   </div>
   <div class="ovl-note" id="ov-note"></div>
+</div>
+<div class="bind" id="bind" hidden>
+  <div class="bind-row">
+    <select id="bind-page" title="в какую карту писать"></select>
+    <button id="bind-go">Привязать мышью</button>
+  </div>
+  <button id="bind-skip" class="ghost">Пометить skip</button>
+  <div class="ovl-note" id="bind-note"></div>
 </div>
 <div class="body" id="body"><div class="empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
 <div class="log" id="log"></div>

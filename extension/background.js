@@ -27,11 +27,11 @@ function toTabs(message) {
       chrome.tabs.sendMessage(t.id, message).then((result) => {
         if (!result || answered) return;
         if (result.found || result.skip) answered = true;
-        toPanel({ type: 'pg-panel-result', result });
+        toPanel({ type: 'pg-panel-result', result: { ...result, node: message.node } });
       }).catch(() => {});
     }
     setTimeout(() => {
-      if (!answered) toPanel({ type: 'pg-panel-result', result: { name: message.node.name || message.node.figmaId, figmaId: message.node.figmaId, found: false } });
+      if (!answered) toPanel({ type: 'pg-panel-result', result: { name: message.node.name || message.node.figmaId, figmaId: message.node.figmaId, found: false, node: message.node } });
     }, 400);
   });
 }
@@ -111,6 +111,19 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     }).then((r) => r.json()).then(reply).catch((e) => reply({ ok: false, error: String(e) }));
     return true;
   }
+  if (msg.type === 'pg-post') {
+    fetch(`${BASE}${msg.path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg.body ?? {}),
+    }).then((r) => r.json()).then(reply).catch((e) => reply({ ok: false, error: String(e) }));
+    return true;
+  }
+  if (msg.type === 'pg-pick-done') {
+    toPanel({ type: 'pg-pick-result', selector: msg.selector, domSize: msg.domSize, rows: msg.rows, node: msg.node });
+    return;
+  }
+  if (msg.type === 'pg-pick-cancel') { toPanel({ type: 'pg-pick-cancelled' }); return; }
   if (msg.type === 'pg-fetch') {
     fetch(`${BASE}${msg.path}`).then((r) => r.json()).then(reply).catch((e) => reply({ ok: false, error: String(e) }));
     return true;
