@@ -8,8 +8,9 @@ export function expandTree(node, lib, base = null) {
   if (!lib || !node) return node;
   const out = { ...node };
 
-  if (node.compRef && lib[node.compRef]?.children) {
-    const proto = lib[node.compRef];
+  const ref = node.compRef ?? node.compDef;
+  if (ref && !node.children?.length && lib[ref]?.children) {
+    const proto = lib[ref];
     const dx = (node.x ?? 0) - (proto.x ?? 0);
     const dy = (node.y ?? 0) - (proto.y ?? 0);
     out.children = proto.children.map((c) => shift(expandTree(c, lib), dx, dy));

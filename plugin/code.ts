@@ -140,11 +140,16 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
         o.compRef = ref;
         return o;
       }
+      // первое вхождение несёт детей при себе И кладёт их в словарь:
+      // так снапшот остаётся самодостаточным, даже если compLib потеряется
       if ('children' in node && node.children.length) {
         const kids = node.children.filter((c) => c.visible).map((c) => serialize(c, { x: box.x, y: box.y }));
-        if (kids.length) compCache[ref] = { children: kids };
+        if (kids.length) {
+          o.children = kids;
+          compCache[ref] = { x: o.x, y: o.y, children: kids };
+        }
       }
-      o.compRef = ref;
+      o.compDef = ref;
       return o;
     }
   }
