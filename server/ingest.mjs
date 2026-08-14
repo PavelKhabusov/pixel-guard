@@ -40,10 +40,7 @@ const handler = (req, res) => {
       peers: peers(),
       figmaAlive: (peers().figma ?? 0) > 0,
       connections: peerDetails(),
-      render: {
-        busy: renderBusy ? { reqId: renderBusy.reqId, stage: renderBusy.stage, ms: Date.now() - renderBusy.startedAt } : null,
-        queued: renderQueue.length,
-      },
+      render: { active: renderActive.size, queued: renderQueue.length, parallel: RENDER_PARALLEL },
     }));
   }
 
@@ -288,7 +285,8 @@ const handler = (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/render-ack') {
     return readBody(req, res, ({ reqId }) => {
-      if (renderBusy?.reqId === reqId) renderBusy.stage = 'rendering';
+      const job = renderActive.get(reqId);
+      if (job) job.stage = 'rendering';
       res.end(JSON.stringify({ ok: true }));
     });
   }
@@ -297,7 +295,8 @@ const handler = (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({
       ok: true,
-      busy: renderBusy ? { reqId: renderBusy.reqId, stage: renderBusy.stage, ms: Date.now() - renderBusy.startedAt } : null,
+      parallel: RENDER_PARALLEL,
+      active: [...renderActive.values()].map((j) => ({ reqId: j.reqId, stage: j.stage, ms: Date.now() - j.startedAt })),
       queued: renderQueue.length,
       cached: renderCache.size,
     }));
@@ -386,18 +385,21 @@ let renderSeq = 0;
  *  запрос просто ждёт своей очереди и «сгорает» по таймауту. Поэтому
  *  сериализуем — в работе всегда ровно одно задание. */
 const renderQueue = [];
-let renderBusy = null;
+const renderActive = new Map();
+const RENDER_PARALLEL = Number(process.env.PG_RENDER_PARALLEL || 3);
 
 function enqueue(job) {
   renderQueue.push(job);
   pumpQueue();
-  return renderQueue.length + (renderBusy ? 1 : 0);
+  return renderQueue.length + renderActive.size;
 }
 
 function pumpQueue() {
-  if (renderBusy || !renderQueue.length) return;
-  const job = renderQueue.shift();
-  renderBusy = job;
+  while (renderActive.size < RENDER_PARALLEL && renderQueue.length) startJob(renderQueue.shift());
+}
+
+function startJob(job) {
+  renderActive.set(job.reqId, job);
   job.stage = 'sent';
   job.startedAt = Date.now();
 
@@ -415,7 +417,7 @@ function pumpQueue() {
 }
 
 function finishJob(job, msg) {
-  if (renderBusy === job) renderBusy = null;
+  renderActive.delete(job.reqId);
   try { job.done(msg); } catch (e) { console.error('[render]', e.message); }
   setImmediate(pumpQueue);
 }

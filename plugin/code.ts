@@ -354,7 +354,16 @@ async function renderNode(id: string, format: string, scale: number) {
   const settings: any = format === 'SVG'
     ? { format: 'SVG' }
     : { format, constraint: { type: 'SCALE', value: scale || 1 } };
-  const bytes = await (node as any).exportAsync(settings);
+
+  const bytes = await Promise.race([
+    (node as any).exportAsync(settings),
+    new Promise((_, rej) => setTimeout(
+      () => rej(new Error(`exportAsync завис на «${node.name}» (${node.type}). `
+        + 'Обычно это нода с image-заливкой, картинка которой ещё не подгружена: '
+        + 'прокрути к ней на канвасе, чтобы Figma её загрузила, и повтори')),
+      45000,
+    )),
+  ]) as Uint8Array;
 
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
   return {
