@@ -135,6 +135,22 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     });
     return;
   }
+  if (msg.type === 'pg-shot') {
+    // CSP сайта режет http://localhost в img-src, поэтому тянем картинку
+    // из расширения и отдаём data:URI — его разрешает 'self' data:
+    fetch(`${BASE}/shot?file=${encodeURIComponent(msg.file)}`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((buf) => {
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 8192) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+        }
+        reply({ ok: true, dataUrl: `data:image/png;base64,${btoa(bin)}` });
+      })
+      .catch((e) => reply({ ok: false, error: String(e) }));
+    return true;
+  }
   if (msg.type === 'pg-fetch') {
     fetch(`${BASE}${msg.path}`).then((r) => r.json()).then(reply).catch((e) => reply({ ok: false, error: String(e) }));
     return true;

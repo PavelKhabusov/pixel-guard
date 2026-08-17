@@ -152,6 +152,7 @@ loadMap();
 let ov = null;
 let fixedLayer = null;
 let lastOverlay = null;
+const shotCache = new Map();
 let reflowPending = false;
 
 function buildOverlay() {
@@ -195,8 +196,14 @@ function makeBox(b, opts, left, top, scale, lib) {
   // кладём картинку вместо перерисовки нод, это пиксель-в-пиксель
   if (opts.mode === 'shots' && b.shot) {
     const img = document.createElement('img');
-    img.src = `http://localhost:8971/shot?file=${encodeURIComponent(b.shot)}`;
     img.style.cssText = 'width:100%;height:100%;display:block';
+    const cached = shotCache.get(b.shot);
+    if (cached) img.src = cached;
+    else {
+      chrome.runtime.sendMessage({ type: 'pg-shot', file: b.shot }, (r) => {
+        if (r?.ok) { shotCache.set(b.shot, r.dataUrl); img.src = r.dataUrl; }
+      });
+    }
     d.appendChild(img);
     d.style.cssText = `left:${left}px;top:${top}px;width:${b.w * scale}px;height:${b.h * scale}px`;
     d.title = `${b.name} · ${b.w}×${b.h} (PNG из макета)`;
