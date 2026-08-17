@@ -29,7 +29,10 @@ export function compareNode(fig, dom, entry = {}) {
   const s = dom.styles;
 
   const hugsWidth = fig.type === 'TEXT' && (fig.autoResize === 'WIDTH_AND_HEIGHT' || fig.autoResize === 'TRUNCATE');
-  if (!hugsWidth) numCheck('width', fig.w, px(dom.rect.width), tol.geo);
+  // Полноширинный блок (шириной во весь фрейм) в браузере занимает всё окно —
+  // разница равна ширине окна, а не расхождению вёрстки.
+  const fullWidth = entry.frameW && Math.abs(fig.w - entry.frameW) < 2;
+  if (!hugsWidth && !fullWidth) numCheck('width', fig.w, px(dom.rect.width), tol.geo);
   if (fig.type === 'TEXT') {
     const act = px(dom.rect.height);
     const lo = fig.renderH ?? fig.h;

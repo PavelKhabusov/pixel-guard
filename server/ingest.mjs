@@ -228,7 +228,7 @@ const handler = (req, res) => {
         const { children, ...rest } = out[k];
         out[k] = rest;
       }
-      return res.end(JSON.stringify({ page: pageKey, viewport, frame: j.frameName, nodes: out, found: Object.keys(out).length, wanted: keys.length }));
+      return res.end(JSON.stringify({ page: pageKey, viewport, frame: j.frameName, frameW: root.w, nodes: out, found: Object.keys(out).length, wanted: keys.length }));
     }
     return res.writeHead(404).end(JSON.stringify({ ok: false, error: `снапшот с frame ${frameId} не найден` }));
   }

@@ -10,13 +10,15 @@ const logLine = (t) => {
 
 function setStatus(s) {
   const figma = s.peers?.figma ?? 0;
-  $('dot').className = `dot ${s.connected ? 'on' : 'off'}`;
-  $('state').textContent = s.connected ? 'подключён к серверу' : 'сервер недоступен';
-  $('figma').textContent = figma ? `${figma} ✓` : 'нет';
-  $('mapn').textContent = s.mapSize ?? 0;
-  if (!s.connected) $('hint').innerHTML = 'Сервер не отвечает — запусти <b>npm run server</b>.';
-  else if (!figma) $('hint').innerHTML = 'Открой плагин <b>pixel-guard</b> в Figma и включи <b>живой режим</b>.';
-  else $('hint').innerHTML = 'Готово: кликай ноду в Figma.';
+  $('dot').className = `dot ${s.connected ? 'on' : ''}`;
+  // Одна строка вместо трёх полей: сервер, Figma и размер карты
+  $('state').textContent = !s.connected
+    ? 'сервер не запущен'
+    : `${s.mapSize ?? 0} привязок · Figma ${figma ? 'на связи' : 'не нужна'}`;
+
+  if (!s.connected) {
+    alertBox('<b>Сервер не запущен.</b>Выполни <code>npm run server</code> в папке pixel-guard.');
+  }
 }
 
 function render(r) {
@@ -33,13 +35,21 @@ function render(r) {
       <div class="empty">Добавь в maps/&lt;page&gt;.map.json:<br><code>"${esc(r.figmaId)}": { "selector": "…" }</code></div>`;
     return;
   }
-  const bad = r.rows.filter((x) => !x.pass).length;
+  const fails = r.rows.filter((x) => !x.pass);
+  const oks = r.rows.filter((x) => x.pass);
+  const row = (x) => `<tr class="${x.pass ? 'ok' : 'no'}">
+      <td>${esc(x.prop)}</td><td>${esc(x.fig)}</td><td>→</td><td>${esc(x.act)}</td>
+      <td>${x.delta && !x.pass ? esc(x.delta) : ''}</td></tr>`;
+
+  // Сначала расхождения — ради них всё и затевалось. Совпавшие прячем
+  // под раскрывашку, иначе список выглядит как «чушь из одинаковых строк».
   body.innerHTML = `<div class="node">${esc(r.name)}</div>
     <div class="sel"><code>${esc(r.selector)}</code></div>
-    <div class="score">${r.rows.length - bad} ✓ · ${bad} ✗</div>
-    <table>${r.rows.map((x) => `<tr class="${x.pass ? 'ok' : 'no'}">
-      <td>${esc(x.prop)}</td><td>${esc(x.fig)}</td><td>→</td><td>${esc(x.act)}</td>
-      <td>${x.delta && !x.pass ? esc(x.delta) : ''}</td></tr>`).join('')}</table>`;
+    <div class="score">${oks.length} ✓ · ${fails.length} ✗</div>
+    ${fails.length ? `<table>${fails.map(row).join('')}</table>`
+      : '<div class="allok">всё сходится с макетом</div>'}
+    ${oks.length ? `<details class="okwrap"><summary>совпало: ${oks.length}</summary>
+      <table>${oks.map(row).join('')}</table></details>` : ''}`;
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
@@ -284,7 +294,7 @@ async function runAudit() {
   const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
   if (!data || data.ok === false) { note.textContent = data?.error ?? 'нет данных'; return; }
 
-  const rows = await toActiveTab({ type: 'pg-audit', nodes: data.nodes, page: data.page });
+  const rows = await toActiveTab({ type: 'pg-audit', nodes: data.nodes, page: data.page, frameW: data.frameW });
   if (!rows) {
     alertBox('<b>Страница не отвечает.</b><br>Скорее всего расширение перезагружали — '
       + 'обнови вкладку, чтобы вернуть связь.', { label: 'Обновить страницу', run: reloadTab });

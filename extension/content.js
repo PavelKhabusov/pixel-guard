@@ -47,7 +47,11 @@ function diff(node, el) {
   };
 
   const hug = node.autoResize === 'WIDTH_AND_HEIGHT' || node.autoResize === 'TRUNCATE';
-  if (!hug) cmp('width', node.w, px(r.width), 2);
+  // Полноширинный блок тянется на всё окно, а макет снят под фиксированную
+  // ширину: разница = ширина окна, а не ошибка вёрстки. Не сверяем.
+  const fullWidth = Math.abs(node.w - (window.__pgFrameW ?? node.w)) < 2
+    && Math.abs(r.width - innerWidth) < 4;
+  if (!hug && !fullWidth) cmp('width', node.w, px(r.width), 2);
   if (node.type === 'TEXT') {
     const act = px(r.height);
     const lo = node.renderH ?? node.h;
@@ -547,6 +551,7 @@ function auditPage(nodesById) {
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-audit') {
+    if (msg.frameW) window.__pgFrameW = msg.frameW;
     const run = () => reply(auditPage(msg.nodes ?? {}));
     if (Object.keys(map).length) run();
     else loadMap(msg.page).then(run);

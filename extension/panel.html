@@ -3,126 +3,160 @@
 <title>pixel-guard</title>
 <style>
   :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 0;
-    background: #222b36; color: #dde5ee;
-    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin: 0; background: #1a222b; color: #dde5ee;
+    font: 13px/1.45 Inter, system-ui, sans-serif;
     display: flex; flex-direction: column; height: 100vh;
   }
-  .head { padding: 12px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
-  .head h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
-  .stat { display: flex; justify-content: space-between; margin: 3px 0; color: #b9c6d4; }
-  .stat code { color: #8fb5da; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-  .dot.on { background: #7fb08a; } .dot.off { background: #c98b8b; }
-  .hint { margin-top: 8px; padding: 7px 8px; border-radius: 6px; background: #1a222b;
-          color: #b9c6d4; font-size: 11px; line-height: 1.4; }
-  .hint b { color: #dde5ee; }
+
+  .top { padding: 12px 14px 10px; border-bottom: 1px solid #2b3642; }
+  .title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #c98b8b; flex: none; }
+  .dot.on { background: #7fb08a; }
+  .state { margin-left: auto; font-size: 11px; color: #6f7f8f; font-weight: 400; }
+
   .alert { margin: 10px 14px 0; padding: 10px 12px; border-radius: 8px;
-           background: #4a2f2f; border-left: 3px solid #c98b8b;
-           font-family: Inter, system-ui, sans-serif; }
-  .alert-txt { font-size: 12px; color: #f0d5d5; line-height: 1.45; }
-  .alert-txt code { background: rgba(0,0,0,.3); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
-  .alert button { width: 100%; margin-top: 8px; padding: 6px; border: 0; border-radius: 5px;
+           background: #3d2b2b; border-left: 3px solid #c98b8b; font-size: 12px; color: #f0d5d5; }
+  .alert b { display: block; margin-bottom: 3px; }
+  .alert code { background: rgba(0,0,0,.3); padding: 1px 5px; border-radius: 3px;
+                font: 11px ui-monospace, Menlo, monospace; }
+  .alert button { width: 100%; margin-top: 8px; padding: 6px; border: 0; border-radius: 6px;
                   background: #c98b8b; color: #2a1a1a; font-weight: 600; font-size: 11px; cursor: pointer; }
-  .vp { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
-  .vp-row { display: flex; gap: 4px; }
-  .vp-btn { flex: 1; padding: 5px 4px; border: 1px solid #34424f; border-radius: 5px;
-            background: #1a222b; color: #b9c6d4; font-size: 11px; cursor: pointer; }
-  .vp-btn.on { background: #7ba7d4; color: #16202a; border-color: #7ba7d4; font-weight: 600; }
-  .ovl { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
-  .ovl-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; color: #b9c6d4; }
-  .ovl-row input[type=range] { flex: 1; accent-color: #7ba7d4; }
-  .ovl-row input[type=number] { width: 58px; background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
-  .ovl-row select { background: #1a222b; color: #dde5ee; border: 1px solid #3a4756; border-radius: 4px; padding: 3px 5px; }
-  .ovl-note { font-size: 10px; color: #6f7f8f; margin-top: 4px; }
-  .audit { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
-  .audit button { width: 100%; padding: 7px; border: 0; border-radius: 6px; background: #7ba7d4;
-                  color: #16202a; font-weight: 600; font-size: 12px; cursor: pointer; }
-  .arow { padding: 6px 0; border-bottom: 1px solid #2b3642; cursor: pointer; }
-  .arow:hover { background: #1a222b; }
-  .arow .nm { font-family: Inter, system-ui, sans-serif; font-size: 12px; }
-  .arow .sl { color: #8fb5da; font-size: 11px; word-break: break-all; }
-  .arow .st { float: right; font-size: 11px; }
+
+  .step { padding: 12px 14px; border-bottom: 1px solid #2b3642; }
+  .step-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 9px; }
+  .step-n { width: 17px; height: 17px; border-radius: 50%; background: #34424f; color: #b9c6d4;
+            font-size: 10px; font-weight: 600; display: flex; align-items: center;
+            justify-content: center; flex: none; }
+  .step-t { font-size: 12px; font-weight: 600; }
+  .step-sub { margin-left: auto; font-size: 10px; color: #6f7f8f; text-align: right; }
+
+  .seg { display: flex; gap: 3px; }
+  .seg button { flex: 1; padding: 6px 4px; border: 1px solid #34424f; border-radius: 6px;
+                background: #222b36; color: #b9c6d4; font-size: 11px; cursor: pointer; }
+  .seg button.on { background: #7ba7d4; color: #16202a; border-color: #7ba7d4; font-weight: 600; }
+
+  .btn { width: 100%; padding: 8px; border: 0; border-radius: 7px; background: #7ba7d4;
+         color: #16202a; font-weight: 600; font-size: 12px; cursor: pointer; }
+  .btn.ghost { background: #34424f; color: #dde5ee; font-weight: 500; }
+
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #b9c6d4; }
+  .row input[type=range] { flex: 1; accent-color: #7ba7d4; }
+  .row select { flex: 1; background: #222b36; color: #dde5ee; border: 1px solid #34424f;
+                border-radius: 6px; padding: 5px 6px; font-size: 11px; }
+  .row.hint { color: #6f7f8f; font-size: 10px; margin-top: 6px; line-height: 1.4; }
+  .more { margin-top: 8px; }
+  .more summary { font-size: 10px; color: #6f7f8f; cursor: pointer; }
+  .chk { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11px; }
+
+  .body { flex: 1; overflow: auto; padding: 12px 14px; }
+  .empty { color: #6f7f8f; font-size: 11px; line-height: 1.5; }
+  .node { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .sel { color: #8fb5da; font: 11px ui-monospace, Menlo, monospace;
+         word-break: break-all; margin-bottom: 8px; }
+  .score { font-size: 11px; color: #b9c6d4; margin-bottom: 8px; }
+  .note { color: #d4b483; font-size: 12px; margin: 6px 0; }
+  .allok { color: #9ec9a8; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; }
+  td { padding: 3px 8px 3px 0; vertical-align: top; }
+  tr.no td { color: #e8a0a0; }
+  tr.ok td { color: #9ec9a8; }
+  .okwrap { margin-top: 10px; }
+  .okwrap summary { color: #6f7f8f; font-size: 10px; cursor: pointer; font-family: Inter, sans-serif; }
+
+  .arow { padding: 7px 0; border-bottom: 1px solid #2b3642; cursor: pointer; }
+  .arow:hover { background: #222b36; }
+  .arow .nm { font-size: 12px; }
+  .arow .sl { color: #8fb5da; font-size: 10px; word-break: break-all; margin-top: 1px; }
+  .arow .st { float: right; font-size: 11px; margin-left: 8px; }
   .arow.pass .st { color: #9ec9a8; } .arow.failed .st { color: #e8a0a0; }
   .arow.missing .st, .arow.nofig .st { color: #d4b483; }
-  .arow.skip { opacity: .55; }
-  .bind { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
-  .bind-row { display: flex; gap: 6px; }
-  .bind select { flex: 1; background: #1a222b; color: #dde5ee; border: 1px solid #3a4756;
-                 border-radius: 5px; padding: 5px; font-size: 11px; }
-  .bind button { padding: 5px 10px; border: 0; border-radius: 5px; background: #7ba7d4;
-                 color: #16202a; font-weight: 600; font-size: 11px; cursor: pointer; white-space: nowrap; }
-  .bind button.ghost { width: 100%; margin-top: 6px; background: #34424f; color: #dde5ee; font-weight: 400; }
-  .body { flex: 1; overflow: auto; padding: 12px 14px; }
-  .empty { color: #6f7f8f; font-size: 11px; }
-  .node { margin-bottom: 4px; font-size: 13px; font-family: Inter, system-ui, sans-serif; }
-  .sel { margin: 4px 0 8px; color: #8fb5da; word-break: break-all; }
-  .score { margin: 0 0 8px; color: #b9c6d4; }
-  .note { margin: 6px 0; color: #d4b483; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 2px 4px 2px 0; vertical-align: top; }
-  tr.ok td { color: #9ec9a8; }
-  tr.no td { color: #e8a0a0; }
-  .log { border-top: 1px solid #34424f; padding: 8px 14px; max-height: 110px; overflow: auto;
-         color: #6f7f8f; font-size: 11px; }
-  .log div { margin: 2px 0; }
+  .arow.skip { opacity: .5; }
+
+  .log { border-top: 1px solid #2b3642; padding: 7px 14px; max-height: 84px;
+         overflow: auto; color: #5d6b7a; font: 10px ui-monospace, Menlo, monospace; }
 </style>
-<div class="head">
-  <h4>pixel-guard</h4>
-  <div class="stat"><span><span class="dot off" id="dot"></span><span id="state">сервер недоступен</span></span></div>
-  <div class="stat"><span>плагин Figma</span><code id="figma">—</code></div>
-  <div class="stat"><span>нод в карте</span><code id="mapn">0</code></div>
-  <div class="hint" id="hint"></div>
+
+<div class="top">
+  <div class="title">
+    <span class="dot" id="dot"></span>
+    <span>pixel-guard</span>
+    <span class="state" id="state">подключаюсь…</span>
+  </div>
 </div>
+
 <div class="alert" id="alert" hidden>
-  <div class="alert-txt" id="alert-txt"></div>
-  <button id="alert-act">Обновить страницу</button>
+  <div id="alert-txt"></div>
+  <button id="alert-act" hidden></button>
 </div>
-<div class="vp">
-  <div class="vp-row">
+
+<div class="step">
+  <div class="step-head">
+    <span class="step-n">1</span><span class="step-t">Брейкпоинт</span>
+    <span class="step-sub" id="vp-note"></span>
+  </div>
+  <div class="seg">
     <button class="vp-btn on" data-vp="auto">авто</button>
     <button class="vp-btn" data-vp="desktop">ПК</button>
     <button class="vp-btn" data-vp="tablet">планшет</button>
     <button class="vp-btn" data-vp="mobile">телефон</button>
   </div>
-  <div class="ovl-note" id="vp-note"></div>
 </div>
-<div class="ovl">
-  <label class="ovl-row"><input type="checkbox" id="ov-on"> наложить макет</label>
-  <div class="ovl-row"><input type="range" id="ov-op" min="0" max="100" value="50"><span id="ov-val">50%</span></div>
-  <div class="ovl-row">
+
+<div class="step">
+  <div class="step-head">
+    <span class="step-n">2</span><span class="step-t">Наложить макет</span>
+    <span class="step-sub" id="ov-note"></span>
+  </div>
+  <label class="chk"><input type="checkbox" id="ov-on"> показать поверх страницы</label>
+  <div class="row"><span>видно</span><input type="range" id="ov-op" min="0" max="100" value="100"><span id="ov-val">100%</span></div>
+  <div class="row">
     <select id="ov-mode">
-      <option value="render">макет (цвета, текст)</option>
-      <option value="shots">PNG по блокам (пиксель)</option>
-      <option value="image">картинка PNG (весь макет)</option>
+      <option value="shots">PNG из макета (точно)</option>
+      <option value="render">цвета и текст</option>
       <option value="outline">только рамки</option>
     </select>
-    <label><input type="checkbox" id="ov-diff"> difference</label>
   </div>
-  <div class="ovl-row">
-    <span>сдвиг X</span><input type="number" id="ov-x" value="0" step="10">
-    <span>Y</span><input type="number" id="ov-y" value="0" step="10">
-    <label><input type="checkbox" id="ov-scale" checked> авто-масштаб</label>
-    <label><input type="checkbox" id="ov-solo"> только макет</label>
-    <label><input type="checkbox" id="ov-loose"> непривязанные</label>
-  </div>
-  <label class="ovl-row"><input type="checkbox" id="ov-split-on"> шторка (макет слева / сайт справа)</label>
-  <div class="ovl-row"><input type="range" id="ov-split" min="0" max="100" value="50" disabled><span id="ov-split-val">50%</span></div>
-  <div class="ovl-note" id="ov-note"></div>
+  <label class="chk" style="margin-top:8px"><input type="checkbox" id="ov-split-on"> шторка: слева макет, справа сайт</label>
+  <div class="row"><input type="range" id="ov-split" min="0" max="100" value="50" disabled><span id="ov-split-val">50%</span></div>
+  <details class="more">
+    <summary>ещё настройки</summary>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="ov-diff"> difference</label>
+      <label class="chk"><input type="checkbox" id="ov-solo"> гасить сайт</label>
+      <label class="chk"><input type="checkbox" id="ov-scale" checked> авто-масштаб</label>
+    </div>
+    <div class="row">
+      <span>X</span><input type="range" id="ov-x" min="-200" max="200" value="0" step="5">
+      <span>Y</span><input type="range" id="ov-y" min="-200" max="200" value="0" step="5">
+    </div>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="ov-loose"> непривязанные ноды</label>
+  </details>
 </div>
-<div class="bind" id="bind" hidden>
-  <div class="bind-row">
+
+<div class="step">
+  <div class="step-head">
+    <span class="step-n">3</span><span class="step-t">Сверить стили</span>
+    <span class="step-sub" id="audit-note"></span>
+  </div>
+  <button class="btn" id="run-audit">Проверить страницу</button>
+</div>
+
+<div class="step" id="bind" hidden>
+  <div class="step-head"><span class="step-n">+</span><span class="step-t">Привязать ноду</span></div>
+  <div class="row" style="margin-top:0">
     <select id="bind-page" title="в какую карту писать"></select>
-    <button id="bind-go">Привязать мышью</button>
+    <button class="btn" style="width:auto;padding:6px 10px" id="bind-go">Мышью</button>
   </div>
-  <button id="bind-skip" class="ghost">Пометить skip</button>
-  <div class="ovl-note" id="bind-note"></div>
+  <button class="btn ghost" id="bind-skip" style="margin-top:6px">Нет в вёрстке (skip)</button>
+  <div class="row hint" id="bind-note"></div>
 </div>
-<div class="audit">
-  <button id="run-audit">Проверить страницу</button>
-  <div class="ovl-note" id="audit-note"></div>
+
+<div class="body" id="body">
+  <div class="empty">Открой страницу сайта и нажми «Проверить страницу».<br><br>
+    Наложение кладёт макет поверх вёрстки, сверка показывает расхождения по стилям.</div>
 </div>
-<div class="body" id="body"><div class="empty">Кликни ноду в Figma — здесь появится сверка.</div></div>
 <div class="log" id="log"></div>
 <script src="panel.js"></script>

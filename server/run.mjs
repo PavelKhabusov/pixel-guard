@@ -103,7 +103,7 @@ for (const [key, entry] of Object.entries(map)) {
 
   if (!dom) { results.push({ key, figmaId: fig.id, selector: entry.selector, status: 'missing' }); continue; }
 
-  const checks = compareNode(fig, dom, entry);
+  const checks = compareNode(fig, dom, { ...entry, frameW: root.w });
   const diffs = checks.filter((c) => !c.pass);
   results.push({
     key, figmaId: fig.id, selector: entry.selector,
