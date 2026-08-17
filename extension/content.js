@@ -316,9 +316,15 @@ function showOverlay(data, opts) {
   // отрисован картинкой, вложенные якоря дают второй слой поверх — из-за
   // этого меню в шапке двоилось.
   if (opts.mode === 'shots') {
-    const withShot = anchored.filter((a) => a.shot);
-    anchored = anchored.filter((a) => !withShot.some((p) => p !== a && a.x >= p.x && a.y >= p.y
-      && a.x + a.w <= p.x + p.w + 1 && a.y + a.h <= p.y + p.h + 1));
+    // Показываем ТОЛЬКО блоки с готовым рендером. Остальные якоря — это
+    // отдельные надписи и мелкие ноды: без картинки они рисуются текстом
+    // поверх страницы и превращают наложение в кашу.
+    anchored = anchored.filter((a) => a.shot);
+    // и не кладём блок поверх блока: вложенные пропускаем
+    anchored = anchored.filter((a) => !anchored.some((p) => p !== a
+      && a.x >= p.x && a.y >= p.y
+      && a.x + a.w <= p.x + p.w + 1 && a.y + a.h <= p.y + p.h + 1
+      && p.w * p.h > a.w * a.h));
   }
 
   const used = [];
