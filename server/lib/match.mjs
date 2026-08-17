@@ -43,19 +43,22 @@ export const CANDIDATE_JS = `(() => {
 
 export function collectFigmaNodes(root, { maxDepth = 6 } = {}) {
   const out = [];
-  const walk = (n, depth, path) => {
+  const baseY = root.y ?? 0;
+  const walk = (n, depth, path, parentY) => {
     const p = path ? `${path}/${n.name}` : n.name;
+    // координаты у детей относительны родителя — накапливаем абсолютную
+    const absY = depth === 0 ? (n.y ?? 0) : parentY + (n.y ?? 0);
     const small = (n.w ?? 0) < 60 && (n.h ?? 0) < 60;
     if (depth > 0 && (n.w ?? 0) >= 8 && (n.h ?? 0) >= 8 && n.type !== 'VECTOR' && !n.icon && !(small && n.type !== 'TEXT')) {
-      out.push({ ...n, path: p, depth });
+      out.push({ ...n, path: p, depth, absY: absY - baseY });
     }
-    if (depth < maxDepth) for (const c of n.children ?? []) walk(c, depth + 1, p);
+    if (depth < maxDepth) for (const c of n.children ?? []) walk(c, depth + 1, p, depth === 0 ? 0 : absY);
   };
-  walk(root, 0, '');
+  walk(root, 0, '', 0);
   return out;
 }
 
-function scoreOne(fig, dom, rootW, domRootW) {
+function scoreOne(fig, dom, rootW, domRootW, rootH, domRootH, rootY) {
   const scale = domRootW && rootW ? domRootW / rootW : 1;
   let score = 0;
   const why = [];
@@ -87,6 +90,18 @@ function scoreOne(fig, dom, rootW, domRootW) {
 
   if (fig.type === 'TEXT' && dom.kids > 2) score -= 12;
   if (fig.type !== 'TEXT' && fig.children?.length && dom.kids === 0) score -= 10;
+
+  // Позиция по вертикали: нода из шапки макета не может быть элементом
+  // футера. Без этого матчер по одному тексту связывал «Получить
+  // визуализацию» из шапки со ссылкой в подвале.
+  if (fig.absY != null && dom.y != null && rootH && domRootH) {
+    const relFig = fig.absY / rootH;
+    const relDom = dom.y / domRootH;
+    const gap = Math.abs(relFig - relDom);
+    if (gap < 0.05) score += 12;
+    else if (gap > 0.35) score -= 30;
+    else if (gap > 0.2) score -= 12;
+  }
   if (fig.layout && dom.kids > 0) score += 4;
   if (dom.unique) score += 8; else score -= 20;
   if (fig.type !== 'TEXT' && !fig.name.match(/[a-zа-я]{3}/i)) score -= 14;
@@ -94,7 +109,7 @@ function scoreOne(fig, dom, rootW, domRootW) {
   return { score, why };
 }
 
-export function matchNodes(figNodes, domNodes, { rootW, domRootW, min = 45 } = {}) {
+export function matchNodes(figNodes, domNodes, { rootW, domRootW, rootH, domRootH, rootY, min = 45 } = {}) {
   const used = new Set();
   const results = [];
 
@@ -108,7 +123,7 @@ export function matchNodes(figNodes, domNodes, { rootW, domRootW, min = 45 } = {
     let best = null;
     for (const dom of domNodes) {
       if (used.has(dom.sel)) continue;
-      const { score, why } = scoreOne(fig, dom, rootW, domRootW);
+      const { score, why } = scoreOne(fig, dom, rootW, domRootW, rootH, domRootH, rootY);
       if (!best || score > best.score) best = { dom, score, why };
     }
     if (best && best.score >= min) {

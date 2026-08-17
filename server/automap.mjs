@@ -61,6 +61,7 @@ await pg.evaluate(async () => {
 await pg.waitForTimeout(400);
 const domNodes = await pg.evaluate(CANDIDATE_JS);
 const domRootW = await pg.evaluate(() => document.body.getBoundingClientRect().width);
+const domRootH = await pg.evaluate(() => document.body.scrollHeight);
 await browser.close();
 
 const figNodes = collectFigmaNodes(root, { maxDepth: depth })
@@ -68,7 +69,7 @@ const figNodes = collectFigmaNodes(root, { maxDepth: depth })
 
 console.log(`  нод в макете: ${figNodes.length} (не привязано) · кандидатов в DOM: ${domNodes.length}\n`);
 
-const matched = matchNodes(figNodes, domNodes, { rootW: root.w, domRootW, min });
+const matched = matchNodes(figNodes, domNodes, { rootW: root.w, domRootW, rootH: root.h, domRootH, rootY: root.y, min });
 const hits = matched.filter((m) => m.selector);
 const miss = matched.filter((m) => !m.selector);
 
