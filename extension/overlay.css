@@ -103,3 +103,15 @@ html.pg-solo .pg-overlay { opacity: 1 !important; }
 }
 .pg-split-grip::before { left: 3px; border-right-color: #16202a; }
 .pg-split-grip::after { right: 3px; border-left-color: #16202a; }
+
+/* Шторка: слева макет поверх приглушённого сайта, справа чистый сайт.
+   Не скрываем сайт полностью — иначе там, где макета нет, зияет дыра. */
+html.pg-split-on .pg-split-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483644;
+  pointer-events: none;
+  background: #fff;
+  opacity: .82;
+  clip-path: inset(0 calc(100% - var(--pg-split, 50%)) 0 0);
+}

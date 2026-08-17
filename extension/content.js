@@ -196,7 +196,9 @@ function makeBox(b, opts, left, top, scale, lib) {
   // кладём картинку вместо перерисовки нод, это пиксель-в-пиксель
   if (opts.mode === 'shots' && b.shot) {
     const img = document.createElement('img');
-    img.style.cssText = 'width:100%;height:100%;display:block';
+    // PNG из Figma бывает выше ноды (тени, эффекты выходят за bounding box):
+    // тянем по ширине, высоту оставляем пропорциональной, чтобы не резалось
+    img.style.cssText = 'width:100%;height:auto;display:block';
     const cached = shotCache.get(b.shot);
     if (cached) img.src = cached;
     else {
@@ -205,7 +207,7 @@ function makeBox(b, opts, left, top, scale, lib) {
       });
     }
     d.appendChild(img);
-    d.style.cssText = `left:${left}px;top:${top}px;width:${b.w * scale}px;height:${b.h * scale}px`;
+    d.style.cssText = `left:${left}px;top:${top}px;width:${b.w * scale}px;overflow:visible`;
     d.title = `${b.name} · ${b.w}×${b.h} (PNG из макета)`;
     return d;
   }
@@ -256,6 +258,18 @@ function showOverlay(data, opts) {
   // визуализации «до/после». 100% = макет целиком, 0% = только сайт.
   const split = opts.split;
   ov.style.clipPath = split == null ? '' : `inset(0 ${100 - split}% 0 0)`;
+  // слева должен быть ТОЛЬКО макет: гасим сайт под шторкой, иначе слои
+  // накладываются и кажется, что шторка не работает
+  document.documentElement.style.setProperty('--pg-split', `${split ?? 0}%`);
+  document.documentElement.classList.toggle('pg-split-on', split != null);
+  if (split == null) { splitDim?.remove(); splitDim = null; }
+  else {
+    if (!splitDim) {
+      splitDim = document.createElement('div');
+      splitDim.className = 'pg-split-dim';
+      document.documentElement.appendChild(splitDim);
+    }
+  }
   applySplitLine(split, opts);
 
   ov.innerHTML = '';
@@ -370,6 +384,7 @@ function showOverlay(data, opts) {
 }
 
 let splitLine = null;
+let splitDim = null;
 
 function applySplitLine(split, opts) {
   if (split == null) {
@@ -403,7 +418,8 @@ function hideOverlay() {
   if (ov) ov.style.display = 'none';
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
   if (splitLine) { splitLine.remove(); splitLine = null; }
-  document.documentElement.classList.remove('pg-solo');
+  if (splitDim) { splitDim.remove(); splitDim = null; }
+  document.documentElement.classList.remove('pg-solo', 'pg-split-on');
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
