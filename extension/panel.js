@@ -51,7 +51,7 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
-const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false };
+const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
 const toActiveTab = (msg) =>
   new Promise((resolve) => {
@@ -79,7 +79,7 @@ async function applyOverlay() {
       opacity: ovState.opacity, mode: ovState.mode, diff: ovState.diff,
       offsetX: ovState.offsetX, offsetY: ovState.offsetY,
       showUnanchored: ovState.loose, autoScale: ovState.autoScale !== false,
-      solo: ovState.solo,
+      solo: ovState.solo, split: ovState.split,
     },
   });
   if (!r) { note.textContent = 'вкладка не отвечает'; return; }
@@ -112,6 +112,24 @@ $('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; if (ovState
 $('ov-loose').onchange = (e) => { ovState.loose = e.target.checked; if (ovState.on) applyOverlay(); };
 $('ov-scale').onchange = (e) => { ovState.autoScale = e.target.checked; if (ovState.on) applyOverlay(); };
 $('ov-solo').onchange = (e) => { ovState.solo = e.target.checked; if (ovState.on) applyOverlay(); };
+$('ov-split-on').onchange = (e) => {
+  ovState.split = e.target.checked ? Number($('ov-split').value) : null;
+  $('ov-split').disabled = !e.target.checked;
+  if (ovState.on) applyOverlay();
+};
+$('ov-split').oninput = (e) => {
+  ovState.split = Number(e.target.value);
+  $('ov-split-val').textContent = `${e.target.value}%`;
+  if (ovState.on) applyOverlay();
+};
+
+// линию можно тащить прямо на странице — держим ползунок в курсе
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type !== 'pg-split-moved') return;
+  ovState.split = msg.split;
+  $('ov-split').value = String(msg.split);
+  $('ov-split-val').textContent = `${msg.split}%`;
+});
 
 const activeTab = () => new Promise((res) => {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));

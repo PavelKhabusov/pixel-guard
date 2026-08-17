@@ -251,6 +251,13 @@ function showOverlay(data, opts) {
   });
   ov.classList.toggle('pg-diff', !!opts.diff);
   ov.classList.toggle('pg-outline', opts.mode === 'outline');
+
+  // Шторка: показываем макет только слева от линии — как в блоке
+  // визуализации «до/после». 100% = макет целиком, 0% = только сайт.
+  const split = opts.split;
+  ov.style.clipPath = split == null ? '' : `inset(0 ${100 - split}% 0 0)`;
+  applySplitLine(split, opts);
+
   ov.innerHTML = '';
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
 
@@ -350,6 +357,7 @@ function showOverlay(data, opts) {
     fixedLayer.className = 'pg-overlay pg-fixed' + (opts.diff ? ' pg-diff' : '') + (opts.mode === 'outline' ? ' pg-outline' : '');
     fixedLayer.style.opacity = String(opts.opacity ?? 0.5);
     fixedLayer.style.display = 'block';
+    if (opts.split != null) fixedLayer.style.clipPath = `inset(0 ${100 - opts.split}% 0 0)`;
     fixedLayer.appendChild(fixedFrag);
     document.documentElement.appendChild(fixedLayer);
   }
@@ -361,9 +369,40 @@ function showOverlay(data, opts) {
   };
 }
 
+let splitLine = null;
+
+function applySplitLine(split, opts) {
+  if (split == null) {
+    if (splitLine) { splitLine.remove(); splitLine = null; }
+    return;
+  }
+  if (!splitLine) {
+    splitLine = document.createElement('div');
+    splitLine.className = 'pg-split';
+    splitLine.innerHTML = '<span class="pg-split-grip"></span>';
+    document.documentElement.appendChild(splitLine);
+
+    // линию можно тащить мышью прямо на странице
+    let dragging = false;
+    const move = (e) => {
+      if (!dragging || !lastOverlay) return;
+      const pct = Math.min(100, Math.max(0, (e.clientX / innerWidth) * 100));
+      lastOverlay.opts.split = Math.round(pct);
+      showOverlay(lastOverlay.data, lastOverlay.opts);
+      chrome.runtime.sendMessage({ type: 'pg-split-moved', split: Math.round(pct) }).catch(() => {});
+    };
+    splitLine.addEventListener('mousedown', (e) => { dragging = true; e.preventDefault(); });
+    addEventListener('mousemove', move, true);
+    addEventListener('mouseup', () => { dragging = false; });
+  }
+  splitLine.style.left = `${split}%`;
+  splitLine.style.display = 'block';
+}
+
 function hideOverlay() {
   if (ov) ov.style.display = 'none';
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
+  if (splitLine) { splitLine.remove(); splitLine = null; }
   document.documentElement.classList.remove('pg-solo');
 }
 

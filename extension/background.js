@@ -125,6 +125,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return;
   }
   if (msg.type === 'pg-pick-cancel') { toPanel({ type: 'pg-pick-cancelled' }); return; }
+  if (msg.type === 'pg-split-moved') { toPanel(msg); return; }
   if (msg.type === 'pg-cleanup') {
     chrome.tabs.query({}, (tabs) => {
       for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
