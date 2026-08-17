@@ -117,6 +117,8 @@ const handler = (req, res) => {
       const pageKey = matchedPage?.key ?? url.searchParams.get('page');
       const pageMap = pageKey ? readJsonSafe(path.join(ROOT, 'maps', `${pageKey}.map.json`)) ?? {} : {};
       const sharedMap = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
+      // готовые PNG блоков (npm run shots) — для пиксельной сверки по контейнерам
+      const shots = readJsonSafe(path.join(SNAP, 'shots', '_shots.json')) ?? {};
       const anchors = [];
       for (const [key, entry] of Object.entries({ ...sharedMap, ...pageMap })) {
         if (key.startsWith('_') || !entry?.selector) continue;
@@ -150,6 +152,7 @@ const handler = (req, res) => {
             opacity: n.opacity ?? 1,
             text: n.type === 'TEXT' ? n.text ?? '' : null,
             svgRef: n.svgRef ?? null,
+            shot: anchor ? (shots[`${pageKey}|${viewport}|${anchor.key}`]?.file ?? null) : null,
             font: n.type === 'TEXT' && n.font ? {
               family: n.font.family, size: n.font.size, weight: n.font.weight,
               align: n.font.align, case: n.font.case,
@@ -175,6 +178,8 @@ const handler = (req, res) => {
         frame: j.frameName, page: matchedPage?.key, matchedBy: matchedPage?.how,
         w: root.w, h: root.h, boxes,
         svgLib: j.svgLib ?? {},
+        shotsBase: '/shot?file=',
+        hasShots: Object.keys(shots).length > 0,
         anchored: boxes.filter((b) => b.anchor).length,
         png: fs.existsSync(png) ? `/png?file=${encodeURIComponent(path.basename(png))}` : null,
       }));
@@ -308,6 +313,15 @@ const handler = (req, res) => {
       if (fn) { renderWaiters.delete(msg.reqId); fn(msg); }
       res.end(JSON.stringify({ ok: true }));
     });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/shot') {
+    const f = path.basename(url.searchParams.get('file') ?? '');
+    const p = path.join(SNAP, 'shots', f);
+    if (!f.endsWith('.png') || !fs.existsSync(p)) return res.writeHead(404).end();
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'max-age=60');
+    return res.end(fs.readFileSync(p));
   }
 
   if (req.method === 'GET' && url.pathname === '/png') {

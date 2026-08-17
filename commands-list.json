@@ -65,6 +65,12 @@
       "command": "claude mcp add pixel-guard -- node $(pwd)/server/mcp.mjs",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "🖼 Экспорт PNG блоков",
+      "command": "npm run shots",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }

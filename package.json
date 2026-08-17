@@ -14,7 +14,8 @@
     "pixdiff": "node server/pixdiff.mjs",
     "repair": "node server/repair.mjs",
     "mcp": "node server/mcp.mjs",
-    "start": "./start.sh"
+    "start": "./start.sh",
+    "shots": "node server/shots.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",

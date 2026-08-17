@@ -361,7 +361,7 @@ async function renderNode(id: string, format: string, scale: number) {
       () => rej(new Error(`exportAsync завис на «${node.name}» (${node.type}). `
         + 'Обычно это нода с image-заливкой, картинка которой ещё не подгружена: '
         + 'прокрути к ней на канвасе, чтобы Figma её загрузила, и повтори')),
-      45000,
+      120000,
     )),
   ]) as Uint8Array;
 

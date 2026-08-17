@@ -190,6 +190,19 @@ function boxStyle(b, opts) {
 function makeBox(b, opts, left, top, scale, lib) {
   const d = document.createElement('div');
   d.className = 'pg-obox';
+
+  // «PNG по блокам»: у якорного блока есть свой рендер из Figma —
+  // кладём картинку вместо перерисовки нод, это пиксель-в-пиксель
+  if (opts.mode === 'shots' && b.shot) {
+    const img = document.createElement('img');
+    img.src = `http://localhost:8971/shot?file=${encodeURIComponent(b.shot)}`;
+    img.style.cssText = 'width:100%;height:100%;display:block';
+    d.appendChild(img);
+    d.style.cssText = `left:${left}px;top:${top}px;width:${b.w * scale}px;height:${b.h * scale}px`;
+    d.title = `${b.name} · ${b.w}×${b.h} (PNG из макета)`;
+    return d;
+  }
+
   const svg = b.svg ?? (b.svgRef && lib ? lib[b.svgRef] : null);
   if (svg && opts.mode !== 'outline') {
     d.innerHTML = svg;
@@ -301,6 +314,7 @@ function showOverlay(data, opts) {
       target = fixedFrag;
     }
     target.appendChild(makeBox(a, opts, baseL, baseT, k, data.svgLib));
+    if (opts.mode === 'shots' && a.shot) continue;
     for (const b of data.boxes) {
       if (b === a || b.anchor) continue;
       if (b.x < a.x || b.y < a.y || b.x + b.w > a.x + a.w + 1 || b.y + b.h > a.y + a.h + 1) continue;

@@ -93,6 +93,9 @@ async function applyOverlay() {
   if (ovState.mode === 'image' && !d.png) {
     note.textContent += ' — PNG нет, переэкспортируй с чекбоксом PNG';
   }
+  if (ovState.mode === 'shots' && !d.hasShots) {
+    note.textContent += ' — рендеров нет, запусти npm run shots';
+  }
 }
 
 $('ov-on').onchange = (e) => { ovState.on = e.target.checked; ovState.data = null; applyOverlay(); };
