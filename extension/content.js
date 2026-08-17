@@ -312,6 +312,15 @@ function showOverlay(data, opts) {
   const anchoredSet = new Set(anchored);
   for (const b of data.boxes) if (b.anchor && !anchoredSet.has(b)) b.anchor = null;
 
+  // В режиме PNG блок уже содержит всё своё содержимое: если родитель
+  // отрисован картинкой, вложенные якоря дают второй слой поверх — из-за
+  // этого меню в шапке двоилось.
+  if (opts.mode === 'shots') {
+    const withShot = anchored.filter((a) => a.shot);
+    anchored = anchored.filter((a) => !withShot.some((p) => p !== a && a.x >= p.x && a.y >= p.y
+      && a.x + a.w <= p.x + p.w + 1 && a.y + a.h <= p.y + p.h + 1));
+  }
+
   const used = [];
   let placed = 0, missing = 0, scaleSum = 0;
 
