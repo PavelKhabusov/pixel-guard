@@ -86,6 +86,37 @@ async function connect() {
   }
 }
 
+/**
+ * Сужение вьюпорта как в DevTools: расширение не может изменить ширину
+ * контента напрямую, но CDP (Emulation.setDeviceMetricsOverride) — может.
+ * Это тот же механизм, которым пользуется адаптивный режим DevTools.
+ */
+const attached = new Set();
+
+async function emulateWidth(tabId, width) {
+  const target = { tabId };
+  try {
+    if (!attached.has(tabId)) {
+      await chrome.debugger.attach(target, '1.3');
+      attached.add(tabId);
+      chrome.debugger.onDetach.addListener((src) => attached.delete(src.tabId));
+    }
+    if (!width) {
+      await chrome.debugger.sendCommand(target, 'Emulation.clearDeviceMetricsOverride');
+      await chrome.debugger.detach(target).catch(() => {});
+      attached.delete(tabId);
+      return { ok: true, width: null };
+    }
+    await chrome.debugger.sendCommand(target, 'Emulation.setDeviceMetricsOverride', {
+      width, height: 0, deviceScaleFactor: 0, mobile: width <= 600,
+    });
+    return { ok: true, width };
+  } catch (e) {
+    attached.delete(tabId);
+    return { ok: false, error: String(e?.message ?? e) };
+  }
+}
+
 chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
 
 chrome.action.onClicked.addListener((tab) => {
@@ -126,6 +157,13 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (msg.type === 'pg-pick-cancel') { toPanel({ type: 'pg-pick-cancelled' }); return; }
   if (msg.type === 'pg-split-moved') { toPanel(msg); return; }
+  if (msg.type === 'pg-emulate') {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+      if (!t) return reply({ ok: false, error: 'нет активной вкладки' });
+      emulateWidth(t.id, msg.width).then(reply);
+    });
+    return true;
+  }
   if (msg.type === 'pg-cleanup') {
     chrome.tabs.query({}, (tabs) => {
       for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {

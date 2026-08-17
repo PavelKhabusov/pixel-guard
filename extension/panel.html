@@ -18,6 +18,12 @@
   .hint { margin-top: 8px; padding: 7px 8px; border-radius: 6px; background: #1a222b;
           color: #b9c6d4; font-size: 11px; line-height: 1.4; }
   .hint b { color: #dde5ee; }
+  .alert { margin: 10px 14px 0; padding: 10px 12px; border-radius: 8px;
+           background: #4a2f2f; border-left: 3px solid #c98b8b;
+           font-family: Inter, system-ui, sans-serif; }
+  .alert-txt { font-size: 12px; color: #f0d5d5; line-height: 1.45; }
+  .alert button { width: 100%; margin-top: 8px; padding: 6px; border: 0; border-radius: 5px;
+                  background: #c98b8b; color: #2a1a1a; font-weight: 600; font-size: 11px; cursor: pointer; }
   .vp { padding: 10px 14px; border-bottom: 1px solid #34424f; font-family: Inter, system-ui, sans-serif; }
   .vp-row { display: flex; gap: 4px; }
   .vp-btn { flex: 1; padding: 5px 4px; border: 1px solid #34424f; border-radius: 5px;
@@ -68,6 +74,10 @@
   <div class="stat"><span>нод в карте</span><code id="mapn">0</code></div>
   <div class="hint" id="hint"></div>
 </div>
+<div class="alert" id="alert" hidden>
+  <div class="alert-txt" id="alert-txt"></div>
+  <button id="alert-act">Обновить страницу</button>
+</div>
 <div class="vp">
   <div class="vp-row">
     <button class="vp-btn on" data-vp="auto">авто</button>
@@ -75,7 +85,6 @@
     <button class="vp-btn" data-vp="tablet">планшет</button>
     <button class="vp-btn" data-vp="mobile">телефон</button>
   </div>
-  <label class="ovl-row" style="margin:6px 0 0"><input type="checkbox" id="vp-resize" checked> менять ширину окна</label>
   <div class="ovl-note" id="vp-note"></div>
 </div>
 <div class="ovl">

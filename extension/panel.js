@@ -47,6 +47,23 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'pg-panel-status') setStatus(msg.status);
 });
 
+/** Заметный баннер вместо серой строчки внизу: content script живёт только
+ *  до перезагрузки страницы, и без объяснения непонятно, почему всё молчит. */
+function alertBox(html, action) {
+  const box = $('alert');
+  if (!html) { box.hidden = true; return; }
+  $('alert-txt').innerHTML = html;
+  const btn = $('alert-act');
+  btn.hidden = !action;
+  if (action) { btn.textContent = action.label; btn.onclick = action.run; }
+  box.hidden = false;
+}
+
+const reloadTab = () => chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+  if (t) chrome.tabs.reload(t.id);
+  alertBox(null);
+});
+
 const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s && setStatus(s));
 poll();
 setInterval(poll, 3000);
@@ -82,7 +99,14 @@ async function applyOverlay() {
       solo: ovState.solo, split: ovState.split,
     },
   });
-  if (!r) { note.textContent = 'вкладка не отвечает'; return; }
+  if (!r) {
+    alertBox('<b>Страница не отвечает.</b><br>Расширение обновилось, а на открытой '
+      + 'вкладке работает старая версия — она живёт только до перезагрузки.',
+      { label: 'Обновить страницу', run: reloadTab });
+    note.textContent = '';
+    return;
+  }
+  alertBox(null);
   const d = ovState.data;
   const tab = await activeTab();
   const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ окно ${tab?.width}px`;
@@ -146,24 +170,19 @@ async function showVpNote() {
   const vp = viewportFor(tab?.width);
   const ref = VP_W[vp];
   const diff = tab?.width && ref ? Math.abs(tab.width - ref) : 0;
-  $('vp-note').textContent = `${vp} · макет ${ref}px · окно ${tab?.width ?? '?'}px`
-    + (diff > 80 ? ' — ширина сильно расходится, блоки масштабируются' : '');
+  $('vp-note').textContent = `${vp} · макет ${ref}px · вьюпорт ${tab?.width ?? '?'}px`
+    + (vpChoice === 'auto' ? ' · по ширине окна' : ' · эмуляция DevTools')
+    + (diff > 80 && vpChoice === 'auto' ? ' — расходится, блоки масштабируются' : '');
 }
 
-// Переключатель меняет и ОКНО браузера: сравнивать desktop-вёрстку
-// с мобильным макетом бессмысленно — сайт должен перестроиться сам.
-async function resizeWindowTo(vp) {
-  const ref = VP_W[vp];
-  if (!ref) return;
-  const tab = await activeTab();
-  if (!tab?.windowId) return;
-  const win = await chrome.windows.get(tab.windowId).catch(() => null);
-  if (!win) return;
-  // ширина окна = ширина вьюпорта + хром браузера и боковая панель
-  const chromeW = (win.width ?? 0) - (tab.width ?? 0);
-  await chrome.windows.update(tab.windowId, { width: ref + Math.max(0, chromeW), state: 'normal' })
-    .catch(() => {});
-  await new Promise((r) => setTimeout(r, 400));
+// Сужаем ВЬЮПОРТ страницы, а не окно браузера — как адаптивный режим
+// DevTools. Окно остаётся прежним, перестраивается только контент.
+async function emulateViewport(vp) {
+  const width = vp === 'auto' ? null : VP_W[vp];
+  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-emulate', width }, res));
+  if (r?.ok === false) $('vp-note').textContent = `не удалось сузить: ${r.error}`;
+  await new Promise((res) => setTimeout(res, 500));
+  return r;
 }
 
 document.querySelectorAll('.vp-btn').forEach((b) => {
@@ -171,11 +190,14 @@ document.querySelectorAll('.vp-btn').forEach((b) => {
     document.querySelectorAll('.vp-btn').forEach((x) => x.classList.toggle('on', x === b));
     vpChoice = b.dataset.vp;
     ovState.data = null;
-    if (vpChoice !== 'auto' && $('vp-resize').checked) await resizeWindowTo(vpChoice);
+    await emulateViewport(vpChoice);
     showVpNote();
     if (ovState.on) applyOverlay();
   };
 });
+
+// панель закрывают — снимаем эмуляцию, иначе страница останется узкой
+addEventListener('pagehide', () => chrome.runtime.sendMessage({ type: 'pg-emulate', width: null }));
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
 
 let curNode = null;
@@ -249,7 +271,13 @@ async function runAudit() {
   if (!data || data.ok === false) { note.textContent = data?.error ?? 'нет данных'; return; }
 
   const rows = await toActiveTab({ type: 'pg-audit', nodes: data.nodes, page: data.page });
-  if (!rows) { note.textContent = 'вкладка не отвечает — обнови страницу'; return; }
+  if (!rows) {
+    alertBox('<b>Страница не отвечает.</b><br>Скорее всего расширение перезагружали — '
+      + 'обнови вкладку, чтобы вернуть связь.', { label: 'Обновить страницу', run: reloadTab });
+    note.textContent = '';
+    return;
+  }
+  alertBox(null);
 
   const n = (s) => rows.filter((r) => r.status === s).length;
   note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} нет в DOM · ${n('skip')} skip`;
