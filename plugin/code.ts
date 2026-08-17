@@ -143,7 +143,10 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
       // первое вхождение несёт детей при себе И кладёт их в словарь:
       // так снапшот остаётся самодостаточным, даже если compLib потеряется
       if ('children' in node && node.children.length) {
-        const kids = node.children.filter((c) => c.visible).map((c) => serialize(c, { x: box.x, y: box.y }));
+        // ВАЖНО: считаем от корня фрейма, как и везде. Раньше здесь была
+        // база самой ноды — координаты в дереве получались вперемешку
+        // (часть абсолютных, часть относительных) и всё сопоставление врало.
+        const kids = node.children.filter((c) => c.visible).map((c) => serialize(c, root));
         if (kids.length) {
           o.children = kids;
           compCache[ref] = { x: o.x, y: o.y, children: kids };

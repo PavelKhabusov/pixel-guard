@@ -79,6 +79,13 @@ for (const m of hits.sort((a, b) => b.score - a.score)) {
 }
 console.log(`\nсопоставлено ${hits.length}, без пары ${miss.length} (порог ${min})`);
 
+// Порог ниже 70 даёт мусорные пары (нода шапки → элемент футера).
+// Не запрещаем, но предупреждаем и советуем проверку.
+if (write && min < 70) {
+  console.log(`\n⚠ порог ${min} низкий — часть пар может быть ошибочной.`);
+  console.log('  После записи обязательно: npm run verify -- --page ' + page + ' --fix');
+}
+
 if (write && hits.length) {
   const next = { ...existing };
   for (const m of hits) next[m.figmaId] = { selector: m.selector, source: 'auto', name: m.name };

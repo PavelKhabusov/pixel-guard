@@ -71,6 +71,12 @@
       "command": "npm run shots",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "🔎 Проверить карты",
+      "command": "npm run verify -- --fix",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }
