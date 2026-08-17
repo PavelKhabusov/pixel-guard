@@ -113,7 +113,21 @@ async function applyOverlay() {
   const sc = r.scale && r.scale !== 1 ? ` · масштаб ${Math.round(r.scale * 100)}%` : '';
   const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} блоков${r.missing ? `, ${r.missing} нет` : ''}${sc}`;
   note.textContent = `${d.page ? d.page + ' · ' : ''}${d.frame} · ${d.w}px${fit}${anch}`;
-  if (!r.anchored && r.mode !== 'image') note.textContent += ' — нет привязок, макет лёг по координатам';
+
+  // Объясняем, ПОЧЕМУ на странице пусто, а не оставляем гадать
+  if (r.mode === 'shots' && r.anchored && !d.hasShots) {
+    alertBox('<b>PNG блоков не сняты.</b><br>Режим «PNG по блокам» показывает рендеры из Figma — '
+      + 'их нужно один раз выгрузить: <code>npm run shots</code>.');
+  } else if (!r.anchored && r.mode !== 'image') {
+    alertBox('<b>Для этой страницы нет привязок.</b><br>Наложению не на что опереться. '
+      + 'Наполни карту: <code>npm run automap -- --page ' + (d.page ?? '?') + ' --min 75 --write</code>, '
+      + 'либо кликни ноду в Figma и нажми «Привязать мышью».');
+  } else if (r.anchored && r.placed < r.anchored / 2) {
+    alertBox(`<b>Нашлось ${r.placed} из ${r.anchored} блоков.</b><br>Остальные селекторы не найдены на странице — `
+      + 'вероятно карта от другой версии вёрстки. Проверь: <code>npm run verify -- --fix</code>.');
+  } else {
+    alertBox(null);
+  }
   if (ovState.mode === 'image' && !d.png) {
     note.textContent += ' — PNG нет, переэкспортируй с чекбоксом PNG';
   }
