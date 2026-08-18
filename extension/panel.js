@@ -146,7 +146,12 @@ async function applyOverlay() {
   }
 }
 
-$('ov-on').onchange = (e) => { ovState.on = e.target.checked; ovState.data = null; applyOverlay(); };
+$('ov-on').onchange = (e) => {
+  ovState.on = e.target.checked;
+  $('ov-opts').hidden = !e.target.checked;
+  ovState.data = null;
+  applyOverlay();
+};
 chrome.tabs.onActivated.addListener(() => { ovState.data = null; if (ovState.on) applyOverlay(); });
 chrome.tabs.onUpdated.addListener((id, info) => { if (info.status === 'complete') { ovState.data = null; if (ovState.on) applyOverlay(); } });
 $('ov-op').oninput = (e) => {

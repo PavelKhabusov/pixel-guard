@@ -24,7 +24,9 @@
   .alert button { width: 100%; margin-top: 8px; padding: 6px; border: 0; border-radius: 6px;
                   background: #c98b8b; color: #2a1a1a; font-weight: 600; font-size: 11px; cursor: pointer; }
 
-  .step { padding: 12px 14px; border-bottom: 1px solid #2b3642; }
+  .chk.big { font-size: 12px; }
+  .chk.big b { font-weight: 600; }
+  .step { padding: 11px 14px; border-bottom: 1px solid #2b3642; }
   .step-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 9px; }
   .step-n { width: 17px; height: 17px; border-radius: 50%; background: #34424f; color: #b9c6d4;
             font-size: 10px; font-weight: 600; display: flex; align-items: center;
@@ -85,6 +87,13 @@
     <span>pixel-guard</span>
     <span class="state" id="state">подключаюсь…</span>
   </div>
+  <div class="seg" style="margin-top:9px">
+    <button class="vp-btn on" data-vp="auto">авто</button>
+    <button class="vp-btn" data-vp="desktop">ПК</button>
+    <button class="vp-btn" data-vp="tablet">планшет</button>
+    <button class="vp-btn" data-vp="mobile">телефон</button>
+  </div>
+  <div class="step-sub" id="vp-note" style="text-align:left;margin-top:5px"></div>
 </div>
 
 <div class="alert" id="alert" hidden>
@@ -93,34 +102,19 @@
 </div>
 
 <div class="step">
-  <div class="step-head">
-    <span class="step-n">1</span><span class="step-t">Брейкпоинт</span>
-    <span class="step-sub" id="vp-note"></span>
-  </div>
-  <div class="seg">
-    <button class="vp-btn on" data-vp="auto">авто</button>
-    <button class="vp-btn" data-vp="desktop">ПК</button>
-    <button class="vp-btn" data-vp="tablet">планшет</button>
-    <button class="vp-btn" data-vp="mobile">телефон</button>
-  </div>
-</div>
-
-<div class="step">
-  <div class="step-head">
-    <span class="step-n">2</span><span class="step-t">Наложить макет</span>
-    <span class="step-sub" id="ov-note"></span>
-  </div>
-  <label class="chk"><input type="checkbox" id="ov-on"> показать поверх страницы</label>
-  <div class="row"><span>видно</span><input type="range" id="ov-op" min="0" max="100" value="100"><span id="ov-val">100%</span></div>
-  <div class="row">
-    <select id="ov-mode">
-      <option value="shots">PNG из макета (точно)</option>
-      <option value="render">цвета и текст</option>
-      <option value="outline">только рамки</option>
-    </select>
-  </div>
-  <label class="chk" style="margin-top:8px"><input type="checkbox" id="ov-split-on"> шторка: слева макет, справа сайт</label>
-  <div class="row"><input type="range" id="ov-split" min="0" max="100" value="50" disabled><span id="ov-split-val">50%</span></div>
+  <label class="chk big"><input type="checkbox" id="ov-on"> <b>Наложить макет</b></label>
+  <span class="step-sub" id="ov-note"></span>
+  <div id="ov-opts" hidden>
+    <div class="row"><span>видно</span><input type="range" id="ov-op" min="0" max="100" value="100"><span id="ov-val">100%</span></div>
+    <div class="row">
+      <select id="ov-mode">
+        <option value="shots">PNG из макета (точно)</option>
+        <option value="render">цвета и текст</option>
+        <option value="outline">только рамки</option>
+      </select>
+    </div>
+    <label class="chk" style="margin-top:8px"><input type="checkbox" id="ov-split-on"> шторка: макет / сайт</label>
+    <div class="row"><input type="range" id="ov-split" min="0" max="100" value="50" disabled><span id="ov-split-val">50%</span></div>
   <details class="more">
     <summary>ещё настройки</summary>
     <div class="row">
@@ -134,18 +128,16 @@
     </div>
     <label class="chk" style="margin-top:6px"><input type="checkbox" id="ov-loose"> непривязанные ноды</label>
   </details>
+  </div>
 </div>
 
 <div class="step">
-  <div class="step-head">
-    <span class="step-n">3</span><span class="step-t">Сверить стили</span>
-    <span class="step-sub" id="audit-note"></span>
-  </div>
   <button class="btn" id="run-audit">Проверить страницу</button>
+  <div class="step-sub" id="audit-note" style="text-align:left;margin-top:6px"></div>
 </div>
 
 <div class="step" id="bind" hidden>
-  <div class="step-head"><span class="step-n">+</span><span class="step-t">Привязать ноду</span></div>
+  <div class="step-t" style="margin-bottom:8px">Привязать ноду</div>
   <div class="row" style="margin-top:0">
     <select id="bind-page" title="в какую карту писать"></select>
     <button class="btn" style="width:auto;padding:6px 10px" id="bind-go">Мышью</button>
