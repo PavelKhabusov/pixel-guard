@@ -45,7 +45,7 @@
 <button id="goall" class="alt">Снять весь проект</button>
 <button id="save" class="alt" disabled>Скачать JSON</button>
 
-<label class="live"><input id="live" type="checkbox"> живой режим
+<label class="live"><input id="live" type="checkbox" checked> живой режим
   <small>клик по ноде → браузер</small></label>
 
 <details>
@@ -195,6 +195,8 @@
   };
 
   el('live').onchange = (e) => setLive(e.target.checked);
+  // живой режим включён по умолчанию — сразу поднимаем связь с сервером
+  if (el('live').checked) setLive(true);
 
   onmessage = async (e) => {
     const msg = e.data.pluginMessage;
