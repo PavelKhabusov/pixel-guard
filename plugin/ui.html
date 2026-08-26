@@ -3,8 +3,6 @@
   body { font: 13px/1.45 Inter, system-ui, sans-serif; margin: 0; padding: 14px;
          color: #dcdfe3; background: #17191c; }
 
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4a5766; flex: none; }
-  .dot.on { background: #7fb08a; }
 
   button { width: 100%; padding: 9px; border: 0; border-radius: 7px;
            background: #8b939c; color: #15171a; font-weight: 600; font-size: 12px; cursor: pointer; }
@@ -13,6 +11,17 @@
 
   .live { display: flex; align-items: center; gap: 6px; margin: 10px 0 0;
           padding: 9px 10px; background: #1f2226; border-radius: 7px; font-size: 12px; cursor: pointer; }
+  .live input { position: absolute; opacity: 0; pointer-events: none; }
+  .sw { position: relative; width: 30px; height: 17px; flex: none; border-radius: 9px;
+        background: #33383e; transition: background .15s; }
+  .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px;
+               border-radius: 50%; background: #71767d; transition: transform .15s, background .15s; }
+  .live input:checked + .sw { background: #4a5f4e; }
+  .live input:checked + .sw::after { transform: translateX(13px); background: #7fb08a; }
+  .live input:focus-visible + .sw { outline: 2px solid #8b939c; outline-offset: 2px; }
+  .live input:checked + .sw.live-err { background: #5a3f3f; }
+  .live input:checked + .sw.live-err::after { background: #e8a0a0; }
+
   .live small { margin-left: auto; color: #71767d; font-size: 10px; text-align: right;
                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
 
@@ -59,8 +68,8 @@
   <button id="save" class="alt" disabled>JSON</button>
 </div>
 
-<label class="live"><input id="live" type="checkbox" checked>
-  <span class="dot" id="bus-dot"></span> живой режим
+<label class="live"><input id="live" type="checkbox" checked><span class="sw" id="bus-dot"></span>
+  живой режим
   <small id="bus-state">выключен</small></label>
 
 <details>
@@ -140,7 +149,7 @@
   const busStatus = (t, err) => {
     el('bus-state').textContent = t.replace(/^живой режим:?\s*/i, '');
     el('bus-state').style.color = err ? '#e8a0a0' : '#71767d';
-    el('bus-dot').className = 'dot' + (!err && /подключ|на связи/i.test(t) ? ' on' : '');
+    el('bus-dot').classList.toggle('live-err', !!err);
   };
 
   const connectBus = () => {
