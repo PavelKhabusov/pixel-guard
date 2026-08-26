@@ -11,7 +11,7 @@
 
   button { width: 100%; padding: 9px; border: 0; border-radius: 7px;
            background: #7ba7d4; color: #16202a; font-weight: 600; font-size: 12px; cursor: pointer; }
-  button.alt { background: #2b3642; color: #dde5ee; font-weight: 500; margin-top: 6px; }
+  button.alt { background: #2b3642; color: #dde5ee; font-weight: 500; }
   button:disabled { opacity: .4; cursor: default; }
 
   .live { display: flex; align-items: center; gap: 7px; margin: 12px 0 0;
@@ -38,9 +38,10 @@
                 background: #34424f; color: #dde5ee; }
   button.mini.done { background: #7fb08a; color: #16202a; }
 
-  .grp-t { font-size: 11px; color: #6f7f8f; }
-  .grp-b { display: flex; gap: 5px; margin-top: 5px; }
-  .grp-b button { padding: 8px 6px; font-size: 12px; }
+  .grp { display: flex; align-items: center; gap: 6px; }
+  .grp-t { flex: none; font-size: 11px; color: #6f7f8f; }
+  .grp button { flex: 1; height: 30px; padding: 0 6px; font-size: 12px;
+                line-height: 30px; white-space: nowrap; }
 
   #log { margin-top: 12px; padding: 9px 10px; min-height: 56px; background: #222b36;
          border-radius: 7px; white-space: pre-wrap; word-break: break-word;
@@ -61,11 +62,9 @@
 
 <div class="grp">
   <span class="grp-t">Снять</span>
-  <div class="grp-b">
-    <button id="go">выделенное</button>
-    <button id="goall" class="alt">весь проект</button>
-    <button id="save" class="alt" disabled>JSON</button>
-  </div>
+  <button id="go">фрейм</button>
+  <button id="goall" class="alt">всё</button>
+  <button id="save" class="alt" disabled>JSON</button>
 </div>
 
 <label class="live"><input id="live" type="checkbox" checked> живой режим
