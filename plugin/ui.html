@@ -29,15 +29,18 @@
   .chk { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px;
          color: #b9c6d4; cursor: pointer; }
 
-  .sel { margin-bottom: 12px; padding: 10px; background: #222b36; border-radius: 7px; }
-  .sel-name { font-size: 12px; font-weight: 600; margin-bottom: 3px;
-              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sel-id { font: 11px ui-monospace, Menlo, monospace; color: #8fb5da;
-            user-select: all; cursor: text; word-break: break-all; }
-  .sel-btns { display: flex; gap: 5px; margin-top: 8px; }
-  button.mini { width: auto; flex: 1; padding: 5px 6px; font-size: 11px; font-weight: 500;
+  .sel { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+         padding: 7px 9px; background: #222b36; border-radius: 7px; }
+  .sel-id { flex: 1; min-width: 0; font: 11px ui-monospace, Menlo, monospace; color: #8fb5da;
+            user-select: all; cursor: text;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button.mini { width: auto; flex: none; padding: 5px 9px; font-size: 11px; font-weight: 500;
                 background: #34424f; color: #dde5ee; }
   button.mini.done { background: #7fb08a; color: #16202a; }
+
+  .grp-t { font-size: 11px; color: #6f7f8f; }
+  .grp-b { display: flex; gap: 5px; margin-top: 5px; }
+  .grp-b button { padding: 8px 6px; font-size: 12px; }
 
   #log { margin-top: 12px; padding: 9px 10px; min-height: 56px; background: #222b36;
          border-radius: 7px; white-space: pre-wrap; word-break: break-word;
@@ -52,18 +55,18 @@
 </div>
 
 <div class="sel" id="sel" hidden>
-  <div class="sel-name" id="sel-name"></div>
-  <div class="sel-id" id="sel-id"></div>
-  <div class="sel-btns">
-    <button class="mini" id="cp-id">id</button>
-    <button class="mini" id="cp-mcp">для агента</button>
-    <button class="mini" id="cp-curl">curl PNG</button>
-  </div>
+  <span class="sel-id" id="sel-id"></span>
+  <button class="mini" id="cp-id">копировать id</button>
 </div>
 
-<button id="go">Снять выделенные frame'ы</button>
-<button id="goall" class="alt">Снять весь проект</button>
-<button id="save" class="alt" disabled>Скачать JSON</button>
+<div class="grp">
+  <span class="grp-t">Снять</span>
+  <div class="grp-b">
+    <button id="go">выделенное</button>
+    <button id="goall" class="alt">весь проект</button>
+    <button id="save" class="alt" disabled>JSON</button>
+  </div>
+</div>
 
 <label class="live"><input id="live" type="checkbox" checked> живой режим
   <small>клик по ноде → браузер</small></label>
@@ -221,9 +224,9 @@
   const showSelection = (n) => {
     selNode = n;
     el('sel').hidden = false;
-    el('sel-name').textContent = n.name || n.figmaId;
     const size = n.w != null ? ` · ${Math.round(n.w)}×${Math.round(n.h)}` : '';
     el('sel-id').textContent = n.figmaId + size;
+    el('sel-id').title = `${n.name || ''}\n${n.figmaId}`;
   };
 
   const copy = async (btn, text) => {
@@ -245,12 +248,6 @@
   };
 
   el('cp-id').onclick = (e) => selNode && copy(e.target, selNode.figmaId);
-  el('cp-mcp').onclick = (e) => selNode && copy(e.target,
-    `нода Figma ${selNode.figmaId} («${selNode.name}»). `
-    + `Стили: figma_get_node_styles({ id: "${selNode.figmaId}" }). `
-    + `Картинка: figma_render_node({ id: "${selNode.figmaId}" }).`);
-  el('cp-curl').onclick = (e) => selNode && copy(e.target,
-    `curl -o node.png "${busBase()}/render?id=${encodeURIComponent(selNode.figmaId)}&scale=2"`);
 
   el('live').onchange = (e) => setLive(e.target.checked);
   // живой режим включён по умолчанию — сразу поднимаем связь с сервером
