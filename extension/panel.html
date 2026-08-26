@@ -5,16 +5,16 @@
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   body {
-    margin: 0; background: #1a222b; color: #dde5ee;
+    margin: 0; background: #17191c; color: #dcdfe3;
     font: 13px/1.45 Inter, system-ui, sans-serif;
     display: flex; flex-direction: column; height: 100vh;
   }
 
-  .top { padding: 12px 14px 10px; border-bottom: 1px solid #2b3642; }
+  .top { padding: 12px 14px 10px; border-bottom: 1px solid #2a2e33; }
   .title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #c98b8b; flex: none; }
   .dot.on { background: #7fb08a; }
-  .state { margin-left: auto; font-size: 11px; color: #6f7f8f; font-weight: 400; }
+  .state { margin-left: auto; font-size: 11px; color: #71767d; font-weight: 400; }
 
   .alert { margin: 10px 14px 0; padding: 10px 12px; border-radius: 8px;
            background: #3d2b2b; border-left: 3px solid #c98b8b; font-size: 12px; color: #f0d5d5; }
@@ -22,42 +22,42 @@
   .alert code { background: rgba(0,0,0,.3); padding: 1px 5px; border-radius: 3px;
                 font: 11px ui-monospace, Menlo, monospace; }
   .alert button { width: 100%; margin-top: 8px; padding: 6px; border: 0; border-radius: 6px;
-                  background: #c98b8b; color: #2a1a1a; font-weight: 600; font-size: 11px; cursor: pointer; }
+                  background: #c98b8b; color: #15171a; font-weight: 600; font-size: 11px; cursor: pointer; }
 
   .chk.big { font-size: 12px; }
   .chk.big b { font-weight: 600; }
-  .step { padding: 11px 14px; border-bottom: 1px solid #2b3642; }
+  .step { padding: 11px 14px; border-bottom: 1px solid #2a2e33; }
   .step-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 9px; }
-  .step-n { width: 17px; height: 17px; border-radius: 50%; background: #34424f; color: #b9c6d4;
+  .step-n { width: 17px; height: 17px; border-radius: 50%; background: #33383e; color: #a8aeb6;
             font-size: 10px; font-weight: 600; display: flex; align-items: center;
             justify-content: center; flex: none; }
   .step-t { font-size: 12px; font-weight: 600; }
-  .step-sub { margin-left: auto; font-size: 10px; color: #6f7f8f; text-align: right; }
+  .step-sub { margin-left: auto; font-size: 10px; color: #71767d; text-align: right; }
 
   .seg { display: flex; gap: 3px; }
-  .seg button { flex: 1; padding: 6px 4px; border: 1px solid #34424f; border-radius: 6px;
-                background: #222b36; color: #b9c6d4; font-size: 11px; cursor: pointer; }
-  .seg button.on { background: #7ba7d4; color: #16202a; border-color: #7ba7d4; font-weight: 600; }
+  .seg button { flex: 1; padding: 6px 4px; border: 1px solid #33383e; border-radius: 6px;
+                background: #1f2226; color: #a8aeb6; font-size: 11px; cursor: pointer; }
+  .seg button.on { background: #8b939c; color: #15171a; border-color: #8b939c; font-weight: 600; }
 
-  .btn { width: 100%; padding: 8px; border: 0; border-radius: 7px; background: #7ba7d4;
-         color: #16202a; font-weight: 600; font-size: 12px; cursor: pointer; }
-  .btn.ghost { background: #34424f; color: #dde5ee; font-weight: 500; }
+  .btn { width: 100%; padding: 8px; border: 0; border-radius: 7px; background: #8b939c;
+         color: #15171a; font-weight: 600; font-size: 12px; cursor: pointer; }
+  .btn.ghost { background: #33383e; color: #dcdfe3; font-weight: 500; }
 
-  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #b9c6d4; }
-  .row input[type=range] { flex: 1; accent-color: #7ba7d4; }
-  .row select { flex: 1; background: #222b36; color: #dde5ee; border: 1px solid #34424f;
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #a8aeb6; }
+  .row input[type=range] { flex: 1; accent-color: #8b939c; }
+  .row select { flex: 1; background: #1f2226; color: #dcdfe3; border: 1px solid #33383e;
                 border-radius: 6px; padding: 5px 6px; font-size: 11px; }
-  .row.hint { color: #6f7f8f; font-size: 10px; margin-top: 6px; line-height: 1.4; }
+  .row.hint { color: #71767d; font-size: 10px; margin-top: 6px; line-height: 1.4; }
   .more { margin-top: 8px; }
-  .more summary { font-size: 10px; color: #6f7f8f; cursor: pointer; }
+  .more summary { font-size: 10px; color: #71767d; cursor: pointer; }
   .chk { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11px; }
 
   .body { flex: 1; overflow: auto; padding: 12px 14px; }
-  .empty { color: #6f7f8f; font-size: 11px; line-height: 1.5; }
+  .empty { color: #71767d; font-size: 11px; line-height: 1.5; }
   .node { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-  .sel { color: #8fb5da; font: 11px ui-monospace, Menlo, monospace;
+  .sel { color: #9aa3ad; font: 11px ui-monospace, Menlo, monospace;
          word-break: break-all; margin-bottom: 8px; }
-  .score { font-size: 11px; color: #b9c6d4; margin-bottom: 8px; }
+  .score { font-size: 11px; color: #a8aeb6; margin-bottom: 8px; }
   .note { color: #d4b483; font-size: 12px; margin: 6px 0; }
   .allok { color: #9ec9a8; font-size: 12px; }
 
@@ -66,19 +66,19 @@
   tr.no td { color: #e8a0a0; }
   tr.ok td { color: #9ec9a8; }
   .okwrap { margin-top: 10px; }
-  .okwrap summary { color: #6f7f8f; font-size: 10px; cursor: pointer; font-family: Inter, sans-serif; }
+  .okwrap summary { color: #71767d; font-size: 10px; cursor: pointer; font-family: Inter, sans-serif; }
 
-  .arow { padding: 7px 0; border-bottom: 1px solid #2b3642; cursor: pointer; }
-  .arow:hover { background: #222b36; }
+  .arow { padding: 7px 0; border-bottom: 1px solid #2a2e33; cursor: pointer; }
+  .arow:hover { background: #1f2226; }
   .arow .nm { font-size: 12px; }
-  .arow .sl { color: #8fb5da; font-size: 10px; word-break: break-all; margin-top: 1px; }
+  .arow .sl { color: #9aa3ad; font-size: 10px; word-break: break-all; margin-top: 1px; }
   .arow .st { float: right; font-size: 11px; margin-left: 8px; }
   .arow.pass .st { color: #9ec9a8; } .arow.failed .st { color: #e8a0a0; }
   .arow.missing .st, .arow.nofig .st { color: #d4b483; }
   .arow.skip { opacity: .5; }
 
-  .log { border-top: 1px solid #2b3642; padding: 7px 14px; max-height: 84px;
-         overflow: auto; color: #5d6b7a; font: 10px ui-monospace, Menlo, monospace; }
+  .log { border-top: 1px solid #2a2e33; padding: 7px 14px; max-height: 84px;
+         overflow: auto; color: #5c6167; font: 10px ui-monospace, Menlo, monospace; }
 </style>
 
 <div class="top">

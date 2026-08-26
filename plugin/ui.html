@@ -1,49 +1,49 @@
 <style>
   * { box-sizing: border-box; }
   body { font: 13px/1.45 Inter, system-ui, sans-serif; margin: 0; padding: 14px;
-         color: #dde5ee; background: #1a222b; }
+         color: #dcdfe3; background: #17191c; }
 
   .hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .hdr b { font-size: 13px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #4a5766; flex: none; }
   .dot.on { background: #7fb08a; }
-  .hdr span.st { margin-left: auto; font-size: 11px; color: #6f7f8f; }
+  .hdr span.st { margin-left: auto; font-size: 11px; color: #71767d; }
 
   button { width: 100%; padding: 9px; border: 0; border-radius: 7px;
-           background: #7ba7d4; color: #16202a; font-weight: 600; font-size: 12px; cursor: pointer; }
-  button.alt { background: #2b3642; color: #dde5ee; font-weight: 500; }
+           background: #8b939c; color: #15171a; font-weight: 600; font-size: 12px; cursor: pointer; }
+  button.alt { background: #2a2e33; color: #dcdfe3; font-weight: 500; }
   button:disabled { opacity: .4; cursor: default; }
 
   .live { display: flex; align-items: center; gap: 7px; margin: 12px 0 0;
-          padding: 9px 10px; background: #222b36; border-radius: 7px; font-size: 12px; cursor: pointer; }
-  .live small { margin-left: auto; color: #6f7f8f; font-size: 10px; }
+          padding: 9px 10px; background: #1f2226; border-radius: 7px; font-size: 12px; cursor: pointer; }
+  .live small { margin-left: auto; color: #71767d; font-size: 10px; }
 
   details { margin-top: 10px; }
-  summary { font-size: 11px; color: #6f7f8f; cursor: pointer; }
-  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #b9c6d4; }
+  summary { font-size: 11px; color: #71767d; cursor: pointer; }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #a8aeb6; }
   .row select, .row input[type=number] {
-    background: #222b36; color: #dde5ee; border: 1px solid #34424f;
+    background: #1f2226; color: #dcdfe3; border: 1px solid #33383e;
     border-radius: 5px; padding: 5px 6px; font-size: 11px; }
   .row select { flex: 1; }
   .row input[type=number] { width: 72px; }
   .chk { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px;
-         color: #b9c6d4; cursor: pointer; }
+         color: #a8aeb6; cursor: pointer; }
 
   .sel { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-         padding: 7px 9px; background: #222b36; border-radius: 7px; }
-  .sel-id { flex: 1; min-width: 0; font: 11px ui-monospace, Menlo, monospace; color: #8fb5da;
+         padding: 7px 9px; background: #1f2226; border-radius: 7px; }
+  .sel-id { flex: 1; min-width: 0; font: 11px ui-monospace, Menlo, monospace; color: #9aa3ad;
             user-select: all; cursor: text;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   button.mini { width: auto; flex: none; padding: 5px 9px; font-size: 11px; font-weight: 500;
-                background: #34424f; color: #dde5ee; }
-  button.mini.done { background: #7fb08a; color: #16202a; }
+                background: #33383e; color: #dcdfe3; }
+  button.mini.done { background: #7fb08a; color: #15171a; }
 
   .grp { display: flex; align-items: center; gap: 6px; }
-  .grp-t { flex: none; font-size: 11px; color: #6f7f8f; }
+  .grp-t { flex: none; font-size: 11px; color: #71767d; }
   .grp button { flex: 1; height: 30px; padding: 0 6px; font-size: 12px;
                 line-height: 30px; white-space: nowrap; }
 
-  #log { margin-top: 12px; padding: 9px 10px; min-height: 56px; background: #222b36;
+  #log { margin-top: 12px; padding: 9px 10px; min-height: 56px; background: #1f2226;
          border-radius: 7px; white-space: pre-wrap; word-break: break-word;
          font: 11px/1.5 ui-monospace, Menlo, monospace; color: #9ec9a8; }
   #log.err { color: #e8a0a0; }
@@ -146,7 +146,7 @@
 
   const busStatus = (t, err) => {
     el('bus-state').textContent = t;
-    el('bus-state').style.color = err ? '#e8a0a0' : '#6f7f8f';
+    el('bus-state').style.color = err ? '#e8a0a0' : '#71767d';
     el('bus-dot').className = 'dot' + (!err && /подключ|на связи/i.test(t) ? ' on' : '');
   };
 
