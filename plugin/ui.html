@@ -29,6 +29,16 @@
   .chk { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px;
          color: #b9c6d4; cursor: pointer; }
 
+  .sel { margin-bottom: 12px; padding: 10px; background: #222b36; border-radius: 7px; }
+  .sel-name { font-size: 12px; font-weight: 600; margin-bottom: 3px;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sel-id { font: 11px ui-monospace, Menlo, monospace; color: #8fb5da;
+            user-select: all; cursor: text; word-break: break-all; }
+  .sel-btns { display: flex; gap: 5px; margin-top: 8px; }
+  button.mini { width: auto; flex: 1; padding: 5px 6px; font-size: 11px; font-weight: 500;
+                background: #34424f; color: #dde5ee; }
+  button.mini.done { background: #7fb08a; color: #16202a; }
+
   #log { margin-top: 12px; padding: 9px 10px; min-height: 56px; background: #222b36;
          border-radius: 7px; white-space: pre-wrap; word-break: break-word;
          font: 11px/1.5 ui-monospace, Menlo, monospace; color: #9ec9a8; }
@@ -39,6 +49,16 @@
   <span class="dot" id="bus-dot"></span>
   <b>pixel-guard</b>
   <span class="st" id="bus-state">живой режим выключен</span>
+</div>
+
+<div class="sel" id="sel" hidden>
+  <div class="sel-name" id="sel-name"></div>
+  <div class="sel-id" id="sel-id"></div>
+  <div class="sel-btns">
+    <button class="mini" id="cp-id">id</button>
+    <button class="mini" id="cp-mcp">для агента</button>
+    <button class="mini" id="cp-curl">curl PNG</button>
+  </div>
 </div>
 
 <button id="go">Снять выделенные frame'ы</button>
@@ -194,6 +214,44 @@
     }, 15000);
   };
 
+  // Выделенная нода: id под рукой + копирование в форматах, которые
+  // сразу вставляются агенту или в терминал.
+  let selNode = null;
+
+  const showSelection = (n) => {
+    selNode = n;
+    el('sel').hidden = false;
+    el('sel-name').textContent = n.name || n.figmaId;
+    const size = n.w != null ? ` · ${Math.round(n.w)}×${Math.round(n.h)}` : '';
+    el('sel-id').textContent = n.figmaId + size;
+  };
+
+  const copy = async (btn, text) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      const was = btn.textContent;
+      btn.textContent = 'скопировано';
+      btn.classList.add('done');
+      setTimeout(() => { btn.textContent = was; btn.classList.remove('done'); }, 1200);
+    } catch (e) {
+      log(`не смог скопировать: ${e}`, true);
+    }
+  };
+
+  el('cp-id').onclick = (e) => selNode && copy(e.target, selNode.figmaId);
+  el('cp-mcp').onclick = (e) => selNode && copy(e.target,
+    `нода Figma ${selNode.figmaId} («${selNode.name}»). `
+    + `Стили: figma_get_node_styles({ id: "${selNode.figmaId}" }). `
+    + `Картинка: figma_render_node({ id: "${selNode.figmaId}" }).`);
+  el('cp-curl').onclick = (e) => selNode && copy(e.target,
+    `curl -o node.png "${busBase()}/render?id=${encodeURIComponent(selNode.figmaId)}&scale=2"`);
+
   el('live').onchange = (e) => setLive(e.target.checked);
   // живой режим включён по умолчанию — сразу поднимаем связь с сервером
   if (el('live').checked) setLive(true);
@@ -202,6 +260,7 @@
     const msg = e.data.pluginMessage;
     if (!msg) return;
     if (msg.type === 'selection') {
+      showSelection(msg.node);
       if (!el('live').checked) return;
       try {
         const r = await fetch(`${busBase()}/emit`, {

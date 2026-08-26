@@ -43,6 +43,16 @@ npm run server   # создаст config/pages.json и maps/home.map.json из *
 **Plugins → Development → Import plugin from manifest…** → `plugin/manifest.json`.
 Работает и в Figma Desktop, и в браузерной Figma.
 
+## Node id выделенной ноды
+
+Кликнул ноду на канвасе — плагин сразу показывает её имя, **id** и размеры.
+Три кнопки копирования:
+
+- **id** — просто `1310:27242`, вставить в карту или запрос
+- **для агента** — готовая фраза с вызовами `figma_get_node_styles` и
+  `figma_render_node`, чтобы отдать Claude без объяснений
+- **curl PNG** — команда, скачивающая рендер этой ноды в файл
+
 ## Снапшот макета
 
 1. `npm run server` (или кнопка «▶ Ingest server») — поднимает сразу два слушателя:
