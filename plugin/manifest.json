@@ -1,6 +1,5 @@
 {
   "name": "pixel-guard",
-  "icon": "icon.png",
   "id": "pixel-guard-local",
   "api": "1.0.0",
   "main": "code.js",
