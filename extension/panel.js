@@ -226,7 +226,6 @@ document.querySelectorAll('.vp-btn').forEach((b) => {
 });
 
 // панель закрывают — снимаем эмуляцию, иначе страница останется узкой
-addEventListener('pagehide', () => chrome.runtime.sendMessage({ type: 'pg-emulate', width: null }));
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
 
 let curNode = null;
@@ -334,10 +333,7 @@ async function runAudit() {
 $('run-audit').onclick = runAudit;
 
 
-// Панель закрыли — убираем наложение и подсветку со всех вкладок,
-// иначе макет остаётся висеть на странице до перезагрузки.
-const cleanup = () => {
-  chrome.runtime.sendMessage({ type: 'pg-cleanup' });
-};
-addEventListener('pagehide', cleanup);
-addEventListener('beforeunload', cleanup);
+// Панель закрыли — убираем наложение, подсветку и эмуляцию вьюпорта.
+// pagehide в side panel Chrome срабатывает не всегда, а обрыв порта
+// background видит гарантированно — поэтому держим открытый порт.
+chrome.runtime.connect({ name: 'pg-panel' });

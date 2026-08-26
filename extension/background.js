@@ -117,6 +117,21 @@ async function emulateWidth(tabId, width) {
   }
 }
 
+// Панель закрылась (или Chrome выгрузил её) — порт рвётся, чистим за собой.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'pg-panel') return;
+  port.onDisconnect.addListener(() => {
+    chrome.tabs.query({}, (tabs) => {
+      for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
+        chrome.tabs.sendMessage(t.id, { type: 'pg-overlay-hide' }).catch(() => {});
+        chrome.tabs.sendMessage(t.id, { type: 'pg-pick-stop' }).catch(() => {});
+        chrome.tabs.sendMessage(t.id, { type: 'pg-unhighlight' }).catch(() => {});
+      }
+    });
+    for (const tabId of [...attached]) emulateWidth(tabId, null).catch(() => {});
+  });
+});
+
 chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
 
 chrome.action.onClicked.addListener((tab) => {
