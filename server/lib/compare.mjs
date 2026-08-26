@@ -11,6 +11,7 @@ export function compareNode(fig, dom, entry = {}) {
   const checks = [];
   const add = (prop, figVal, actVal, pass, delta) => {
     if (ignore.has(prop) || figVal == null || actVal == null) return;
+    if (typeof figVal === 'string' && figVal.includes('NaN')) return;
     checks.push({ prop, figma: figVal, actual: actVal, pass, ...(delta != null && { delta }) });
   };
   const numCheck = (prop, figVal, actVal, t) => {
@@ -40,7 +41,7 @@ export function compareNode(fig, dom, entry = {}) {
     if (act != null && lo != null) {
       const pass = act >= lo - tol.textHeight && act <= hi + tol.textHeight;
       const near = act < lo ? act - lo : act - hi;
-      add('height', `${lo === hi ? lo : `${lo}…${hi}`}px`, `${act}px`, pass,
+      add('height', `${Math.round(hi * 10) / 10}px`, `${act}px`, pass,
         pass ? undefined : `${near > 0 ? '+' : ''}${Math.round(near * 10) / 10}px`);
     }
   } else {

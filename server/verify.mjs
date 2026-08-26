@@ -74,7 +74,9 @@ for (const pageKey of only) {
 
   const ctx = await browser.newContext({ viewport: { width: viewports[viewport] ?? 1920, height: 1000 } });
   const pg = await ctx.newPage();
-  await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
+  const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
+  if (resp && !resp.ok())
+    throw new Error(`страница ответила HTTP ${resp.status()} — сверять нечего: ${url}`);
   await pg.evaluate(async () => {
     for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); }
     scrollTo(0, 0);

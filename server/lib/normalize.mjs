@@ -22,9 +22,10 @@ export function figmaLineHeightPx(lh, fontSize) {
 }
 
 export function figmaLetterSpacingPx(ls, fontSize) {
-  if (!ls || ls === 'mixed') return null;
+  if (!ls || ls === 'mixed' || !Number.isFinite(ls.value)) return null;
   if (ls.unit === 'PIXELS') return ls.value;
-  if (ls.unit === 'PERCENT') return (ls.value / 100) * fontSize;
+  if (ls.unit === 'PERCENT')
+    return Number.isFinite(fontSize) ? (ls.value / 100) * fontSize : null;
   return null;
 }
 

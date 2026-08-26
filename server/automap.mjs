@@ -52,7 +52,9 @@ console.log(`automap: ${page} @ ${viewport} (${width}px) → ${pageCfg.url}`);
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width, height: 1000 } });
 const pg = await ctx.newPage();
-await pg.goto(pageCfg.url, { waitUntil: 'load', timeout: 60000 });
+const resp = await pg.goto(pageCfg.url, { waitUntil: 'load', timeout: 60000 });
+if (resp && !resp.ok())
+  throw new Error(`страница ответила HTTP ${resp.status()} — сверять нечего: ${pageCfg.url}`);
 await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' });
 await pg.evaluate(async () => {
   for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 50)); }

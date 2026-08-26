@@ -73,7 +73,9 @@ const ctx = await browser.newContext({
   userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36 pixel-guard',
 });
 const pg = await ctx.newPage();
-await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
+const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
+if (resp && !resp.ok())
+  throw new Error(`страница ответила HTTP ${resp.status()} — сверять нечего: ${url}`);
 await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
 await pg.evaluate(async () => {
   for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
