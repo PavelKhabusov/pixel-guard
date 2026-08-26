@@ -3,7 +3,7 @@
   z-index: 2147483646;
   pointer-events: none;
   display: none;
-  border: 2px solid #7ba7d4;
+  border: 2px solid #8b939c;
   background: rgba(123, 167, 212, 0.12);
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.12);
   border-radius: 2px;
@@ -76,7 +76,7 @@ html.pg-solo .pg-overlay { opacity: 1 !important; }
   bottom: 0;
   width: 2px;
   z-index: 2147483647;
-  background: #7ba7d4;
+  background: #8b939c;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
   cursor: ew-resize;
   display: none;
@@ -89,7 +89,7 @@ html.pg-solo .pg-overlay { opacity: 1 !important; }
   height: 30px;
   margin: -15px 0 0 -15px;
   border-radius: 50%;
-  background: #7ba7d4;
+  background: #8b939c;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 .pg-split-grip::before,
@@ -101,8 +101,8 @@ html.pg-solo .pg-overlay { opacity: 1 !important; }
   height: 0;
   border: 5px solid transparent;
 }
-.pg-split-grip::before { left: 3px; border-right-color: #16202a; }
-.pg-split-grip::after { right: 3px; border-left-color: #16202a; }
+.pg-split-grip::before { left: 3px; border-right-color: #15171a; }
+.pg-split-grip::after { right: 3px; border-left-color: #15171a; }
 
 /* Шторка: слева макет поверх приглушённого сайта, справа чистый сайт.
    Не скрываем сайт полностью — иначе там, где макета нет, зияет дыра. */
