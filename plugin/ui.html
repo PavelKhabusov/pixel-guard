@@ -9,7 +9,7 @@
   button.alt { background: #2a2e33; color: #dcdfe3; font-weight: 500; }
   button:disabled { opacity: .4; cursor: default; }
 
-  .live { display: flex; align-items: center; gap: 6px; margin: 10px 0 0;
+  .live { display: flex; align-items: center; gap: 6px; margin: 0 0 10px;
           padding: 9px 10px; background: #1f2226; border-radius: 7px; font-size: 12px; cursor: pointer; }
   .live input { position: absolute; opacity: 0; pointer-events: none; }
   .sw { position: relative; width: 30px; height: 17px; flex: none; border-radius: 9px;
@@ -36,6 +36,7 @@
   .chk { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px;
          color: #a8aeb6; cursor: pointer; }
 
+  .sel[hidden] { display: none; }
   .sel { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
          padding: 7px 9px; background: #1f2226; border-radius: 7px; }
   .sel-id { flex: 1; min-width: 0; font: 11px ui-monospace, Menlo, monospace; color: #9aa3ad;
@@ -56,6 +57,10 @@
   #log.err { color: #e8a0a0; }
 </style>
 
+<label class="live"><input id="live" type="checkbox" checked><span class="sw" id="bus-dot"></span>
+  живой режим
+  <small id="bus-state">выключен</small></label>
+
 <div class="sel" id="sel" hidden>
   <span class="sel-id" id="sel-id"></span>
   <button class="mini" id="cp-id">копировать id</button>
@@ -67,10 +72,6 @@
   <button id="goall" class="alt">всё</button>
   <button id="save" class="alt" disabled>JSON</button>
 </div>
-
-<label class="live"><input id="live" type="checkbox" checked><span class="sw" id="bus-dot"></span>
-  живой режим
-  <small id="bus-state">выключен</small></label>
 
 <details>
   <summary>настройки подключения</summary>
