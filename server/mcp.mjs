@@ -29,7 +29,8 @@ const TOOLS = [
   {
     name: 'figma_render_node',
     description: 'Отрендерить ноду макета Figma в картинку через плагин pixel-guard (без REST API и лимитов). '
-      + 'Возвращает изображение. Нужен запущенный npm run server и открытый плагин с включённым «живым режимом».',
+      + 'Возвращает изображение. По умолчанию прозрачный фон Figma заливается белым (bg), '
+      + 'иначе на тёмной теме он выглядит чёрным. Нужен запущенный npm run server и открытый плагин с «живым режимом».',
     inputSchema: {
       type: 'object',
       properties: {
@@ -37,6 +38,7 @@ const TOOLS = [
         format: { type: 'string', enum: ['PNG', 'JPG', 'SVG', 'PDF'], description: 'формат, по умолчанию PNG' },
         scale: { type: 'number', description: 'масштаб для PNG/JPG, по умолчанию 2' },
         save_to: { type: 'string', description: 'если указан — сохранить файл по этому пути вместо отдачи картинкой' },
+        bg: { type: 'string', description: 'фон под прозрачностью PNG: hex вроде #ffffff (по умолчанию) или "none" — оставить прозрачным' },
       },
       required: ['id'],
     },
@@ -101,7 +103,8 @@ function findNodeInSnapshots(id) {
 async function callTool(name, args = {}) {
   if (name === 'figma_render_node') {
     const format = (args.format ?? 'PNG').toUpperCase();
-    const q = `/render?id=${encodeURIComponent(args.id)}&format=${format}&scale=${args.scale ?? 2}`;
+    const q = `/render?id=${encodeURIComponent(args.id)}&format=${format}&scale=${args.scale ?? 2}`
+      + `&bg=${encodeURIComponent(args.bg ?? '#ffffff')}`;
 
     if (args.save_to) {
       const r = await api(q, { raw: true });

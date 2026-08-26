@@ -8,6 +8,7 @@ import { saveFrames } from './lib/save.mjs';
 import { subscribe, publish, peers, peerDetails } from './lib/bus.mjs';
 import { ensureLocalConfigs } from './lib/bootstrap.mjs';
 import { matchPage } from './lib/pagematch.mjs';
+import { flattenPng } from './lib/flatten.mjs';
 
 const PORT = Number(process.env.PORT || 8971);
 const TLS_PORT = Number(process.env.TLS_PORT || PORT + 1);
@@ -241,6 +242,7 @@ const handler = (req, res) => {
     const format = (url.searchParams.get('format') ?? 'PNG').toUpperCase();
     const scale = Number(url.searchParams.get('scale') ?? 2);
     const asJson = url.searchParams.get('json') === '1';
+    const bg = url.searchParams.get('bg') ?? '#ffffff';
 
     if (!peers().figma) {
       res.setHeader('Content-Type', 'application/json');
@@ -249,9 +251,9 @@ const handler = (req, res) => {
       }));
     }
 
-    const cacheKey = `${id}:${format}:${scale}`;
+    const cacheKey = `${id}:${format}:${scale}:${bg}`;
     const cached = renderCache.get(cacheKey);
-    if (cached) return sendRender(res, cached, asJson);
+    if (cached) return sendRender(res, cached, asJson, bg);
 
     const reqId = `r${++renderSeq}`;
     const timeout = Math.min(300000, Math.max(5000, Number(url.searchParams.get('timeout') ?? 90) * 1000));
@@ -266,7 +268,7 @@ const handler = (req, res) => {
         }
         renderCache.set(cacheKey, msg.result);
         if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
-        sendRender(res, msg.result, asJson);
+        sendRender(res, msg.result, asJson, bg);
       },
     });
     if (queued > 1) console.log(`[render] ${id} в очереди (${queued})`);
@@ -438,7 +440,13 @@ function finishJob(job, msg) {
 
 const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: 'application/pdf' };
 
-function sendRender(res, result, asJson) {
+function sendRender(res, result, asJson, bg = '#ffffff') {
+  // Figma отдаёт PNG без фона канваса — на тёмной теме прозрачность
+  // читается как чёрная заливка. Подкладываем непрозрачный фон.
+  if (result.format === 'PNG' && bg !== 'none') {
+    const flat = flattenPng(result.bytes, bg);
+    if (flat) result = { ...result, bytes: flat };
+  }
   if (asJson) {
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({ ok: true, ...result }));
