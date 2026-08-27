@@ -10,330 +10,357 @@
 <meta property="og:image" content="https://pavelkhabusov.github.io/pixel-guard/og.png">
 <link rel="icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#15171a;--bg2:#17191c;--panel:#1f2226;--panel2:#2a2e33;--line:#33383e;
+  --bg:#15171a;--bg2:#17191c;--panel:#1f2226;--panel2:#2a2e33;--line:#33383e;--line2:#3d434a;
   --fg:#dcdfe3;--mute:#a8aeb6;--dim:#8b939c;--faint:#71767d;
   --ok:#7fb08a;--ok2:#9ec9a8;--bad:#c98b8b;--bad2:#e8a0a0;--warn:#d4b483;
-  --r:7px;
+  --r:8px;
 }
 *{box-sizing:border-box;margin:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:var(--fg);text-decoration:none}
 code,pre,kbd{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px}
 code{background:var(--panel2);padding:1px 6px;border-radius:4px}
-.wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
 .ok{color:var(--ok2)} .bad{color:var(--bad2)} .warn{color:var(--warn)} .dim{color:var(--faint)}
+svg.i{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em;flex:none}
 
-nav{position:sticky;top:0;z-index:5;background:#15171aee;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-nav .wrap{display:flex;align-items:center;justify-content:space-between;height:52px}
+/* reveal */
+.rv{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.rv.in{opacity:1;transform:none}
+.rv.d1{transition-delay:.08s}.rv.d2{transition-delay:.16s}.rv.d3{transition-delay:.24s}.rv.d4{transition-delay:.32s}
+
+nav{position:sticky;top:0;z-index:5;background:#15171acc;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
 .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px}
 .brand img{width:22px;height:22px}
-nav .links{display:flex;gap:4px}
-nav .links a{color:var(--mute);font-size:13px;padding:6px 10px;border-radius:var(--r)}
+nav .links{display:flex;gap:2px;align-items:center}
+nav .links a{color:var(--mute);font-size:13px;padding:6px 10px;border-radius:6px}
 nav .links a:hover{background:var(--panel2);color:var(--fg)}
-nav .links a.gh{background:var(--panel2);color:var(--fg);margin-left:6px}
+nav .links a.gh{display:inline-flex;gap:7px;align-items:center;background:var(--panel2);color:var(--fg);margin-left:8px;font-size:16px}
+nav .links a.gh span{font-size:13px}
 
 /* hero */
-.hero{padding:64px 0 40px;display:grid;grid-template-columns:1fr 1.05fr;gap:40px;align-items:center}
-.hero h1{font-size:42px;line-height:1.1;letter-spacing:-1px;margin:16px 0 14px;font-weight:700}
-.hero p.lead{font-size:16px;color:var(--mute);margin-bottom:22px}
-.hero img.logo{width:56px;height:56px}
-.btns{display:flex;gap:8px}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--r);font-weight:500;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
-.btn:hover{background:var(--panel2)}
-.btn.primary{background:var(--mute);color:#15171a;border-color:transparent;font-weight:600}
-.btn.primary:hover{background:var(--fg)}
-.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:3px}
-.seg span{padding:4px 12px;border-radius:5px;font-size:12px;color:var(--mute)}
-.seg span.on{background:var(--panel2);color:var(--fg)}
+.hero{padding:88px 0 40px;text-align:center;position:relative}
+.hero::before{content:"";position:absolute;inset:-60px 0 auto;height:520px;background:
+  radial-gradient(60% 55% at 50% 0%,#2a2e33 0%,transparent 70%);pointer-events:none;z-index:-1}
+.hero .pill{display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;color:var(--mute);background:#1f222699}
+.hero .pill b{background:var(--panel2);color:var(--fg);padding:2px 8px;border-radius:999px;font-weight:600;font-size:11.5px}
+.hero h1{font-size:64px;line-height:1.02;letter-spacing:-2.2px;margin:24px 0 18px;font-weight:800;background:linear-gradient(180deg,#f0f2f5,#a8aeb6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:18px;color:var(--mute);max-width:640px;margin:0 auto 28px}
+.btns{display:flex;gap:10px;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:var(--r);font-weight:500;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);transition:background .15s,transform .15s}
+.btn:hover{background:var(--panel2);transform:translateY(-1px)}
+.btn.primary{background:var(--fg);color:#15171a;border-color:transparent;font-weight:600}
+.btn.primary:hover{background:#fff}
+.btn svg.i{font-size:16px}
 
-/* curtain demo */
-.demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;user-select:none}
-.demo .bar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:10px;padding:0 2px}
-.demo .bar b{color:var(--fg);font-weight:500}
-.stage{position:relative;height:250px;border-radius:8px;overflow:hidden;background:#101214;border:1px solid var(--line)}
-.page{position:absolute;inset:0;padding:28px 30px;background:#101214}
-.page .kicker{font-size:10px;letter-spacing:1.2px;color:var(--faint);text-transform:uppercase}
-.page h4{font-size:var(--h,28px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.5px;font-weight:700}
-.page p{font-size:12.5px;color:var(--mute);max-width:250px;line-height:var(--lh,1.55)}
-.page .cta{display:inline-block;margin-top:14px;padding:var(--pad,10px 22px);border-radius:6px;background:#a8aeb6;color:#15171a;font-size:12px;font-weight:600}
-.page .navrow{position:absolute;top:0;left:0;right:0;height:26px;display:flex;gap:var(--gap,20px);align-items:center;padding:0 30px;font-size:10px;color:var(--faint);border-bottom:1px solid #1e2226}
-.page.build{--h:25px;--lh:1.4;--pad:9px 18px;--gap:14px;clip-path:inset(0 0 0 var(--x,50%))}
-.page.build h4{margin-top:7px}
-.curtain{position:absolute;top:0;bottom:0;left:var(--x,50%);width:2px;background:var(--mute);transform:translateX(-1px);pointer-events:none}
-.curtain::after{content:"⟷";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--mute);color:#15171a;font-size:13px;display:flex;align-items:center;justify-content:center}
-.tag{position:absolute;font:11px/1 "JetBrains Mono",monospace;padding:4px 7px;border-radius:5px;background:#15171aee;border:1px solid var(--line);color:var(--bad2);white-space:nowrap;opacity:calc(1 - var(--k,0));transition:opacity .15s}
-.tag::before{content:"";position:absolute;left:-7px;top:50%;width:6px;height:6px;border-radius:50%;background:var(--bad);transform:translateY(-50%)}
-.demo input[type=range]{width:100%;margin:10px 0 2px;accent-color:#a8aeb6}
-.legend{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+/* product frame */
+.frame{text-align:left;margin:52px auto 0;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 30px 80px -30px #000,0 0 0 1px #ffffff05 inset;overflow:hidden}
+.frame .tb{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
+.frame .tb i{width:10px;height:10px;border-radius:50%;background:var(--line2);display:inline-block}
+.frame .tb .url{margin-left:auto;font-family:"JetBrains Mono",monospace;background:var(--bg2);border:1px solid var(--line);padding:3px 10px;border-radius:5px}
+.frame .body{display:grid;grid-template-columns:1fr 300px}
+.stage{position:relative;height:400px;overflow:hidden;background:#101214;cursor:col-resize;user-select:none}
+.page{position:absolute;inset:0;padding:64px 56px;background:#101214}
+.page .navrow{position:absolute;top:0;left:0;right:0;height:44px;display:flex;gap:var(--gap,28px);align-items:center;padding:0 56px;font-size:12px;color:var(--faint);border-bottom:1px solid #1e2226}
+.page .navrow b{color:var(--mute);font-weight:600;margin-right:auto}
+.page .kicker{font-size:11px;letter-spacing:1.6px;color:var(--faint);text-transform:uppercase}
+.page h4{font-size:var(--h,44px);line-height:1.08;margin:14px 0 12px;letter-spacing:-1px;font-weight:700;max-width:420px}
+.page p{font-size:14px;color:var(--mute);max-width:360px;line-height:var(--lh,1.6)}
+.page .cta{display:inline-flex;align-items:center;gap:8px;margin-top:22px;padding:var(--pad,12px 22px);border-radius:7px;background:#dcdfe3;color:#15171a;font-size:13px;font-weight:600}
+.page .cards{position:absolute;right:56px;top:96px;display:grid;gap:var(--cg,12px)}
+.page .cards i{display:block;width:150px;height:78px;border-radius:8px;background:#1a1d21;border:1px solid #23272c}
+.page.build{--h:44px;--lh:1.45;--pad:10px 18px;--gap:20px;--cg:8px;clip-path:inset(0 0 0 var(--x,50%))}
+.page.build h4{margin-top:10px}
+.curtain{position:absolute;top:0;bottom:0;left:var(--x,50%);width:1px;background:#dcdfe3;pointer-events:none}
+.curtain::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:#dcdfe3;box-shadow:0 4px 16px #0008;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2315171a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20'/%3E%3C/svg%3E");background-size:18px;background-repeat:no-repeat;background-position:center}
+.curtain .lbl{position:absolute;top:12px;font:11px/1 "JetBrains Mono",monospace;color:var(--dim);padding:3px 7px;background:#15171acc;border-radius:4px;white-space:nowrap}
+.curtain .lbl.l{right:10px}.curtain .lbl.r{left:10px}
+.side{border-left:1px solid var(--line);background:var(--bg2);display:flex;flex-direction:column}
+.side .h{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
+.side .h b{color:var(--fg);font-weight:600;margin-right:auto}
+.side .h .n{padding:2px 8px;border-radius:999px;background:#c98b8b22;color:var(--bad2);font-family:"JetBrains Mono",monospace;font-size:11px}
+.diff{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12.5px;transition:background .2s;position:relative}
+.diff svg.i{font-size:16px;color:var(--bad2);margin-top:2px}
+.diff b{display:block;font-weight:500;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--mute)}
+.diff span{color:var(--fg)}
+.diff.on{background:#c98b8b12}
+.diff.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--bad)}
+.diff.ok svg.i{color:var(--ok2)} .diff.ok span{color:var(--dim)}
+.side .f{margin-top:auto;padding:10px 14px;font-size:11.5px;color:var(--faint);display:flex;gap:6px;align-items:center}
 
-/* numbers */
-.nums{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:8px 0 0}
-.nums div{padding:16px 18px;border-left:1px solid var(--line);background:var(--panel)}
-.nums div:first-child{border-left:0}
-.nums b{display:block;font-size:26px;letter-spacing:-.5px;font-weight:600}
-.nums span{font-size:12.5px;color:var(--dim)}
+/* stats */
+.stats{text-align:left;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:14px}
+.stats div{background:var(--panel);padding:18px 20px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center}
+.stats svg.i{font-size:22px;color:var(--mute);grid-row:span 2}
+.stats b{font-size:22px;letter-spacing:-.5px;font-weight:700;line-height:1.1}
+.stats span{font-size:12.5px;color:var(--dim)}
 
-section{padding:56px 0;border-top:1px solid var(--line)}
-h2{font-size:24px;letter-spacing:-.4px;margin-bottom:6px;font-weight:600}
-.sub{color:var(--dim);margin-bottom:24px;font-size:14.5px;max-width:720px}
+section{padding:72px 0}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+.eyebrow svg.i{font-size:14px}
+h2{font-size:38px;letter-spacing:-1.2px;margin-bottom:10px;font-weight:700;line-height:1.1}
+.sub{color:var(--dim);margin-bottom:30px;font-size:16px;max-width:640px}
+.center{text-align:center}.center .sub{margin-left:auto;margin-right:auto}
 
-/* flow diagram */
-.flow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 18px}
-.flow svg{width:100%;height:auto;display:block}
-.flow text{font-family:Inter,sans-serif;font-size:12px;fill:var(--fg)}
-.flow text.m{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--dim)}
-.flow rect.box{fill:#15171a;stroke:#33383e}
-.flow rect.hub{fill:#2a2e33;stroke:#3d434a}
-.flow path{fill:none;stroke:#4a5058;stroke-width:1.5}
-.flow .arr{fill:#4a5058}
+/* bento */
+.bento{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.b{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10px;min-height:280px}
+.b .ic{width:34px;height:34px;border-radius:9px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--fg)}
+.b h3{font-size:17px;font-weight:600;letter-spacing:-.2px}
+.b p{color:var(--dim);font-size:14px;line-height:1.55;max-width:420px}
+.b .art{margin-top:auto;position:relative}
+.b.w3{grid-column:span 3}.b.w2{grid-column:span 2}.b.w4{grid-column:span 4}
+.b svg.art{width:100%;height:auto;display:block}
+.b .art text{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--dim)}
+.st{stroke:#4a5058;fill:none;stroke-width:1.2}
+.st2{stroke:#a8aeb6;fill:none;stroke-width:1.2}
+.dsh{stroke-dasharray:4 4}
+.draw{stroke-dasharray:600;stroke-dashoffset:600}
+.in .draw{animation:draw 1.6s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.dot{fill:#dcdfe3}
+.mv{offset-rotate:0deg;animation:mv 3.2s linear infinite}
+@keyframes mv{0%{offset-distance:0%;opacity:0}8%{opacity:1}92%{opacity:1}100%{offset-distance:100%;opacity:0}}
+.term{background:#101214;border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-family:"JetBrains Mono",monospace;font-size:12px;line-height:1.7;color:var(--mute);min-height:150px}
+.term .ln{white-space:pre;overflow:hidden;width:0;border-right:0}
+.in .term .ln{animation:type .9s steps(40) forwards}
+.in .term .ln:nth-child(2){animation-delay:.9s}.in .term .ln:nth-child(3){animation-delay:1.6s}.in .term .ln:nth-child(4){animation-delay:2.2s}.in .term .ln:nth-child(5){animation-delay:2.8s}.in .term .ln:nth-child(6){animation-delay:3.3s}
+@keyframes type{from{width:0}to{width:100%}}
+.devices{display:flex;gap:14px;align-items:flex-end;justify-content:center;padding:6px 0}
+.dev{border:1.5px solid var(--line2);border-radius:8px;background:#101214;position:relative}
+.dev::after{content:attr(data-l);position:absolute;left:0;right:0;bottom:-20px;text-align:center;font:10px "JetBrains Mono",monospace;color:var(--faint)}
+.dev i{display:block;margin:10px;height:6px;border-radius:3px;background:var(--line2)}
+.dev i+i{width:60%;height:4px;margin-top:-4px}
+.dev.d1{width:150px;height:100px}.dev.d2{width:86px;height:110px}.dev.d3{width:50px;height:96px}
+.in .dev{animation:pop .5s ease both}.in .dev.d2{animation-delay:.15s}.in .dev.d3{animation-delay:.3s}
+@keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.patch{font-family:"JetBrains Mono",monospace;font-size:12px;line-height:1.7;background:#101214;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.patch div{opacity:0;transform:translateX(-6px)}
+.in .patch div{animation:slide .4s ease forwards}
+.in .patch div:nth-child(2){animation-delay:.2s}.in .patch div:nth-child(3){animation-delay:.4s}.in .patch div:nth-child(4){animation-delay:.6s}.in .patch div:nth-child(5){animation-delay:.8s}
+@keyframes slide{to{opacity:1;transform:none}}
+.patch .m{color:var(--bad2)}.patch .p{color:var(--ok2)}.patch .c{color:var(--faint)}
 
-/* vs table */
-.vs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.vs .col{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
-.vs .head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center}
-.vs .head small{font-weight:400;color:var(--faint);font-size:12px}
-.vs .body{padding:14px 16px;font-size:13.5px;color:var(--mute)}
-.vs .shot{height:120px;border-radius:6px;background:repeating-linear-gradient(45deg,#1b1e22 0 6px,#20242a 6px 12px);position:relative;margin-bottom:12px;overflow:hidden}
-.vs .shot .blob{position:absolute;background:#c98b8b55;border:1px solid #c98b8b88}
-.vs ul{list-style:none;padding:0;margin:0}
-.vs li{padding:6px 0;border-top:1px dashed var(--line)}
-.vs li:first-child{border-top:0}
-.vs .col.pg .head{color:var(--ok2)}
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;position:relative}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;position:relative}
+.step .k{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.step .k .ic{width:40px;height:40px;border-radius:10px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:20px}
+.step .k small{font:600 11px "JetBrains Mono",monospace;color:var(--faint);letter-spacing:1px}
+.step h3{font-size:17px;font-weight:600;margin-bottom:6px}
+.step p{color:var(--dim);font-size:14px}
+.step code{font-size:11.5px}
+.step::after{content:"";position:absolute;right:-13px;top:44px;width:14px;height:1px;background:var(--line2)}
+.step:last-child::after{display:none}
 
-/* map anatomy */
-.anat{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;align-items:start}
-pre{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:14px 16px;overflow:auto;line-height:1.65;color:var(--mute)}
-pre b{color:var(--fg);font-weight:500}
-pre .k{color:#9ec9a8} pre .s{color:#d4b483} pre .c{color:var(--faint)}
-pre .mark{background:#2a2e33;border-radius:3px;padding:0 3px;color:var(--fg)}
-.notes{display:grid;gap:8px}
-.note{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:13px;color:var(--mute);display:grid;grid-template-columns:22px 1fr;gap:10px}
-.note i{width:20px;height:20px;border-radius:5px;background:var(--panel2);color:var(--fg);font:600 11px/20px Inter;text-align:center;font-style:normal}
-.note b{color:var(--fg);font-weight:500}
-
-/* report tabs */
-.tabs{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+/* report */
+.tabs{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .tabs input{display:none}
-.tabs .th{display:flex;gap:2px;padding:6px;border-bottom:1px solid var(--line);background:var(--bg2)}
-.tabs label{padding:6px 12px;border-radius:5px;font-size:12.5px;color:var(--mute);cursor:pointer}
+.tabs .th{display:flex;gap:2px;padding:8px;border-bottom:1px solid var(--line);background:var(--bg2)}
+.tabs label{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:6px;font-size:13px;color:var(--mute);cursor:pointer}
 #t1:checked~.th label[for=t1],#t2:checked~.th label[for=t2],#t3:checked~.th label[for=t3]{background:var(--panel2);color:var(--fg)}
 .tabs .tp{display:none}
 #t1:checked~.p1,#t2:checked~.p2,#t3:checked~.p3{display:block}
+pre{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;line-height:1.65;color:var(--mute)}
+pre b{color:var(--fg);font-weight:500} pre .k{color:#9ec9a8} pre .s{color:#d4b483} pre .c{color:var(--faint)}
 .tabs pre{border:0;border-radius:0;background:var(--panel)}
-.report .row{display:grid;grid-template-columns:1.3fr .9fr .9fr .9fr;gap:8px;padding:9px 14px;border-top:1px solid var(--line);font-size:13px;align-items:center}
+.report .row{display:grid;grid-template-columns:24px 1.3fr .9fr .9fr .9fr;gap:8px;padding:10px 16px;border-top:1px solid var(--line);font-size:13px;align-items:center}
 .report .row:first-child{border-top:0;color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-.report .row.f{box-shadow:inset 3px 0 0 var(--bad)} .report .row.p{box-shadow:inset 3px 0 0 var(--ok)}
+.report .row svg.i{font-size:15px}
+.report .row.f svg.i{color:var(--bad2)}.report .row.p svg.i{color:var(--ok2)}
 .report .row code{background:transparent;padding:0;color:var(--mute)}
 
-/* cards */
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:18px 18px 16px}
-.card h3{font-size:15px;font-weight:600;margin-bottom:6px}
-.card p{color:var(--dim);font-size:13.5px;line-height:1.55}
-.card h3 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:9px;vertical-align:1px}
+/* vs */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vs .col{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.vs .head{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;display:flex;align-items:center;gap:9px}
+.vs .head small{margin-left:auto;font-weight:400;color:var(--faint);font-size:12px}
+.vs .body{padding:16px 18px;font-size:13.5px;color:var(--mute)}
+.vs ul{list-style:none;padding:0;margin:0}
+.vs li{display:flex;gap:9px;padding:7px 0;border-top:1px dashed var(--line);align-items:flex-start}
+.vs li:first-child{border-top:0}
+.vs li svg.i{font-size:15px;margin-top:3px}
+.vs .col.pg .head{color:var(--ok2)}
+.heat{height:130px;border-radius:8px;background:#101214;border:1px solid var(--line);position:relative;margin-bottom:14px;overflow:hidden}
+.heat .blob{position:absolute;background:#c98b8b33;border:1px solid #c98b8b66;border-radius:3px}
+.in .heat .blob{animation:flick 2.4s ease-in-out infinite}
+@keyframes flick{50%{background:#c98b8b55}}
+.heat .row{position:absolute;left:10%;height:8px;border-radius:4px;background:var(--line)}
 
-footer{padding:28px 0;color:var(--faint);font-size:13px;border-top:1px solid var(--line)}
-footer .wrap{display:flex;justify-content:space-between}
-footer a{color:var(--dim)}
-@media(max-width:860px){.hero,.vs,.anat,.cards{grid-template-columns:1fr}.nums{grid-template-columns:1fr 1fr}.hero h1{font-size:32px}nav .links a:not(.gh){display:none}}
+footer{padding:34px 0;color:var(--faint);font-size:13px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;align-items:center}
+footer a{display:inline-flex;gap:7px;align-items:center;color:var(--dim)}
+@media(max-width:900px){.hero h1{font-size:42px}.frame .body{grid-template-columns:1fr}.side{display:none}.stats{grid-template-columns:1fr 1fr}.bento{grid-template-columns:1fr}.b.w2,.b.w3,.b.w4{grid-column:span 1}.steps,.vs{grid-template-columns:1fr}.step::after{display:none}nav .links a:not(.gh){display:none}.page .cards{display:none}}
 </style>
 </head>
 <body>
 <nav><div class="wrap">
   <a class="brand" href="#"><img src="icon.svg" alt="">pixel-guard</a>
-  <div class="links"><a href="#flow">How it works</a><a href="#vs">Why not screenshots</a><a href="#map">Maps</a><a href="#report">Report</a><a href="#install">Install</a><a class="gh" href="https://github.com/PavelKhabusov/pixel-guard">GitHub ↗</a></div>
+  <div class="links"><a href="#features">Features</a><a href="#how">How it works</a><a href="#report">Report</a><a href="#vs">vs screenshots</a><a href="#install">Install</a><a class="gh" href="https://github.com/PavelKhabusov/pixel-guard"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /> <path d="M9 18c-4.51 2-5-2-7-2" /></svg><span>GitHub</span></a></div>
 </div></nav>
 
 <div class="wrap">
 <div class="hero">
-  <div>
-    <img class="logo" src="icon.svg" alt="pixel-guard">
-    <h1>Pixel-perfect QA<br>against Figma designs</h1>
-    <p class="lead">Compares a live page with its design <b>element by element</b> — computed CSS and geometry, not screenshots. A companion plugin reads the file from inside Figma, so there is no REST API and no rate limit in the loop.</p>
-    <div class="btns"><a class="btn primary" href="#install">Install</a><a class="btn" href="https://github.com/PavelKhabusov/pixel-guard">Source on GitHub</a></div>
-  </div>
-  <div class="demo" id="demo">
-    <div class="bar"><span><b>design</b> · Figma frame 994:13213</span><span>drag the curtain</span><span><b>build</b> · localhost:8971</span></div>
-    <div class="stage">
-      <div class="page design">
-        <div class="navrow"><span>Home</span><span>Work</span><span>About</span><span>Contact</span></div>
-        <div class="kicker">Studio</div><h4>Furniture that<br>outlives trends</h4>
-        <p>Solid oak, hand-finished in small batches. Delivered flat, assembled in minutes.</p>
-        <span class="cta">Browse the catalogue</span>
+  <span class="pill rv in"><b>v0.x</b> Figma plugin · Chrome extension · CLI · MCP</span>
+  <h1 class="rv in d1">Pixel-perfect QA<br>against Figma designs</h1>
+  <p class="lead rv in d2">Compares a live page with its design element by element — computed CSS and geometry, not screenshots. A companion plugin reads the file from inside Figma: no REST API, no rate limits.</p>
+  <div class="btns rv in d3"><a class="btn primary" href="#install"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19h8" /> <path d="m4 17 6-6-6-6" /></svg> Install</a><a class="btn" href="https://github.com/PavelKhabusov/pixel-guard"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /> <path d="M9 18c-4.51 2-5-2-7-2" /></svg> Source</a></div>
+
+  <div class="frame rv in d4" id="demo">
+    <div class="tb"><i></i><i></i><i></i><span>pixel-guard · home @ desktop</span><span class="url">localhost:8971 ⇄ figma 994:13213</span></div>
+    <div class="body">
+      <div class="stage">
+        <div class="page design">
+          <div class="navrow"><b>Studio</b><span>Work</span><span>About</span><span>Journal</span><span>Contact</span></div>
+          <div class="kicker">Furniture · est. 2019</div>
+          <h4>Furniture that outlives trends</h4>
+          <p>Solid oak, hand-finished in small batches. Delivered flat, assembled in minutes.</p>
+          <span class="cta">Browse the catalogue <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /> <path d="m12 5 7 7-7 7" /></svg></span>
+          <div class="cards"><i></i><i></i><i></i></div>
+        </div>
+        <div class="page build">
+          <div class="navrow"><b>Studio</b><span>Work</span><span>About</span><span>Journal</span><span>Contact</span></div>
+          <div class="kicker">Furniture · est. 2019</div>
+          <h4>Furniture that outlives trends</h4>
+          <p>Solid oak, hand-finished in small batches. Delivered flat, assembled in minutes.</p>
+          <span class="cta">Browse the catalogue <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /> <path d="m12 5 7 7-7 7" /></svg></span>
+          <div class="cards"><i></i><i></i><i></i></div>
+        </div>
+        <div class="curtain"><span class="lbl l">design</span><span class="lbl r">build</span></div>
       </div>
-      <div class="page build">
-        <div class="navrow"><span>Home</span><span>Work</span><span>About</span><span>Contact</span></div>
-        <div class="kicker">Studio</div><h4>Furniture that<br>outlives trends</h4>
-        <p>Solid oak, hand-finished in small batches. Delivered flat, assembled in minutes.</p>
-        <span class="cta">Browse the catalogue</span>
-      </div>
-      <div class="curtain"></div>
-      <span class="tag" style="right:10px;top:70px">font-size 30 → 27</span>
-      <span class="tag" style="right:10px;top:128px">line-height 1.55 → 1.4</span>
-      <span class="tag" style="right:10px;top:200px">padding 10 22 → 9 18</span>
-      <span class="tag" style="right:10px;top:34px">gap 20 → 14</span>
+      <aside class="side">
+        <div class="h"><b>Check page</b><span class="n">4 diffs</span></div>
+        <div class="diff" data-x="58"><span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg></span><div><b>@header/nav · gap</b><span>28px → 20px</span></div></div>
+        <div class="diff" data-x="20"><span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg></span><div><b>hero/title · margin-top</b><span>14px → 10px</span></div></div>
+        <div class="diff" data-x="30"><span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg></span><div><b>hero/lead · line-height</b><span>1.6 → 1.45</span></div></div>
+        <div class="diff" data-x="24"><span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg></span><div><b>hero/cta · padding</b><span>12px 22px → 10px 18px</span></div></div>
+        <div class="diff ok"><span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg></span><div><b>41 properties</b><span>match within tolerance</span></div></div>
+        <div class="f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 8 4 4-4 4" /> <path d="M2 12h20" /> <path d="m6 8-4 4 4 4" /></svg> drag the curtain · auto-sweeps when idle</div>
+      </aside>
     </div>
-    <input type="range" min="0" max="100" value="50" aria-label="curtain position">
-    <div class="legend"><span>← design</span><span>4 mismatches on this frame</span><span>build →</span></div>
+  </div>
+
+  <div class="stats rv">
+    <div><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" /></svg><b>0</b><span>Figma REST calls — the plugin reads from inside Figma</span></div>
+    <div><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1" /> <path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1" /></svg><b>1 file</b><span>per page: nodes, styles, geometry in <code>snapshots/</code></span></div>
+    <div><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2" /> <line x1="8" x2="16" y1="21" y2="21" /> <line x1="12" x2="12" y1="17" y2="21" /></svg><b>3</b><span>breakpoints per run via CDP, window untouched</span></div>
+    <div><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /> <path d="m9 12 2 2 4-4" /></svg><b>exit 1</b><span>on any mismatch — CI-ready as is</span></div>
   </div>
 </div>
 
-<div class="nums">
-  <div><b>0</b><span>Figma REST calls. The plugin reads the file from inside Figma.</span></div>
-  <div><b>1 JSON</b><span>per page: nodes, styles, geometry — checked into <code>snapshots/</code>.</span></div>
-  <div><b>3</b><span>breakpoints per run via CDP, without resizing the window.</span></div>
-  <div><b>exit 1</b><span>on any mismatch — drop <code>npm run qa</code> into CI as is.</span></div>
-</div>
-
-<section id="flow">
-  <h2>How the data moves</h2>
-  <p class="sub">Figma is touched once, by the plugin. Everything after that works from the snapshot on disk — CLI, browser panel and the MCP server for agents read the same file.</p>
-  <div class="flow">
-    <svg viewBox="0 0 960 250" role="img" aria-label="Data flow diagram">
-      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5 0 10z" class="arr"/></marker></defs>
-      <rect class="box" x="20" y="90" width="170" height="70" rx="8"/>
-      <text x="105" y="118" text-anchor="middle" font-weight="600">Figma plugin</text>
-      <text x="105" y="138" text-anchor="middle" class="m">Plugin API · Capture</text>
-      <path d="M190 125H278" marker-end="url(#a)"/>
-      <rect class="hub" x="280" y="80" width="190" height="90" rx="8"/>
-      <text x="375" y="112" text-anchor="middle" font-weight="600">snapshots/*.json</text>
-      <text x="375" y="132" text-anchor="middle" class="m">nodes · styles · geometry</text>
-      <text x="375" y="150" text-anchor="middle" class="m">+ maps/*.map.json</text>
-      <path d="M470 105C520 105 520 45 568 45" marker-end="url(#a)"/>
-      <path d="M470 125H568" marker-end="url(#a)"/>
-      <path d="M470 145C520 145 520 205 568 205" marker-end="url(#a)"/>
-      <rect class="box" x="570" y="18" width="180" height="54" rx="8"/>
-      <text x="660" y="41" text-anchor="middle" font-weight="600">Node CLI</text>
-      <text x="660" y="59" text-anchor="middle" class="m">npm run qa · automap · patch</text>
-      <rect class="box" x="570" y="98" width="180" height="54" rx="8"/>
-      <text x="660" y="121" text-anchor="middle" font-weight="600">Chrome panel</text>
-      <text x="660" y="139" text-anchor="middle" class="m">overlay · curtain · check page</text>
-      <rect class="box" x="570" y="178" width="180" height="54" rx="8"/>
-      <text x="660" y="201" text-anchor="middle" font-weight="600">MCP server</text>
-      <text x="660" y="219" text-anchor="middle" class="m">Claude Code reads &amp; renders nodes</text>
-      <path d="M750 45C800 45 800 125 848 125" marker-end="url(#a)"/>
-      <path d="M750 125H848" marker-end="url(#a)"/>
-      <path d="M750 205C800 205 800 125 848 125" marker-end="url(#a)"/>
-      <rect class="box" x="850" y="98" width="95" height="54" rx="8"/>
-      <text x="897" y="121" text-anchor="middle" font-weight="600">reports/</text>
-      <text x="897" y="139" text-anchor="middle" class="m">.json · .html</text>
-    </svg>
+<section id="features">
+  <div class="center rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /> <path d="M20 2v4" /> <path d="M22 4h-4" /> <circle cx="4" cy="20" r="2" /></svg> What it does</span><h2>Everything DevTools and a ruler do — automated</h2><p class="sub">Every element is checked against its Figma node: typography, colours, spacing, size and position. Differences come back named, not as a percentage of pixels.</p></div>
+  <div class="bento">
+    <div class="b w3 rv"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /> <path d="m14.5 12.5 2-2" /> <path d="m11.5 9.5 2-2" /> <path d="m8.5 6.5 2-2" /> <path d="m17.5 15.5 2-2" /></svg></span><h3>Element-by-element</h3><p>Computed CSS and geometry of each mapped element against the node in the snapshot. Per-property tolerances, per-node ignores.</p>
+      <svg class="art" viewBox="0 0 460 150" aria-hidden="true">
+        <rect x="20" y="30" width="200" height="90" rx="6" class="st"/>
+        <rect x="236" y="34" width="196" height="82" rx="6" class="st"/>
+        <text x="20" y="20">figma · hero/title</text><text x="236" y="20">dom · .hero h1</text>
+        <line x1="20" y1="135" x2="220" y2="135" class="st2 draw"/><text x="106" y="147">w 200</text>
+        <line x1="236" y1="135" x2="432" y2="135" class="st2 draw"/><text x="318" y="147" fill="#e8a0a0">w 196 ✕</text>
+        <line x1="8" y1="30" x2="8" y2="120" class="st2 draw"/><line x1="448" y1="34" x2="448" y2="116" class="st2 draw"/>
+        <rect x="34" y="46" width="120" height="12" rx="3" fill="#2a2e33"/><rect x="34" y="66" width="160" height="8" rx="3" fill="#23272c"/><rect x="34" y="80" width="140" height="8" rx="3" fill="#23272c"/>
+        <rect x="250" y="50" width="110" height="11" rx="3" fill="#2a2e33"/><rect x="250" y="68" width="160" height="8" rx="3" fill="#23272c"/><rect x="250" y="82" width="140" height="8" rx="3" fill="#23272c"/>
+        <path d="M154 52 L250 55" class="st dsh"/>
+      </svg></div>
+    <div class="b w3 rv d1"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" /></svg></span><h3>No REST API in the loop</h3><p>The Figma plugin walks the file through the Plugin API and writes a JSON snapshot. No tokens, no 429s, works with any file you can open.</p>
+      <svg class="art" viewBox="0 0 460 150" aria-hidden="true">
+        <rect x="14" y="50" width="110" height="50" rx="8" class="st"/><text x="69" y="72" text-anchor="middle" fill="#dcdfe3">Figma</text><text x="69" y="88" text-anchor="middle">plugin · Capture</text>
+        <rect x="175" y="50" width="110" height="50" rx="8" class="st"/><text x="230" y="72" text-anchor="middle" fill="#dcdfe3">snapshot.json</text><text x="230" y="88" text-anchor="middle">nodes · styles</text>
+        <rect x="336" y="12" width="110" height="34" rx="8" class="st"/><text x="391" y="34" text-anchor="middle" fill="#dcdfe3">CLI</text>
+        <rect x="336" y="58" width="110" height="34" rx="8" class="st"/><text x="391" y="80" text-anchor="middle" fill="#dcdfe3">Chrome panel</text>
+        <rect x="336" y="104" width="110" height="34" rx="8" class="st"/><text x="391" y="126" text-anchor="middle" fill="#dcdfe3">MCP · Claude</text>
+        <path id="f1" d="M124 75H175" class="st"/>
+        <path id="f2" d="M285 75C310 75 310 29 336 29" class="st"/>
+        <path id="f3" d="M285 75H336" class="st"/>
+        <path id="f4" d="M285 75C310 75 310 121 336 121" class="st"/>
+        <circle r="3" class="dot mv" style="offset-path:path('M124 75H175')"/>
+        <circle r="3" class="dot mv" style="offset-path:path('M285 75C310 75 310 29 336 29');animation-delay:.6s"/>
+        <circle r="3" class="dot mv" style="offset-path:path('M285 75H336');animation-delay:1.4s"/>
+        <circle r="3" class="dot mv" style="offset-path:path('M285 75C310 75 310 121 336 121');animation-delay:2.1s"/>
+      </svg></div>
+    <div class="b w2 rv"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2" /> <line x1="8" x2="16" y1="21" y2="21" /> <line x1="12" x2="12" y1="17" y2="21" /></svg></span><h3>Three breakpoints</h3><p>Desktop, tablet and phone through CDP device emulation. The browser window never resizes.</p>
+      <div class="art devices"><div class="dev d1" data-l="1440"><i></i><i></i></div><div class="dev d2" data-l="834"><i></i><i></i></div><div class="dev d3" data-l="390"><i></i><i></i></div></div></div>
+    <div class="b w2 rv d1"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></svg></span><h3>Agent-native</h3><p>An MCP server exposes node styles, renders and the checker. Claude Code fixes CSS without a Figma tab.</p>
+      <div class="art term"><div class="ln"><span class="dim">›</span> figma_get_node_styles hero/title</div><div class="ln"><span class="dim">‹</span> font-size 56px · weight 700 · lh 1.1</div><div class="ln"><span class="dim">›</span> run_qa --page home</div><div class="ln"><span class="bad">✕</span> 1 mismatch · .hero h1 font-size</div><div class="ln"><span class="dim">›</span> edit styles.css:41 → 56px</div><div class="ln"><span class="ok">✓</span> 42/42 match</div></div></div>
+    <div class="b w2 rv d2"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" /> <path d="m14 7 3 3" /> <path d="M5 6v4" /> <path d="M19 14v4" /> <path d="M10 2v2" /> <path d="M7 8H3" /> <path d="M21 16h-4" /> <path d="M11 3H9" /></svg></span><h3>CSS patch from diffs</h3><p><code>npm run patch</code> turns mismatches into a proposed patch you review before applying.</p>
+      <div class="art patch"><div class="c">/* home @ desktop */</div><div><b>.hero h1</b> {</div><div class="m">-  font-size: 52px;</div><div class="p">+  font-size: 56px;</div><div>}</div></div></div>
+    <div class="b w3 rv"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></svg></span><h3>Design overlay &amp; curtain</h3><p>Rendered PNGs of design blocks laid pixel-aligned over the page. A curtain splits the screen — the same one in the hero above.</p>
+      <svg class="art" viewBox="0 0 460 120" aria-hidden="true">
+        <rect x="20" y="12" width="420" height="96" rx="8" class="st"/>
+        <rect x="34" y="28" width="150" height="10" rx="3" fill="#2a2e33"/><rect x="34" y="48" width="240" height="7" rx="3" fill="#23272c"/><rect x="34" y="62" width="200" height="7" rx="3" fill="#23272c"/><rect x="34" y="82" width="70" height="14" rx="4" fill="#33383e"/>
+        <rect x="230" y="12" width="210" height="96" rx="0" fill="#dcdfe310"/>
+        <rect x="244" y="26" width="150" height="10" rx="3" fill="#a8aeb6" opacity=".35"/><rect x="244" y="46" width="180" height="7" rx="3" fill="#a8aeb6" opacity=".25"/>
+        <line x1="230" y1="12" x2="230" y2="108" class="st2"><animate attributeName="x1" values="230;330;230" dur="5s" repeatCount="indefinite"/><animate attributeName="x2" values="230;330;230" dur="5s" repeatCount="indefinite"/></line>
+        <rect x="230" y="12" width="210" height="96" fill="#dcdfe30d"><animate attributeName="x" values="230;330;230" dur="5s" repeatCount="indefinite"/><animate attributeName="width" values="210;110;210" dur="5s" repeatCount="indefinite"/></rect>
+      </svg></div>
+    <div class="b w3 rv d1"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6a9 9 0 0 0-9 9V3" /> <circle cx="18" cy="6" r="3" /> <circle cx="6" cy="18" r="3" /></svg></span><h3>Maps you can read</h3><p>A node ↔ selector map per page, shared blocks once. <code>automap</code> writes most of it; <code>verify --fix</code> catches selectors that stopped matching.</p>
+      <pre style="margin-top:auto"><span class="k">"hero/title"</span>: { <span class="k">"selector"</span>: <span class="s">".hero h1"</span> },
+<span class="k">"hero/lead"</span>:  { <span class="k">"selector"</span>: <span class="s">".hero p"</span>, <span class="k">"tolerance"</span>: { <span class="k">"line-height"</span>: 0.05 } },
+<span class="k">"hero/badge"</span>: { <span class="k">"skip"</span>: <span class="s">"rendered by JS"</span> },
+<span class="k">"@header"</span>:    <span class="s">"_shared"</span></pre></div>
   </div>
 </section>
 
-<section id="vs">
-  <h2>Why not just diff screenshots</h2>
-  <p class="sub">Same bug — a heading rendered at 52px instead of 56px — seen by a pixel-diff tool and by pixel-guard.</p>
-  <div class="vs">
-    <div class="col">
-      <div class="head">Screenshot diff <small>any pixel tool</small></div>
-      <div class="body">
-        <div class="shot"><span class="blob" style="left:8%;top:22%;width:60%;height:18%"></span><span class="blob" style="left:8%;top:48%;width:70%;height:30%"></span></div>
-        <ul>
-          <li><span class="bad">3.4 % of pixels differ</span></li>
-          <li>Everything below the heading shifted, so the whole block lights up</li>
-          <li>Anti-aliasing and font hinting produce noise on every run</li>
-          <li>To fix it you open DevTools and the Figma file and measure by hand</li>
-        </ul>
-      </div>
-    </div>
-    <div class="col pg">
-      <div class="head">pixel-guard <small>per-element</small></div>
-      <div class="body">
-        <pre style="margin-bottom:12px"><span class="bad">✕</span> hero/title  <b>.hero h1</b>
-   font-size   <span class="ok">56px</span> → <span class="bad">52px</span>
-<span class="ok">✓</span> 41 other properties match</pre>
-        <ul>
-          <li><span class="ok">1 mismatch</span>, named: node, selector, property, both values</li>
-          <li>Layout shifts downstream are not reported twice</li>
-          <li>Deterministic — same DOM, same report</li>
-          <li>The fix is a one-line CSS change you can make without opening Figma</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="map">
-  <h2>Anatomy of a map</h2>
-  <p class="sub">A map ties Figma nodes to CSS selectors. <code>npm run automap</code> writes most of it; the rest is a click in the panel or a line by hand.</p>
-  <div class="anat">
-<pre>{
-  <span class="k">"match"</span>: [<span class="s">"/"</span>, <span class="s">"/index.html"</span>],                 <span class="mark">1</span>
-  <span class="k">"nodes"</span>: {
-    <span class="k">"hero/title"</span>: { <span class="k">"selector"</span>: <span class="s">".hero h1"</span> },       <span class="mark">2</span>
-    <span class="k">"hero/lead"</span>: {
-      <span class="k">"selector"</span>: <span class="s">".hero p"</span>,
-      <span class="k">"tolerance"</span>: { <span class="k">"line-height"</span>: 0.05 },        <span class="mark">3</span>
-      <span class="k">"ignore"</span>: [<span class="s">"color"</span>]
-    },
-    <span class="k">"994:13213"</span>: { <span class="k">"selector"</span>: <span class="s">".hero .btn"</span> },      <span class="mark">4</span>
-    <span class="k">"hero/badge"</span>: { <span class="k">"skip"</span>: <span class="s">"rendered by JS later"</span> }, <span class="mark">5</span>
-    <span class="k">"@header"</span>: <span class="s">"_shared"</span>                              <span class="mark">6</span>
-  }
-}</pre>
-    <div class="notes">
-      <div class="note"><i>1</i><span><b>URL match</b> — the panel picks the right design for the page you have open. No Figma tab needed.</span></div>
-      <div class="note"><i>2</i><span><b>Node by name path</b> — <code>frame/child</code> as in the Figma layers panel.</span></div>
-      <div class="note"><i>3</i><span><b>Tolerance and ignore</b> per property — accept sub-pixel line-height, skip colours a theme controls.</span></div>
-      <div class="note"><i>4</i><span><b>Node by id</b> when names are unstable — straight from the URL, <code>994-13213</code> → <code>994:13213</code>.</span></div>
-      <div class="note"><i>5</i><span><b>Skip with a reason</b> — stays visible in the report instead of silently disappearing.</span></div>
-      <div class="note"><i>6</i><span><b>Shared modules</b> — header, footer and other cross-page blocks live in <code>_shared.map.json</code> once.</span></div>
-    </div>
+<section id="how">
+  <div class="center rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z" /> <circle cx="12" cy="12" r="10" /></svg> How it works</span><h2>Figma once. Everything else from disk.</h2><p class="sub">The snapshot is a plain JSON you can commit. CLI, browser panel and the MCP server all read the same file.</p></div>
+  <div class="steps">
+    <div class="step rv"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H12v7H8.5A3.5 3.5 0 0 1 5 5.5z" /> <path d="M12 2h3.5a3.5 3.5 0 1 1 0 7H12V2z" /> <path d="M12 12.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 1 1-7 0z" /> <path d="M5 19.5A3.5 3.5 0 0 1 8.5 16H12v3.5a3.5 3.5 0 1 1-7 0z" /> <path d="M5 12.5A3.5 3.5 0 0 1 8.5 9H12v7H8.5A3.5 3.5 0 0 1 5 12.5z" /></svg></span><small>01</small></div><h3>Capture</h3><p>Select frames in Figma, press <b>Capture</b>. Or export the whole project in one go — pages plus shared modules.</p></div>
+    <div class="step rv d1"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" /> <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" /></svg></span><small>02</small></div><h3>Map</h3><p><code>npm run automap</code> pairs nodes with selectors; the rest is a click in the panel or a line in <code>maps/page.map.json</code>.</p></div>
+    <div class="step rv d2"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2" /> <path d="M17 3h2a2 2 0 0 1 2 2v2" /> <path d="M21 17v2a2 2 0 0 1-2 2h-2" /> <path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg></span><small>03</small></div><h3>Check</h3><p><code>npm run qa</code> in CI, <b>Check page</b> in the browser, or let an agent do it over MCP. Same report either way.</p></div>
   </div>
 </section>
 
 <section id="report">
-  <h2>One report, three readers</h2>
-  <p class="sub">The same run writes an HTML page for people, a JSON file for agents, and a CSS patch proposal — review the cascade, apply.</p>
-  <div class="tabs">
+  <div class="rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1" /> <path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1" /></svg> Output</span><h2>One run, three readers</h2><p class="sub">An HTML page for people, JSON for agents, and a CSS patch proposal.</p></div>
+  <div class="tabs rv d1">
     <input type="radio" name="t" id="t1" checked><input type="radio" name="t" id="t2"><input type="radio" name="t" id="t3">
-    <div class="th"><label for="t1">for people · .html</label><label for="t2">for agents · .json</label><label for="t3">npm run patch</label></div>
+    <div class="th"><label for="t1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></svg> for people</label><label for="t2"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" /> <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" /></svg> for agents</label><label for="t3"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" /> <path d="m14 7 3 3" /> <path d="M5 6v4" /> <path d="M19 14v4" /> <path d="M10 2v2" /> <path d="M7 8H3" /> <path d="M21 16h-4" /> <path d="M11 3H9" /></svg> patch</label></div>
     <div class="tp p1 report">
-      <div class="row"><span>node → selector</span><span>property</span><span>figma</span><span>actual</span></div>
-      <div class="row f"><span>hero/title → <code>.hero h1</code></span><span>font-size</span><span class="ok">56px</span><span class="bad">52px</span></div>
-      <div class="row f"><span>hero/cta → <code>.hero .btn</code></span><span>padding</span><span class="ok">14px 28px</span><span class="bad">12px 24px</span></div>
-      <div class="row f"><span>@header/nav → <code>.nav</code></span><span>gap</span><span class="ok">32px</span><span class="bad">24px</span></div>
-      <div class="row p"><span>hero/lead → <code>.hero p</code></span><span>color</span><span class="ok">#a9b0bd</span><span class="ok">#a9b0bd</span></div>
-      <div class="row p"><span>hero/lead → <code>.hero p</code></span><span>line-height</span><span class="ok">1.55</span><span class="ok">1.55</span></div>
+      <div class="row"><span></span><span>node → selector</span><span>property</span><span>figma</span><span>actual</span></div>
+      <div class="row f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span>hero/title → <code>.hero h1</code></span><span>font-size</span><span class="ok">56px</span><span class="bad">52px</span></div>
+      <div class="row f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span>hero/cta → <code>.hero .btn</code></span><span>padding</span><span class="ok">14px 28px</span><span class="bad">12px 24px</span></div>
+      <div class="row f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span>@header/nav → <code>.nav</code></span><span>gap</span><span class="ok">32px</span><span class="bad">24px</span></div>
+      <div class="row p"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg><span>hero/lead → <code>.hero p</code></span><span>color</span><span class="ok">#a9b0bd</span><span class="ok">#a9b0bd</span></div>
+      <div class="row p"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg><span>hero/lead → <code>.hero p</code></span><span>line-height</span><span class="ok">1.55</span><span class="ok">1.55</span></div>
     </div>
     <div class="tp p2"><pre>{
   <span class="k">"page"</span>: <span class="s">"home"</span>, <span class="k">"viewport"</span>: <span class="s">"desktop"</span>, <span class="k">"status"</span>: <span class="s">"failed"</span>,
   <span class="k">"diffs"</span>: [
-    { <span class="k">"node"</span>: <span class="s">"hero/title"</span>, <span class="k">"selector"</span>: <span class="s">".hero h1"</span>,
-      <span class="k">"prop"</span>: <span class="s">"font-size"</span>, <span class="k">"figma"</span>: <span class="s">"56px"</span>, <span class="k">"actual"</span>: <span class="s">"52px"</span> },
-    { <span class="k">"node"</span>: <span class="s">"hero/cta"</span>, <span class="k">"selector"</span>: <span class="s">".hero .btn"</span>,
-      <span class="k">"prop"</span>: <span class="s">"padding"</span>, <span class="k">"figma"</span>: <span class="s">"14px 28px"</span>, <span class="k">"actual"</span>: <span class="s">"12px 24px"</span> }
+    { <span class="k">"node"</span>: <span class="s">"hero/title"</span>, <span class="k">"selector"</span>: <span class="s">".hero h1"</span>, <span class="k">"prop"</span>: <span class="s">"font-size"</span>, <span class="k">"figma"</span>: <span class="s">"56px"</span>, <span class="k">"actual"</span>: <span class="s">"52px"</span> },
+    { <span class="k">"node"</span>: <span class="s">"hero/cta"</span>, <span class="k">"selector"</span>: <span class="s">".hero .btn"</span>, <span class="k">"prop"</span>: <span class="s">"padding"</span>, <span class="k">"figma"</span>: <span class="s">"14px 28px"</span>, <span class="k">"actual"</span>: <span class="s">"12px 24px"</span> }
   ],
   <span class="k">"matched"</span>: 41, <span class="k">"missing"</span>: [], <span class="k">"skipped"</span>: [<span class="s">"hero/badge"</span>]
 }</pre></div>
     <div class="tp p3"><pre><span class="c">/* pixel-guard patch · home @ desktop · review the cascade before applying */</span>
-<b>.hero h1</b> { font-size: <span class="ok">56px</span>; }        <span class="c">/* was 52px */</span>
-<b>.hero .btn</b> { padding: <span class="ok">14px 28px</span>; }  <span class="c">/* was 12px 24px */</span>
-<b>.nav</b> { gap: <span class="ok">32px</span>; }                 <span class="c">/* was 24px */</span></pre></div>
+<b>.hero h1</b>   { font-size: <span class="ok">56px</span>; }       <span class="c">/* was 52px */</span>
+<b>.hero .btn</b> { padding: <span class="ok">14px 28px</span>; } <span class="c">/* was 12px 24px */</span>
+<b>.nav</b>       { gap: <span class="ok">32px</span>; }             <span class="c">/* was 24px */</span></pre></div>
   </div>
 </section>
 
-<section id="more">
-  <h2>Also in the box</h2>
-  <div class="cards">
-    <div class="card"><h3><span class="dot"></span>Design overlay</h3><p>Rendered PNGs of design blocks laid pixel-aligned over the page, with the curtain you dragged above.</p></div>
-    <div class="card"><h3><span class="dot"></span>Live bridge</h3><p>Optional: click a node in Figma, the panel highlights its element on the site — and back.</p></div>
-    <div class="card"><h3><span class="dot"></span>Whole-project export</h3><p>One button snapshots every page at once; <code>_project.json</code> lists pages and shared modules.</p></div>
-    <div class="card"><h3><span class="dot"></span>Pixel diff, when you want it</h3><p><code>npm run pixdiff</code> for the cases where a raster comparison is the right tool.</p></div>
-    <div class="card"><h3><span class="dot"></span>Map verification</h3><p><code>npm run verify -- --fix</code> catches selectors that stopped matching after a refactor.</p></div>
-    <div class="card"><h3><span class="dot"></span>Agent-native</h3><p>MCP tools: read node styles, render a node, find nodes, run the check — Claude fixes CSS without opening Figma.</p></div>
+<section id="vs">
+  <div class="rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></svg> Why not screenshots</span><h2>Same bug, two reports</h2><p class="sub">A heading rendered at 52px instead of 56px.</p></div>
+  <div class="vs">
+    <div class="col rv"><div class="head"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></svg> Screenshot diff <small>any pixel tool</small></div><div class="body">
+      <div class="heat"><span class="row" style="top:22px;width:55%"></span><span class="row" style="top:44px;width:75%"></span><span class="row" style="top:62px;width:65%"></span><span class="row" style="top:90px;width:30%;height:16px"></span><span class="blob" style="left:8%;top:14%;width:62%;height:20%"></span><span class="blob" style="left:8%;top:40%;width:72%;height:50%"></span></div>
+      <ul><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span><b class="bad">3.4 % of pixels differ</b></span></li><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span>Everything below the heading shifted — the whole block lights up</span></li><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span>Anti-aliasing and hinting add noise on every run</span></li><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></svg><span>To fix it: open DevTools, open Figma, measure by hand</span></li></ul></div></div>
+    <div class="col pg rv d1"><div class="head"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2" /> <path d="M17 3h2a2 2 0 0 1 2 2v2" /> <path d="M21 17v2a2 2 0 0 1-2 2h-2" /> <path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg> pixel-guard <small>per-element</small></div><div class="body">
+      <pre style="margin-bottom:14px"><span class="bad">✕</span> hero/title  <b>.hero h1</b>
+   font-size   <span class="ok">56px</span> → <span class="bad">52px</span>
+<span class="ok">✓</span> 41 other properties match</pre>
+      <ul><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg><span><b class="ok">1 mismatch</b>, named: node, selector, property, both values</span></li><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg><span>Downstream layout shifts are not reported twice</span></li><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg><span>Deterministic — same DOM, same report</span></li><li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="m9 12 2 2 4-4" /></svg><span>The fix is one CSS line, no Figma needed</span></li></ul></div></div>
   </div>
 </section>
 
 <section id="install">
-  <h2>Install</h2>
-  <p class="sub">Node ≥ 20, Chrome, Figma desktop app for snapshots.</p>
-<pre><span class="dim">$</span> <b>git clone https://github.com/PavelKhabusov/pixel-guard && cd pixel-guard</b>
+  <div class="rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19h8" /> <path d="m4 17 6-6-6-6" /></svg> Install</span><h2>Up in a minute</h2><p class="sub">Node ≥ 20, Chrome, Figma desktop app for snapshots.</p></div>
+<pre class="rv d1"><span class="dim">$</span> <b>git clone https://github.com/PavelKhabusov/pixel-guard && cd pixel-guard</b>
 <span class="dim">$</span> <b>npm install</b>
 <span class="dim">$</span> <b>./start.sh</b>            <span class="dim"># Figma ↔ browser bridge + panel</span>
 
@@ -342,18 +369,25 @@ footer a{color:var(--dim)}
 </section>
 </div>
 
-<footer><div class="wrap"><span>pixel-guard · MIT</span><a href="https://github.com/PavelKhabusov">Pavel Khabusov</a></div></footer>
+<footer><div class="wrap"><span>pixel-guard · MIT</span><a href="https://github.com/PavelKhabusov"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /> <path d="M9 18c-4.51 2-5-2-7-2" /></svg> Pavel Khabusov</a></div></footer>
 
 <script>
 (function(){
-  var d=document.getElementById('demo'),r=d.querySelector('input'),st=d.querySelector('.stage');
-  function set(v){st.style.setProperty('--x',v+'%');d.querySelectorAll('.tag').forEach(function(t){var x=t.offsetLeft/st.clientWidth*100;t.style.setProperty('--k',x<v?1:0);});}
-  r.addEventListener('input',function(){set(+r.value)});
-  var drag=false;st.addEventListener('pointerdown',function(e){drag=true;mv(e)});
+  if(location.search.indexOf('static')>-1){document.querySelectorAll('.rv').forEach(function(el){el.classList.add('in')})}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.15});
+  document.querySelectorAll('.rv').forEach(function(el){io.observe(el)});
+
+  var st=document.querySelector('#demo .stage'),diffs=document.querySelectorAll('#demo .diff[data-x]');
+  var x=50,idle=true,t0=performance.now(),drag=false,idleTimer;
+  function set(v){x=Math.max(2,Math.min(98,v));st.style.setProperty('--x',x+'%');diffs.forEach(function(d){d.classList.toggle('on',x<=+d.dataset.x+4)})}
+  function loop(t){if(idle){set(50+38*Math.sin((t-t0)/2600))}requestAnimationFrame(loop)}
+  requestAnimationFrame(loop);
+  function mv(e){var b=st.getBoundingClientRect();set((e.clientX-b.left)/b.width*100)}
+  function wake(){idle=false;clearTimeout(idleTimer);idleTimer=setTimeout(function(){idle=true;t0=performance.now()-2600*Math.asin(Math.max(-1,Math.min(1,(x-50)/38)))},4000)}
+  st.addEventListener('pointerdown',function(e){drag=true;wake();mv(e)});
+  st.addEventListener('pointermove',function(e){if(drag){wake();mv(e)}});
   window.addEventListener('pointerup',function(){drag=false});
-  st.addEventListener('pointermove',function(e){if(drag)mv(e)});
-  function mv(e){var b=st.getBoundingClientRect();var v=Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100));r.value=v;set(v)}
-  set(50);
+  st.addEventListener('mouseenter',wake);
 })();
 </script>
 </body>
