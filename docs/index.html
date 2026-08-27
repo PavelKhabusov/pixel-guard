@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pixel-guard — pixel-perfect QA against Figma designs</title>
+<meta name="description" content="Compare a live page with its Figma design element by element: computed CSS and geometry, not screenshots. No Figma REST API, no rate limits.">
+<meta property="og:title" content="pixel-guard — pixel-perfect QA against Figma designs">
+<meta property="og:description" content="Element-by-element diff of computed CSS and geometry against Figma. No REST API, no rate limits.">
+<meta property="og:image" content="https://pavelkhabusov.github.io/pixel-guard/og.png">
+<link rel="icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#15171a;--bg2:#17191c;--panel:#1f2226;--panel2:#2a2e33;--line:#33383e;
+  --fg:#dcdfe3;--mute:#a8aeb6;--dim:#8b939c;--faint:#71767d;
+  --ok:#7fb08a;--ok2:#9ec9a8;--bad:#c98b8b;--bad2:#e8a0a0;--warn:#d4b483;
+  --r:7px;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--fg);text-decoration:none}
+code,pre,kbd{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px}
+code{background:var(--panel2);padding:1px 6px;border-radius:4px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+.ok{color:var(--ok2)} .bad{color:var(--bad2)} .warn{color:var(--warn)} .dim{color:var(--faint)}
+
+nav{position:sticky;top:0;z-index:5;background:#15171aee;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:52px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px}
+.brand img{width:22px;height:22px}
+nav .links{display:flex;gap:4px}
+nav .links a{color:var(--mute);font-size:13px;padding:6px 10px;border-radius:var(--r)}
+nav .links a:hover{background:var(--panel2);color:var(--fg)}
+nav .links a.gh{background:var(--panel2);color:var(--fg);margin-left:6px}
+
+/* hero */
+.hero{padding:64px 0 40px;display:grid;grid-template-columns:1fr 1.05fr;gap:40px;align-items:center}
+.hero h1{font-size:42px;line-height:1.1;letter-spacing:-1px;margin:16px 0 14px;font-weight:700}
+.hero p.lead{font-size:16px;color:var(--mute);margin-bottom:22px}
+.hero img.logo{width:56px;height:56px}
+.btns{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--r);font-weight:500;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--mute);color:#15171a;border-color:transparent;font-weight:600}
+.btn.primary:hover{background:var(--fg)}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:3px}
+.seg span{padding:4px 12px;border-radius:5px;font-size:12px;color:var(--mute)}
+.seg span.on{background:var(--panel2);color:var(--fg)}
+
+/* curtain demo */
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;user-select:none}
+.demo .bar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:10px;padding:0 2px}
+.demo .bar b{color:var(--fg);font-weight:500}
+.stage{position:relative;height:250px;border-radius:8px;overflow:hidden;background:#101214;border:1px solid var(--line)}
+.page{position:absolute;inset:0;padding:28px 30px;background:#101214}
+.page .kicker{font-size:10px;letter-spacing:1.2px;color:var(--faint);text-transform:uppercase}
+.page h4{font-size:var(--h,28px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.5px;font-weight:700}
+.page p{font-size:12.5px;color:var(--mute);max-width:250px;line-height:var(--lh,1.55)}
+.page .cta{display:inline-block;margin-top:14px;padding:var(--pad,10px 22px);border-radius:6px;background:#a8aeb6;color:#15171a;font-size:12px;font-weight:600}
+.page .navrow{position:absolute;top:0;left:0;right:0;height:26px;display:flex;gap:var(--gap,20px);align-items:center;padding:0 30px;font-size:10px;color:var(--faint);border-bottom:1px solid #1e2226}
+.page.build{--h:25px;--lh:1.4;--pad:9px 18px;--gap:14px;clip-path:inset(0 0 0 var(--x,50%))}
+.page.build h4{margin-top:7px}
+.curtain{position:absolute;top:0;bottom:0;left:var(--x,50%);width:2px;background:var(--mute);transform:translateX(-1px);pointer-events:none}
+.curtain::after{content:"⟷";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--mute);color:#15171a;font-size:13px;display:flex;align-items:center;justify-content:center}
+.tag{position:absolute;font:11px/1 "JetBrains Mono",monospace;padding:4px 7px;border-radius:5px;background:#15171aee;border:1px solid var(--line);color:var(--bad2);white-space:nowrap;opacity:calc(1 - var(--k,0));transition:opacity .15s}
+.tag::before{content:"";position:absolute;left:-7px;top:50%;width:6px;height:6px;border-radius:50%;background:var(--bad);transform:translateY(-50%)}
+.demo input[type=range]{width:100%;margin:10px 0 2px;accent-color:#a8aeb6}
+.legend{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+
+/* numbers */
+.nums{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:8px 0 0}
+.nums div{padding:16px 18px;border-left:1px solid var(--line);background:var(--panel)}
+.nums div:first-child{border-left:0}
+.nums b{display:block;font-size:26px;letter-spacing:-.5px;font-weight:600}
+.nums span{font-size:12.5px;color:var(--dim)}
+
+section{padding:56px 0;border-top:1px solid var(--line)}
+h2{font-size:24px;letter-spacing:-.4px;margin-bottom:6px;font-weight:600}
+.sub{color:var(--dim);margin-bottom:24px;font-size:14.5px;max-width:720px}
+
+/* flow diagram */
+.flow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 18px}
+.flow svg{width:100%;height:auto;display:block}
+.flow text{font-family:Inter,sans-serif;font-size:12px;fill:var(--fg)}
+.flow text.m{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--dim)}
+.flow rect.box{fill:#15171a;stroke:#33383e}
+.flow rect.hub{fill:#2a2e33;stroke:#3d434a}
+.flow path{fill:none;stroke:#4a5058;stroke-width:1.5}
+.flow .arr{fill:#4a5058}
+
+/* vs table */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vs .col{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.vs .head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.vs .head small{font-weight:400;color:var(--faint);font-size:12px}
+.vs .body{padding:14px 16px;font-size:13.5px;color:var(--mute)}
+.vs .shot{height:120px;border-radius:6px;background:repeating-linear-gradient(45deg,#1b1e22 0 6px,#20242a 6px 12px);position:relative;margin-bottom:12px;overflow:hidden}
+.vs .shot .blob{position:absolute;background:#c98b8b55;border:1px solid #c98b8b88}
+.vs ul{list-style:none;padding:0;margin:0}
+.vs li{padding:6px 0;border-top:1px dashed var(--line)}
+.vs li:first-child{border-top:0}
+.vs .col.pg .head{color:var(--ok2)}
+
+/* map anatomy */
+.anat{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;align-items:start}
+pre{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:14px 16px;overflow:auto;line-height:1.65;color:var(--mute)}
+pre b{color:var(--fg);font-weight:500}
+pre .k{color:#9ec9a8} pre .s{color:#d4b483} pre .c{color:var(--faint)}
+pre .mark{background:#2a2e33;border-radius:3px;padding:0 3px;color:var(--fg)}
+.notes{display:grid;gap:8px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:13px;color:var(--mute);display:grid;grid-template-columns:22px 1fr;gap:10px}
+.note i{width:20px;height:20px;border-radius:5px;background:var(--panel2);color:var(--fg);font:600 11px/20px Inter;text-align:center;font-style:normal}
+.note b{color:var(--fg);font-weight:500}
+
+/* report tabs */
+.tabs{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.tabs input{display:none}
+.tabs .th{display:flex;gap:2px;padding:6px;border-bottom:1px solid var(--line);background:var(--bg2)}
+.tabs label{padding:6px 12px;border-radius:5px;font-size:12.5px;color:var(--mute);cursor:pointer}
+#t1:checked~.th label[for=t1],#t2:checked~.th label[for=t2],#t3:checked~.th label[for=t3]{background:var(--panel2);color:var(--fg)}
+.tabs .tp{display:none}
+#t1:checked~.p1,#t2:checked~.p2,#t3:checked~.p3{display:block}
+.tabs pre{border:0;border-radius:0;background:var(--panel)}
+.report .row{display:grid;grid-template-columns:1.3fr .9fr .9fr .9fr;gap:8px;padding:9px 14px;border-top:1px solid var(--line);font-size:13px;align-items:center}
+.report .row:first-child{border-top:0;color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.report .row.f{box-shadow:inset 3px 0 0 var(--bad)} .report .row.p{box-shadow:inset 3px 0 0 var(--ok)}
+.report .row code{background:transparent;padding:0;color:var(--mute)}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:18px 18px 16px}
+.card h3{font-size:15px;font-weight:600;margin-bottom:6px}
+.card p{color:var(--dim);font-size:13.5px;line-height:1.55}
+.card h3 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:9px;vertical-align:1px}
+
+footer{padding:28px 0;color:var(--faint);font-size:13px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between}
+footer a{color:var(--dim)}
+@media(max-width:860px){.hero,.vs,.anat,.cards{grid-template-columns:1fr}.nums{grid-template-columns:1fr 1fr}.hero h1{font-size:32px}nav .links a:not(.gh){display:none}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="#"><img src="icon.svg" alt="">pixel-guard</a>
+  <div class="links"><a href="#flow">How it works</a><a href="#vs">Why not screenshots</a><a href="#map">Maps</a><a href="#report">Report</a><a href="#install">Install</a><a class="gh" href="https://github.com/PavelKhabusov/pixel-guard">GitHub ↗</a></div>
+</div></nav>
+
+<div class="wrap">
+<div class="hero">
+  <div>
+    <img class="logo" src="icon.svg" alt="pixel-guard">
+    <h1>Pixel-perfect QA<br>against Figma designs</h1>
+    <p class="lead">Compares a live page with its design <b>element by element</b> — computed CSS and geometry, not screenshots. A companion plugin reads the file from inside Figma, so there is no REST API and no rate limit in the loop.</p>
+    <div class="btns"><a class="btn primary" href="#install">Install</a><a class="btn" href="https://github.com/PavelKhabusov/pixel-guard">Source on GitHub</a></div>
+  </div>
+  <div class="demo" id="demo">
+    <div class="bar"><span><b>design</b> · Figma frame 994:13213</span><span>drag the curtain</span><span><b>build</b> · localhost:8971</span></div>
+    <div class="stage">
+      <div class="page design">
+        <div class="navrow"><span>Home</span><span>Work</span><span>About</span><span>Contact</span></div>
+        <div class="kicker">Studio</div><h4>Furniture that<br>outlives trends</h4>
+        <p>Solid oak, hand-finished in small batches. Delivered flat, assembled in minutes.</p>
+        <span class="cta">Browse the catalogue</span>
+      </div>
+      <div class="page build">
+        <div class="navrow"><span>Home</span><span>Work</span><span>About</span><span>Contact</span></div>
+        <div class="kicker">Studio</div><h4>Furniture that<br>outlives trends</h4>
+        <p>Solid oak, hand-finished in small batches. Delivered flat, assembled in minutes.</p>
+        <span class="cta">Browse the catalogue</span>
+      </div>
+      <div class="curtain"></div>
+      <span class="tag" style="right:10px;top:70px">font-size 30 → 27</span>
+      <span class="tag" style="right:10px;top:128px">line-height 1.55 → 1.4</span>
+      <span class="tag" style="right:10px;top:200px">padding 10 22 → 9 18</span>
+      <span class="tag" style="right:10px;top:34px">gap 20 → 14</span>
+    </div>
+    <input type="range" min="0" max="100" value="50" aria-label="curtain position">
+    <div class="legend"><span>← design</span><span>4 mismatches on this frame</span><span>build →</span></div>
+  </div>
+</div>
+
+<div class="nums">
+  <div><b>0</b><span>Figma REST calls. The plugin reads the file from inside Figma.</span></div>
+  <div><b>1 JSON</b><span>per page: nodes, styles, geometry — checked into <code>snapshots/</code>.</span></div>
+  <div><b>3</b><span>breakpoints per run via CDP, without resizing the window.</span></div>
+  <div><b>exit 1</b><span>on any mismatch — drop <code>npm run qa</code> into CI as is.</span></div>
+</div>
+
+<section id="flow">
+  <h2>How the data moves</h2>
+  <p class="sub">Figma is touched once, by the plugin. Everything after that works from the snapshot on disk — CLI, browser panel and the MCP server for agents read the same file.</p>
+  <div class="flow">
+    <svg viewBox="0 0 960 250" role="img" aria-label="Data flow diagram">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5 0 10z" class="arr"/></marker></defs>
+      <rect class="box" x="20" y="90" width="170" height="70" rx="8"/>
+      <text x="105" y="118" text-anchor="middle" font-weight="600">Figma plugin</text>
+      <text x="105" y="138" text-anchor="middle" class="m">Plugin API · Capture</text>
+      <path d="M190 125H278" marker-end="url(#a)"/>
+      <rect class="hub" x="280" y="80" width="190" height="90" rx="8"/>
+      <text x="375" y="112" text-anchor="middle" font-weight="600">snapshots/*.json</text>
+      <text x="375" y="132" text-anchor="middle" class="m">nodes · styles · geometry</text>
+      <text x="375" y="150" text-anchor="middle" class="m">+ maps/*.map.json</text>
+      <path d="M470 105C520 105 520 45 568 45" marker-end="url(#a)"/>
+      <path d="M470 125H568" marker-end="url(#a)"/>
+      <path d="M470 145C520 145 520 205 568 205" marker-end="url(#a)"/>
+      <rect class="box" x="570" y="18" width="180" height="54" rx="8"/>
+      <text x="660" y="41" text-anchor="middle" font-weight="600">Node CLI</text>
+      <text x="660" y="59" text-anchor="middle" class="m">npm run qa · automap · patch</text>
+      <rect class="box" x="570" y="98" width="180" height="54" rx="8"/>
+      <text x="660" y="121" text-anchor="middle" font-weight="600">Chrome panel</text>
+      <text x="660" y="139" text-anchor="middle" class="m">overlay · curtain · check page</text>
+      <rect class="box" x="570" y="178" width="180" height="54" rx="8"/>
+      <text x="660" y="201" text-anchor="middle" font-weight="600">MCP server</text>
+      <text x="660" y="219" text-anchor="middle" class="m">Claude Code reads &amp; renders nodes</text>
+      <path d="M750 45C800 45 800 125 848 125" marker-end="url(#a)"/>
+      <path d="M750 125H848" marker-end="url(#a)"/>
+      <path d="M750 205C800 205 800 125 848 125" marker-end="url(#a)"/>
+      <rect class="box" x="850" y="98" width="95" height="54" rx="8"/>
+      <text x="897" y="121" text-anchor="middle" font-weight="600">reports/</text>
+      <text x="897" y="139" text-anchor="middle" class="m">.json · .html</text>
+    </svg>
+  </div>
+</section>
+
+<section id="vs">
+  <h2>Why not just diff screenshots</h2>
+  <p class="sub">Same bug — a heading rendered at 52px instead of 56px — seen by a pixel-diff tool and by pixel-guard.</p>
+  <div class="vs">
+    <div class="col">
+      <div class="head">Screenshot diff <small>any pixel tool</small></div>
+      <div class="body">
+        <div class="shot"><span class="blob" style="left:8%;top:22%;width:60%;height:18%"></span><span class="blob" style="left:8%;top:48%;width:70%;height:30%"></span></div>
+        <ul>
+          <li><span class="bad">3.4 % of pixels differ</span></li>
+          <li>Everything below the heading shifted, so the whole block lights up</li>
+          <li>Anti-aliasing and font hinting produce noise on every run</li>
+          <li>To fix it you open DevTools and the Figma file and measure by hand</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col pg">
+      <div class="head">pixel-guard <small>per-element</small></div>
+      <div class="body">
+        <pre style="margin-bottom:12px"><span class="bad">✕</span> hero/title  <b>.hero h1</b>
+   font-size   <span class="ok">56px</span> → <span class="bad">52px</span>
+<span class="ok">✓</span> 41 other properties match</pre>
+        <ul>
+          <li><span class="ok">1 mismatch</span>, named: node, selector, property, both values</li>
+          <li>Layout shifts downstream are not reported twice</li>
+          <li>Deterministic — same DOM, same report</li>
+          <li>The fix is a one-line CSS change you can make without opening Figma</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="map">
+  <h2>Anatomy of a map</h2>
+  <p class="sub">A map ties Figma nodes to CSS selectors. <code>npm run automap</code> writes most of it; the rest is a click in the panel or a line by hand.</p>
+  <div class="anat">
+<pre>{
+  <span class="k">"match"</span>: [<span class="s">"/"</span>, <span class="s">"/index.html"</span>],                 <span class="mark">1</span>
+  <span class="k">"nodes"</span>: {
+    <span class="k">"hero/title"</span>: { <span class="k">"selector"</span>: <span class="s">".hero h1"</span> },       <span class="mark">2</span>
+    <span class="k">"hero/lead"</span>: {
+      <span class="k">"selector"</span>: <span class="s">".hero p"</span>,
+      <span class="k">"tolerance"</span>: { <span class="k">"line-height"</span>: 0.05 },        <span class="mark">3</span>
+      <span class="k">"ignore"</span>: [<span class="s">"color"</span>]
+    },
+    <span class="k">"994:13213"</span>: { <span class="k">"selector"</span>: <span class="s">".hero .btn"</span> },      <span class="mark">4</span>
+    <span class="k">"hero/badge"</span>: { <span class="k">"skip"</span>: <span class="s">"rendered by JS later"</span> }, <span class="mark">5</span>
+    <span class="k">"@header"</span>: <span class="s">"_shared"</span>                              <span class="mark">6</span>
+  }
+}</pre>
+    <div class="notes">
+      <div class="note"><i>1</i><span><b>URL match</b> — the panel picks the right design for the page you have open. No Figma tab needed.</span></div>
+      <div class="note"><i>2</i><span><b>Node by name path</b> — <code>frame/child</code> as in the Figma layers panel.</span></div>
+      <div class="note"><i>3</i><span><b>Tolerance and ignore</b> per property — accept sub-pixel line-height, skip colours a theme controls.</span></div>
+      <div class="note"><i>4</i><span><b>Node by id</b> when names are unstable — straight from the URL, <code>994-13213</code> → <code>994:13213</code>.</span></div>
+      <div class="note"><i>5</i><span><b>Skip with a reason</b> — stays visible in the report instead of silently disappearing.</span></div>
+      <div class="note"><i>6</i><span><b>Shared modules</b> — header, footer and other cross-page blocks live in <code>_shared.map.json</code> once.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="report">
+  <h2>One report, three readers</h2>
+  <p class="sub">The same run writes an HTML page for people, a JSON file for agents, and a CSS patch proposal — review the cascade, apply.</p>
+  <div class="tabs">
+    <input type="radio" name="t" id="t1" checked><input type="radio" name="t" id="t2"><input type="radio" name="t" id="t3">
+    <div class="th"><label for="t1">for people · .html</label><label for="t2">for agents · .json</label><label for="t3">npm run patch</label></div>
+    <div class="tp p1 report">
+      <div class="row"><span>node → selector</span><span>property</span><span>figma</span><span>actual</span></div>
+      <div class="row f"><span>hero/title → <code>.hero h1</code></span><span>font-size</span><span class="ok">56px</span><span class="bad">52px</span></div>
+      <div class="row f"><span>hero/cta → <code>.hero .btn</code></span><span>padding</span><span class="ok">14px 28px</span><span class="bad">12px 24px</span></div>
+      <div class="row f"><span>@header/nav → <code>.nav</code></span><span>gap</span><span class="ok">32px</span><span class="bad">24px</span></div>
+      <div class="row p"><span>hero/lead → <code>.hero p</code></span><span>color</span><span class="ok">#a9b0bd</span><span class="ok">#a9b0bd</span></div>
+      <div class="row p"><span>hero/lead → <code>.hero p</code></span><span>line-height</span><span class="ok">1.55</span><span class="ok">1.55</span></div>
+    </div>
+    <div class="tp p2"><pre>{
+  <span class="k">"page"</span>: <span class="s">"home"</span>, <span class="k">"viewport"</span>: <span class="s">"desktop"</span>, <span class="k">"status"</span>: <span class="s">"failed"</span>,
+  <span class="k">"diffs"</span>: [
+    { <span class="k">"node"</span>: <span class="s">"hero/title"</span>, <span class="k">"selector"</span>: <span class="s">".hero h1"</span>,
+      <span class="k">"prop"</span>: <span class="s">"font-size"</span>, <span class="k">"figma"</span>: <span class="s">"56px"</span>, <span class="k">"actual"</span>: <span class="s">"52px"</span> },
+    { <span class="k">"node"</span>: <span class="s">"hero/cta"</span>, <span class="k">"selector"</span>: <span class="s">".hero .btn"</span>,
+      <span class="k">"prop"</span>: <span class="s">"padding"</span>, <span class="k">"figma"</span>: <span class="s">"14px 28px"</span>, <span class="k">"actual"</span>: <span class="s">"12px 24px"</span> }
+  ],
+  <span class="k">"matched"</span>: 41, <span class="k">"missing"</span>: [], <span class="k">"skipped"</span>: [<span class="s">"hero/badge"</span>]
+}</pre></div>
+    <div class="tp p3"><pre><span class="c">/* pixel-guard patch · home @ desktop · review the cascade before applying */</span>
+<b>.hero h1</b> { font-size: <span class="ok">56px</span>; }        <span class="c">/* was 52px */</span>
+<b>.hero .btn</b> { padding: <span class="ok">14px 28px</span>; }  <span class="c">/* was 12px 24px */</span>
+<b>.nav</b> { gap: <span class="ok">32px</span>; }                 <span class="c">/* was 24px */</span></pre></div>
+  </div>
+</section>
+
+<section id="more">
+  <h2>Also in the box</h2>
+  <div class="cards">
+    <div class="card"><h3><span class="dot"></span>Design overlay</h3><p>Rendered PNGs of design blocks laid pixel-aligned over the page, with the curtain you dragged above.</p></div>
+    <div class="card"><h3><span class="dot"></span>Live bridge</h3><p>Optional: click a node in Figma, the panel highlights its element on the site — and back.</p></div>
+    <div class="card"><h3><span class="dot"></span>Whole-project export</h3><p>One button snapshots every page at once; <code>_project.json</code> lists pages and shared modules.</p></div>
+    <div class="card"><h3><span class="dot"></span>Pixel diff, when you want it</h3><p><code>npm run pixdiff</code> for the cases where a raster comparison is the right tool.</p></div>
+    <div class="card"><h3><span class="dot"></span>Map verification</h3><p><code>npm run verify -- --fix</code> catches selectors that stopped matching after a refactor.</p></div>
+    <div class="card"><h3><span class="dot"></span>Agent-native</h3><p>MCP tools: read node styles, render a node, find nodes, run the check — Claude fixes CSS without opening Figma.</p></div>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <p class="sub">Node ≥ 20, Chrome, Figma desktop app for snapshots.</p>
+<pre><span class="dim">$</span> <b>git clone https://github.com/PavelKhabusov/pixel-guard && cd pixel-guard</b>
+<span class="dim">$</span> <b>npm install</b>
+<span class="dim">$</span> <b>./start.sh</b>            <span class="dim"># Figma ↔ browser bridge + panel</span>
+
+<span class="dim"># Figma  → Plugins → Development → Import plugin from manifest… → plugin/manifest.json</span>
+<span class="dim"># Chrome → chrome://extensions → Load unpacked → extension/</span></pre>
+</section>
+</div>
+
+<footer><div class="wrap"><span>pixel-guard · MIT</span><a href="https://github.com/PavelKhabusov">Pavel Khabusov</a></div></footer>
+
+<script>
+(function(){
+  var d=document.getElementById('demo'),r=d.querySelector('input'),st=d.querySelector('.stage');
+  function set(v){st.style.setProperty('--x',v+'%');d.querySelectorAll('.tag').forEach(function(t){var x=t.offsetLeft/st.clientWidth*100;t.style.setProperty('--k',x<v?1:0);});}
+  r.addEventListener('input',function(){set(+r.value)});
+  var drag=false;st.addEventListener('pointerdown',function(e){drag=true;mv(e)});
+  window.addEventListener('pointerup',function(){drag=false});
+  st.addEventListener('pointermove',function(e){if(drag)mv(e)});
+  function mv(e){var b=st.getBoundingClientRect();var v=Math.max(0,Math.min(100,(e.clientX-b.left)/b.width*100));r.value=v;set(v)}
+  set(50);
+})();
+</script>
+</body>
+</html>
