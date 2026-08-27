@@ -3,11 +3,48 @@ let status = { connected: false, peers: {}, targets: 0 };
 let abort = null;
 
 let shownBadge = null;
-const badge = (text, color) => {
-  if (shownBadge === text) return;
-  shownBadge = text;
-  chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color });
+const iconCache = {};
+
+// Бейдж Chrome всегда рисует плашкой, поэтому индикатор вживляем
+// прямо в иконку: точка в правом нижнем углу, вырезанная из подложки.
+async function iconWithDot(color) {
+  if (iconCache[color]) return iconCache[color];
+  const out = {};
+  for (const size of [16, 32, 48]) {
+    const res = await fetch(chrome.runtime.getURL(`icons/icon-${size}.png`));
+    const bmp = await createImageBitmap(await res.blob());
+    const cv = new OffscreenCanvas(size, size);
+    const g = cv.getContext('2d');
+    g.drawImage(bmp, 0, 0, size, size);
+
+    const r = Math.max(2.5, size * 0.17);
+    const cx = size - r - size * 0.06;
+    const cy = size - r - size * 0.06;
+
+    g.globalCompositeOperation = 'destination-out';
+    g.beginPath();
+    g.arc(cx, cy, r * 1.5, 0, Math.PI * 2);
+    g.fill();
+
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = color;
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fill();
+
+    out[size] = g.getImageData(0, 0, size, size);
+  }
+  iconCache[color] = out;
+  return out;
+}
+
+const badge = (state, color, title) => {
+  if (shownBadge === state) return;
+  shownBadge = state;
+  chrome.action.setTitle({ title: `pixel-guard — ${title}` });
+  iconWithDot(color)
+    .then((imageData) => chrome.action.setIcon({ imageData }))
+    .catch(() => {});
 };
 
 const SKIP = /^(chrome|edge|about|devtools|chrome-extension):|^https?:\/\/(www\.)?figma\.com\//;
@@ -40,7 +77,7 @@ function handle(event, data) {
   if (event === 'hello') {
     status.connected = true;
     if (offTimer) { clearTimeout(offTimer); offTimer = null; }
-    badge('on', '#5e8f6b');
+    badge('on', '#7fb08a', 'сервер на связи');
     return;
   }
   if (event === 'peers') { status.peers = JSON.parse(data); return; }
@@ -79,7 +116,7 @@ async function connect() {
   } catch (e) {
     if (abort?.signal.aborted) return;
     status.connected = false;
-    if (!offTimer) offTimer = setTimeout(() => { offTimer = null; if (!status.connected) badge('off', '#a86a6a'); }, 5000);
+    if (!offTimer) offTimer = setTimeout(() => { offTimer = null; if (!status.connected) badge('off', '#c98b8b', 'сервер недоступен — запусти npm run server'); }, 5000);
     setTimeout(connect, 3000);
   } finally {
     connecting = false;
