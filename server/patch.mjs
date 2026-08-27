@@ -14,7 +14,7 @@ const viewport = args.viewport ?? 'desktop';
 const reportPath = path.join(ROOT, 'reports', `${page}-${viewport}.json`);
 
 if (!fs.existsSync(reportPath)) {
-  console.error(`Нет отчёта ${path.relative(ROOT, reportPath)} — сначала npm run qa -- --page ${page} --viewport ${viewport}`);
+  console.error(`No report ${path.relative(ROOT, reportPath)} — run npm run qa -- --page ${page} --viewport ${viewport} first`);
   process.exit(2);
 }
 
@@ -41,13 +41,13 @@ for (const n of report.nodes) {
   if (n.status !== 'failed' || !n.selector || !n.diffs?.length) continue;
   const decls = n.diffs
     .filter((d) => d.prop !== 'width' && d.prop !== 'height')
-    .map((d) => `  ${SHORTHAND[d.prop] ?? d.prop}: ${value(d)}; /* было ${d.actual}${d.delta ? `, ${d.delta}` : ''} */`);
+    .map((d) => `  ${SHORTHAND[d.prop] ?? d.prop}: ${value(d)}; /* was ${d.actual}${d.delta ? `, ${d.delta}` : ''} */`);
   if (!decls.length) continue;
   blocks.push(`/* ${n.key}${n.figmaId && n.figmaId !== n.key ? ` — ${n.figmaId}` : ''} */\n${n.selector} {\n${decls.join('\n')}\n}`);
 }
 
 if (!blocks.length) {
-  console.log(`Нечего править: ${page} @ ${viewport} — расхождений в стилях нет.`);
+  console.log(`Nothing to patch: ${page} @ ${viewport} — no style mismatches.`);
   process.exit(0);
 }
 
@@ -58,10 +58,10 @@ const body = media
 
 const css = `/* pixel-guard: ${page} @ ${viewport} (${width}px)
    ${report.url}
-   сгенерировано из reports/${page}-${viewport}.json — ПРОВЕРЬ перед применением:
-   значения взяты из макета, каскад и специфичность не учитываются. */\n\n${body}\n`;
+   generated from reports/${page}-${viewport}.json — REVIEW before applying:
+   values are taken from the design; cascade and specificity are not considered. */\n\n${body}\n`;
 
 const out = path.join(ROOT, 'reports', `${page}-${viewport}.css`);
 fs.writeFileSync(out, css);
 console.log(css);
-console.log(`\n→ ${path.relative(ROOT, out)} (${blocks.length} блоков)`);
+console.log(`\n→ ${path.relative(ROOT, out)} (${blocks.length} blocks)`);

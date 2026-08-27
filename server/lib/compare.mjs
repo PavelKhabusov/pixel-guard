@@ -30,8 +30,8 @@ export function compareNode(fig, dom, entry = {}) {
   const s = dom.styles;
 
   const hugsWidth = fig.type === 'TEXT' && (fig.autoResize === 'WIDTH_AND_HEIGHT' || fig.autoResize === 'TRUNCATE');
-  // Полноширинный блок (шириной во весь фрейм) в браузере занимает всё окно —
-  // разница равна ширине окна, а не расхождению вёрстки.
+  // A full-width block (as wide as the frame) fills the whole window in the
+  // browser — the difference equals the window width, not a markup mismatch.
   const fullWidth = entry.frameW && Math.abs(fig.w - entry.frameW) < 2;
   if (!hugsWidth && !fullWidth) numCheck('width', fig.w, px(dom.rect.width), tol.geo);
   if (fig.type === 'TEXT') {

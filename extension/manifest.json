@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "pixel-guard bridge",
   "version": "0.1.0",
-  "description": "Живой мост Figma ↔ сайт: подсветка элемента и сверка стилей с макетом",
+  "description": "Live bridge Figma ↔ site: element highlighting and style comparison with the design",
   "permissions": [
     "activeTab",
     "scripting",
@@ -40,7 +40,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "pixel-guard — открыть панель",
+    "default_title": "pixel-guard — open panel",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

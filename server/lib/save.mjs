@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expandTree } from './expand.mjs';
 
 export const slug = (s) =>
-  s.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'frame';
+  s.toLowerCase().replace(/[^a-z0-9\u0430-\u044f\u0451]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'frame';
 
 export function saveFrames(frames, snapDir, libs = {}) {
   fs.mkdirSync(snapDir, { recursive: true });

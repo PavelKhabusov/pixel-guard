@@ -46,7 +46,7 @@ export function collectFigmaNodes(root, { maxDepth = 6 } = {}) {
   const baseY = root.y ?? 0;
   const walk = (n, depth, path, parentY) => {
     const p = path ? `${path}/${n.name}` : n.name;
-    // координаты у детей относительны родителя — накапливаем абсолютную
+    // child coordinates are relative to the parent — accumulate the absolute one
     const absY = depth === 0 ? (n.y ?? 0) : parentY + (n.y ?? 0);
     const small = (n.w ?? 0) < 60 && (n.h ?? 0) < 60;
     if (depth > 0 && (n.w ?? 0) >= 8 && (n.h ?? 0) >= 8 && n.type !== 'VECTOR' && !n.icon && !(small && n.type !== 'TEXT')) {
@@ -67,33 +67,33 @@ function scoreOne(fig, dom, rootW, domRootW, rootH, domRootH, rootY) {
     const a = norm(fig.text);
     const b = norm(dom.own) || norm(dom.text);
     if (a && b) {
-      if (a === b) { score += 60; why.push('текст точно'); }
-      else if (b.startsWith(a) || a.startsWith(b)) { score += 40; why.push('текст частично'); }
-      else if (b.includes(a)) { score += 22; why.push('текст внутри'); }
+      if (a === b) { score += 60; why.push('text exact'); }
+      else if (b.startsWith(a) || a.startsWith(b)) { score += 40; why.push('text partial'); }
+      else if (b.includes(a)) { score += 22; why.push('text inside'); }
     }
     if (dom.kids === 0) score += 6;
   } else if (fig.text) {
     const a = norm(fig.text);
-    if (a && norm(dom.text).includes(a)) { score += 12; why.push('текст в поддереве'); }
+    if (a && norm(dom.text).includes(a)) { score += 12; why.push('text in subtree'); }
   }
 
   const dw = Math.abs(dom.w - fig.w * scale);
-  if (dw <= 1) { score += 30; why.push('ширина'); }
-  else if (dw <= 4) { score += 20; why.push('ширина ±4'); }
+  if (dw <= 1) { score += 30; why.push('width'); }
+  else if (dw <= 4) { score += 20; why.push('width ±4'); }
   else if (dw <= 12) { score += 8; }
   else if (fig.w && dw / fig.w > 0.5) score -= 15;
 
   const dh = Math.abs(dom.h - fig.h);
-  if (dh <= 2) { score += 18; why.push('высота'); }
+  if (dh <= 2) { score += 18; why.push('height'); }
   else if (dh <= 8) { score += 10; }
   else if (fig.h && dh / fig.h > 0.6) score -= 8;
 
   if (fig.type === 'TEXT' && dom.kids > 2) score -= 12;
   if (fig.type !== 'TEXT' && fig.children?.length && dom.kids === 0) score -= 10;
 
-  // Позиция по вертикали: нода из шапки макета не может быть элементом
-  // футера. Без этого матчер по одному тексту связывал «Получить
-  // визуализацию» из шапки со ссылкой в подвале.
+  // Vertical position: a node from the design header cannot be a footer
+  // element. Without this the matcher linked the header's "Get a visualization"
+  // to a footer link by text alone.
   if (fig.absY != null && dom.y != null && rootH && domRootH) {
     const relFig = fig.absY / rootH;
     const relDom = dom.y / domRootH;
@@ -104,7 +104,7 @@ function scoreOne(fig, dom, rootW, domRootW, rootH, domRootH, rootY) {
   }
   if (fig.layout && dom.kids > 0) score += 4;
   if (dom.unique) score += 8; else score -= 20;
-  if (fig.type !== 'TEXT' && !fig.name.match(/[a-zа-я]{3}/i)) score -= 14;
+  if (fig.type !== 'TEXT' && !fig.name.match(/[a-z\u0430-\u044f]{3}/i)) score -= 14;
 
   return { score, why };
 }

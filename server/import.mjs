@@ -8,11 +8,11 @@ const SNAP = path.join(ROOT, 'snapshots');
 
 const file = process.argv[2];
 if (!file) {
-  console.error('Использование: npm run import -- <файл.pg.json>');
+  console.error('Usage: npm run import -- <file.pg.json>');
   process.exit(2);
 }
 if (!fs.existsSync(file)) {
-  console.error(`Файл не найден: ${file}`);
+  console.error(`File not found: ${file}`);
   process.exit(2);
 }
 
@@ -33,16 +33,16 @@ if (project) {
     modules: project.modules ?? [],
   }, null, 1));
   const shared = (project.modules ?? []).filter((m) => m.shared).length;
-  console.log(`\nПроект «${project.fileName}»: ${saved.length} frame, ${(project.modules ?? []).length} модулей (${shared} сквозных)`);
-  console.log(`Готово: ${saved.join(', ')}, snapshots/_project.json`);
+  console.log(`\nProject "${project.fileName}": ${saved.length} frames, ${(project.modules ?? []).length} modules (${shared} shared)`);
+  console.log(`Done: ${saved.join(', ')}, snapshots/_project.json`);
   process.exit(0);
 }
 
 const frames = Array.isArray(data) ? data : data.frames ?? [data];
 if (!frames.length || !frames[0]?.frameName) {
-  console.error('Не похоже на снапшот pixel-guard: нет frames[].frameName');
+  console.error('Does not look like a pixel-guard snapshot: no frames[].frameName');
   process.exit(2);
 }
 
 const saved = saveFrames(frames, SNAP);
-console.log(`\nГотово: ${saved.join(', ')}`);
+console.log(`\nDone: ${saved.join(', ')}`);

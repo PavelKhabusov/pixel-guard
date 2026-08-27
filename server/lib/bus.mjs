@@ -13,8 +13,8 @@ export function subscribe(role, res) {
   res.write(`event: hello\ndata: ${JSON.stringify({ id, role })}\n\n`);
   let ping;
   const drop = () => { clearInterval(ping); clients.delete(id); broadcastPeers(); };
-  // явный event, а не комментарий: плагин по нему понимает, что связь жива,
-  // и не ждёт пробного запроса, чтобы это выяснить
+  // an explicit event, not an SSE comment: the plugin uses it to know the
+  // connection is alive without waiting for a probe request
   ping = setInterval(() => {
     try { res.write(`event: beat\ndata: ${JSON.stringify({ t: Date.now() })}\n\n`); }
     catch { drop(); }
@@ -43,7 +43,7 @@ export const peers = () => {
   return out;
 };
 
-/** Кто на связи и сколько уже — чтобы понять живость без пробного запроса. */
+/** Who is connected and for how long — to judge liveness without a probe request. */
 export const peerDetails = () => [...clients.values()].map(({ role, since }) => ({
   role, uptimeSec: Math.round((Date.now() - since) / 1000),
 }));

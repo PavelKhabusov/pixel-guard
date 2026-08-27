@@ -11,13 +11,13 @@ const logLine = (t) => {
 function setStatus(s) {
   const figma = s.peers?.figma ?? 0;
   $('dot').className = `dot ${s.connected ? 'on' : ''}`;
-  // Одна строка вместо трёх полей: сервер, Figma и размер карты
+  // One line instead of three fields: server, Figma and map size
   $('state').textContent = !s.connected
-    ? 'сервер не запущен'
-    : `${s.mapSize ?? 0} привязок · Figma ${figma ? 'на связи' : 'не нужна'}`;
+    ? 'server not running'
+    : `${s.mapSize ?? 0} bindings · Figma ${figma ? 'connected' : 'not needed'}`;
 
   if (!s.connected) {
-    alertBox('<b>Сервер не запущен.</b>Выполни <code>npm run server</code> в папке pixel-guard.');
+    alertBox('<b>Server not running.</b>Run <code>npm run server</code> in the pixel-guard folder.');
   }
 }
 
@@ -31,8 +31,8 @@ function render(r) {
   }
   if (!r.found) {
     body.innerHTML = `<div class="node">${esc(r.name)}</div>
-      <div class="note">${r.selector ? `не найден в DOM:<br><code>${esc(r.selector)}</code>` : 'нет привязки в карте'}</div>
-      <div class="empty">Добавь в maps/&lt;page&gt;.map.json:<br><code>"${esc(r.figmaId)}": { "selector": "…" }</code></div>`;
+      <div class="note">${r.selector ? `not found in DOM:<br><code>${esc(r.selector)}</code>` : 'no binding in map'}</div>
+      <div class="empty">Add to maps/&lt;page&gt;.map.json:<br><code>"${esc(r.figmaId)}": { "selector": "…" }</code></div>`;
     return;
   }
   const fails = r.rows.filter((x) => !x.pass);
@@ -41,14 +41,14 @@ function render(r) {
       <td>${esc(x.prop)}</td><td>${esc(x.fig)}</td><td>→</td><td>${esc(x.act)}</td>
       <td>${x.delta && !x.pass ? esc(x.delta) : ''}</td></tr>`;
 
-  // Сначала расхождения — ради них всё и затевалось. Совпавшие прячем
-  // под раскрывашку, иначе список выглядит как «чушь из одинаковых строк».
+  // Mismatches first — they are the whole point. Matching rows are hidden
+  // behind a disclosure, otherwise the list looks like noise of identical lines.
   body.innerHTML = `<div class="node">${esc(r.name)}</div>
     <div class="sel"><code>${esc(r.selector)}</code></div>
     <div class="score">${oks.length} ✓ · ${fails.length} ✗</div>
     ${fails.length ? `<table>${fails.map(row).join('')}</table>`
-      : '<div class="allok">всё сходится с макетом</div>'}
-    ${oks.length ? `<details class="okwrap"><summary>совпало: ${oks.length}</summary>
+      : '<div class="allok">everything matches the design</div>'}
+    ${oks.length ? `<details class="okwrap"><summary>matched: ${oks.length}</summary>
       <table>${oks.map(row).join('')}</table></details>` : ''}`;
 }
 
@@ -57,8 +57,9 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'pg-panel-status') setStatus(msg.status);
 });
 
-/** Заметный баннер вместо серой строчки внизу: content script живёт только
- *  до перезагрузки страницы, и без объяснения непонятно, почему всё молчит. */
+/** A visible banner instead of a grey line at the bottom: the content script
+ *  only lives until the page reloads, and without an explanation it is unclear
+ *  why everything went silent. */
 function alertBox(html, action) {
   const box = $('alert');
   if (!html) { box.hidden = true; return; }
@@ -96,7 +97,7 @@ async function applyOverlay() {
     const vp = viewportFor(tab?.width);
     const path = `/overlay?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}`;
     const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
-    if (!d || d.ok === false || d.error) { note.textContent = d?.error ?? 'снапшот не найден'; return; }
+    if (!d || d.ok === false || d.error) { note.textContent = d?.error ?? 'snapshot not found'; return; }
     ovState.data = d;
   }
   const r = await toActiveTab({
@@ -110,39 +111,39 @@ async function applyOverlay() {
     },
   });
   if (!r) {
-    alertBox('<b>Страница не отвечает.</b><br>Расширение обновилось, а на открытой '
-      + 'вкладке работает старая версия — она живёт только до перезагрузки.',
-      { label: 'Обновить страницу', run: reloadTab });
+    alertBox('<b>Page not responding.</b><br>The extension was updated, but the open '
+      + 'tab still runs the old version — it only lives until a reload.',
+      { label: 'Reload page', run: reloadTab });
     note.textContent = '';
     return;
   }
   alertBox(null);
   const d = ovState.data;
   const tab = await activeTab();
-  const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ окно ${tab?.width}px`;
-  const sc = r.scale && r.scale !== 1 ? ` · масштаб ${Math.round(r.scale * 100)}%` : '';
-  const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} блоков${r.missing ? `, ${r.missing} нет` : ''}${sc}`;
+  const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ window ${tab?.width}px`;
+  const sc = r.scale && r.scale !== 1 ? ` · scale ${Math.round(r.scale * 100)}%` : '';
+  const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} blocks${r.missing ? `, ${r.missing} missing` : ''}${sc}`;
   note.textContent = `${d.page ? d.page + ' · ' : ''}${d.frame} · ${d.w}px${fit}${anch}`;
 
-  // Объясняем, ПОЧЕМУ на странице пусто, а не оставляем гадать
+  // Explain WHY the page is empty instead of leaving the user guessing
   if (r.mode === 'shots' && r.anchored && !d.hasShots) {
-    alertBox('<b>PNG блоков не сняты.</b><br>Режим «PNG по блокам» показывает рендеры из Figma — '
-      + 'их нужно один раз выгрузить: <code>npm run shots</code>.');
+    alertBox('<b>Block PNGs not captured.</b><br>The "PNG per block" mode shows renders from Figma — '
+      + 'export them once: <code>npm run shots</code>.');
   } else if (!r.anchored && r.mode !== 'image') {
-    alertBox('<b>Для этой страницы нет привязок.</b><br>Наложению не на что опереться. '
-      + 'Наполни карту: <code>npm run automap -- --page ' + (d.page ?? '?') + ' --min 75 --write</code>, '
-      + 'либо кликни ноду в Figma и нажми «Привязать мышью».');
+    alertBox('<b>No bindings for this page.</b><br>The overlay has nothing to anchor to. '
+      + 'Fill the map: <code>npm run automap -- --page ' + (d.page ?? '?') + ' --min 75 --write</code>, '
+      + 'or click a node in Figma and press "Bind with mouse".');
   } else if (r.anchored && r.placed < r.anchored / 2) {
-    alertBox(`<b>Нашлось ${r.placed} из ${r.anchored} блоков.</b><br>Остальные селекторы не найдены на странице — `
-      + 'вероятно карта от другой версии вёрстки. Проверь: <code>npm run verify -- --fix</code>.');
+    alertBox(`<b>Found ${r.placed} of ${r.anchored} blocks.</b><br>The other selectors are not on the page — `
+      + 'the map is probably from another version of the page. Check: <code>npm run verify -- --fix</code>.');
   } else {
     alertBox(null);
   }
   if (ovState.mode === 'image' && !d.png) {
-    note.textContent += ' — PNG нет, переэкспортируй с чекбоксом PNG';
+    note.textContent += ' — no PNG, re-export with the PNG checkbox';
   }
   if (ovState.mode === 'shots' && !d.hasShots) {
-    note.textContent += ' — рендеров нет, запусти npm run shots';
+    note.textContent += ' — no renders, run npm run shots';
   }
 }
 
@@ -176,7 +177,7 @@ $('ov-split').oninput = (e) => {
   if (ovState.on) applyOverlay();
 };
 
-// линию можно тащить прямо на странице — держим ползунок в курсе
+// the line can be dragged right on the page — keep the slider in sync
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type !== 'pg-split-moved') return;
   ovState.split = msg.split;
@@ -199,17 +200,17 @@ async function showVpNote() {
   const vp = viewportFor(tab?.width);
   const ref = VP_W[vp];
   const diff = tab?.width && ref ? Math.abs(tab.width - ref) : 0;
-  $('vp-note').textContent = `${vp} · макет ${ref}px · вьюпорт ${tab?.width ?? '?'}px`
-    + (vpChoice === 'auto' ? ' · по ширине окна' : ' · эмуляция DevTools')
-    + (diff > 80 && vpChoice === 'auto' ? ' — расходится, блоки масштабируются' : '');
+  $('vp-note').textContent = `${vp} · design ${ref}px · viewport ${tab?.width ?? '?'}px`
+    + (vpChoice === 'auto' ? ' · by window width' : ' · DevTools emulation')
+    + (diff > 80 && vpChoice === 'auto' ? ' — mismatch, blocks are scaled' : '');
 }
 
-// Сужаем ВЬЮПОРТ страницы, а не окно браузера — как адаптивный режим
-// DevTools. Окно остаётся прежним, перестраивается только контент.
+// Narrow the page VIEWPORT, not the browser window — like DevTools responsive
+// mode. The window stays the same, only the content reflows.
 async function emulateViewport(vp) {
   const width = vp === 'auto' ? null : VP_W[vp];
   const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-emulate', width }, res));
-  if (r?.ok === false) $('vp-note').textContent = `не удалось сузить: ${r.error}`;
+  if (r?.ok === false) $('vp-note').textContent = `could not narrow: ${r.error}`;
   await new Promise((res) => setTimeout(res, 500));
   return r;
 }
@@ -225,7 +226,7 @@ document.querySelectorAll('.vp-btn').forEach((b) => {
   };
 });
 
-// панель закрывают — снимаем эмуляцию, иначе страница останется узкой
+// panel is closing — remove emulation, otherwise the page stays narrow
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
 
 let curNode = null;
@@ -261,7 +262,7 @@ async function saveBinding(entry) {
   const key = curNode?.figmaId;
   if (!key) return;
   const r = await post('/map', { page: $('bind-page').value, key, entry });
-  $('bind-note').textContent = r?.ok ? `записано в ${r.file} (${r.size} ключей)` : `ошибка: ${r?.error ?? '—'}`;
+  $('bind-note').textContent = r?.ok ? `saved to ${r.file} (${r.size} keys)` : `error: ${r?.error ?? '—'}`;
   if (r?.ok) {
     await toActiveTab({ type: 'pg-remap' });
     $('bind').hidden = true;
@@ -270,11 +271,11 @@ async function saveBinding(entry) {
 
 $('bind-go').onclick = async () => {
   if (!curNode) return;
-  $('bind-note').textContent = 'кликни элемент на странице (Esc — отмена)';
+  $('bind-note').textContent = 'click an element on the page (Esc to cancel)';
   await toActiveTab({ type: 'pg-pick-start', node: curNode });
 };
 
-$('bind-skip').onclick = () => saveBinding({ skip: 'помечено вручную из панели' });
+$('bind-skip').onclick = () => saveBinding({ skip: 'marked manually from the panel' });
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'pg-pick-result') {
@@ -282,7 +283,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     saveBinding({ selector: msg.selector, source: 'manual', name: curNode?.name });
     render({ name: curNode?.name ?? '', figmaId: curNode?.figmaId, selector: msg.selector, found: true, rows: msg.rows });
   }
-  if (msg.type === 'pg-pick-cancelled') $('bind-note').textContent = 'отменено';
+  if (msg.type === 'pg-pick-cancelled') $('bind-note').textContent = 'cancelled';
 });
 
 fillPages();
@@ -291,34 +292,34 @@ setTimeout(showVpNote, 300);
 
 async function runAudit() {
   const note = $('audit-note');
-  note.textContent = 'читаю макет…';
+  note.textContent = 'reading design…';
   const tab = await activeTab();
   const vp = viewportFor(tab?.width);
   const path = `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}`;
   const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
-  if (!data || data.ok === false) { note.textContent = data?.error ?? 'нет данных'; return; }
+  if (!data || data.ok === false) { note.textContent = data?.error ?? 'no data'; return; }
 
   const rows = await toActiveTab({ type: 'pg-audit', nodes: data.nodes, page: data.page, frameW: data.frameW });
   if (!rows) {
-    alertBox('<b>Страница не отвечает.</b><br>Скорее всего расширение перезагружали — '
-      + 'обнови вкладку, чтобы вернуть связь.', { label: 'Обновить страницу', run: reloadTab });
+    alertBox('<b>Page not responding.</b><br>The extension was most likely reloaded — '
+      + 'reload the tab to restore the connection.', { label: 'Reload page', run: reloadTab });
     note.textContent = '';
     return;
   }
   alertBox(null);
 
   const n = (s) => rows.filter((r) => r.status === s).length;
-  note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} нет в DOM · ${n('skip')} skip`;
+  note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} not in DOM · ${n('skip')} skip`;
 
   const order = { failed: 0, missing: 1, nofig: 2, pass: 3, skip: 4 };
-  const label = { pass: '✓', failed: '✗', missing: 'нет в DOM', nofig: 'нет в макете', skip: 'skip' };
+  const label = { pass: '✓', failed: '✗', missing: 'not in DOM', nofig: 'not in design', skip: 'skip' };
   $('body').innerHTML = rows
     .sort((a, b) => order[a.status] - order[b.status])
     .map((r, i) => `<div class="arow ${r.status}" data-i="${i}">
         <span class="st">${label[r.status]}${r.bad ? ' ' + r.bad : ''}</span>
         <div class="nm">${esc(r.name || r.key)}</div>
         <div class="sl">${esc(r.selector ?? r.reason ?? '')}</div>
-      </div>`).join('') || '<div class="empty">в карте нет привязок для этой страницы</div>';
+      </div>`).join('') || '<div class="empty">the map has no bindings for this page</div>';
 
   const sorted = rows.sort((a, b) => order[a.status] - order[b.status]);
   document.querySelectorAll('.arow').forEach((el) => {
@@ -333,7 +334,7 @@ async function runAudit() {
 $('run-audit').onclick = runAudit;
 
 
-// Панель закрыли — убираем наложение, подсветку и эмуляцию вьюпорта.
-// pagehide в side panel Chrome срабатывает не всегда, а обрыв порта
-// background видит гарантированно — поэтому держим открытый порт.
+// Panel closed — remove the overlay, highlight and viewport emulation.
+// pagehide in the Chrome side panel does not always fire, but the background
+// reliably sees the port disconnect — so we keep a port open.
 chrome.runtime.connect({ name: 'pg-panel' });

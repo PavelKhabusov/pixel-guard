@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Проверка качества карты: ловит привязки, которые «уехали» — нода из шапки
- * макета привязана к футеру, дубли на один селектор, элементы не в том
- * порядке. Именно такой мусор ломает наложение и сверку.
+ * Map quality check: catches mappings that have drifted — a node from the
+ * design header mapped to the footer, duplicates on one selector, elements in
+ * the wrong order. Exactly this kind of garbage breaks the overlay and comparison.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,10 +25,10 @@ const viewport = args.viewport ?? 'desktop';
 const fix = !!args.fix;
 
 /**
- * Позиция ноды относительно корня. В снапшотах координаты неоднородны:
- * часть веток абсолютная (от канваса), часть относительная (от родителя) —
- * старый сериализатор считал от разных баз. Определяем по факту: если
- * координата ребёнка укладывается в бокс родителя, она уже абсолютная.
+ * Node position relative to the root. Snapshot coordinates are inconsistent:
+ * some branches are absolute (from the canvas), some relative (from the parent) —
+ * the old serializer used different bases. Detect empirically: if the child's
+ * coordinate falls inside the parent's box, it is already absolute.
  */
 function absPositions(root) {
   const map = new Map();
@@ -39,7 +39,7 @@ function absPositions(root) {
     else {
       const asAbsolute = n.y ?? 0;
       const asRelative = parentAbsY + (n.y ?? 0);
-      // абсолютная координата не может быть меньше родительской
+      // an absolute coordinate cannot be smaller than the parent's
       absY = asAbsolute >= parentAbsY - 1 ? asAbsolute : asRelative;
     }
     map.set(n.id, { y: absY - rootY, w: n.w, h: n.h, name: n.name, type: n.type });
@@ -62,7 +62,7 @@ for (const pageKey of only) {
     const j = readJson(path.join(ROOT, 'snapshots', f));
     if (j?.tree && (j.frameId === frameId || findNode(j.tree, frameId))) { snap = j; break; }
   }
-  if (!snap) { console.log(`${pageKey}: снапшота нет`); continue; }
+  if (!snap) { console.log(`${pageKey}: no snapshot`); continue; }
 
   const root = findNode(snap.tree, frameId) ?? snap.tree;
   const positions = absPositions(root);
@@ -76,7 +76,7 @@ for (const pageKey of only) {
   const pg = await ctx.newPage();
   const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
   if (resp && !resp.ok())
-    throw new Error(`страница ответила HTTP ${resp.status()} — сверять нечего: ${url}`);
+    throw new Error(`page responded with HTTP ${resp.status()} — nothing to compare: ${url}`);
   await pg.evaluate(async () => {
     for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); }
     scrollTo(0, 0);
@@ -107,9 +107,9 @@ for (const pageKey of only) {
   }
   await ctx.close();
 
-  // Сравниваем не доли высоты (макет и сайт разной длины — доли врут),
-  // а ПОРЯДОК блоков: если нода в макете 5-я сверху, а её элемент на
-  // сайте 40-й — привязка уехала.
+  // Compare block ORDER rather than height fractions (the design and the site
+  // differ in length, so fractions lie): if a node is 5th from the top in the
+  // design but its element is 40th on the site, the mapping has drifted.
   const ranked = rows.filter((r) => r.domY != null);
   const byFig = [...ranked].sort((a, b) => a.figY - b.figY).map((r) => r.key);
   const byDom = [...ranked].sort((a, b) => a.domY - b.domY).map((r) => r.key);
@@ -127,10 +127,10 @@ for (const pageKey of only) {
   const ok = rows.filter((r) => r.status === 'ok');
   totalBad += moved.length;
 
-  console.log(`\n${pageKey} @ ${viewport}: ${ok.length} ✓ · ${suspect.length} сомнительных · ${moved.length} уехавших · ${missing.length} нет в DOM`);
+  console.log(`\n${pageKey} @ ${viewport}: ${ok.length} ✓ · ${suspect.length} suspect · ${moved.length} moved · ${missing.length} missing in DOM`);
   for (const r of [...moved, ...suspect].slice(0, 12)) {
     const mark = r.status === 'moved' ? '✗' : '?';
-    console.log(`  ${mark} ${(r.name || r.key).slice(0, 24).padEnd(26)} макет y=${String(r.figY).padStart(5)} ↔ сайт y=${String(r.domY).padStart(5)}  (${r.gap}%)`);
+    console.log(`  ${mark} ${(r.name || r.key).slice(0, 24).padEnd(26)} design y=${String(r.figY).padStart(5)} ↔ site y=${String(r.domY).padStart(5)}  (${r.gap}%)`);
     console.log(`     ${r.selector.slice(0, 70)}${r.source ? `  [${r.source}]` : ''}`);
   }
 
@@ -142,13 +142,13 @@ for (const pageKey of only) {
     }
     if (removed) {
       fs.writeFileSync(mapPath, JSON.stringify(next, null, 2));
-      console.log(`  → удалено ${removed} авто-привязок из maps/${pageKey}.map.json`);
+      console.log(`  → removed ${removed} auto mappings from maps/${pageKey}.map.json`);
     }
     const manual = moved.filter((r) => next[r.key] && next[r.key].source !== 'auto');
-    if (manual.length) console.log(`  ⚠ ${manual.length} ручных привязок тоже уехали — проверь их сам, я их не трогаю`);
+    if (manual.length) console.log(`  ⚠ ${manual.length} manual mappings drifted too — check them yourself, they are left untouched`);
   }
 }
 
 await browser.close();
-if (!fix && totalBad) console.log(`\nЗапусти с --fix, чтобы убрать уехавшие авто-привязки.`);
+if (!fix && totalBad) console.log(`\nRun with --fix to remove the drifted auto mappings.`);
 process.exit(totalBad ? 1 : 0);

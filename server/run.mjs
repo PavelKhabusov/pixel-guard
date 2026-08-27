@@ -22,9 +22,9 @@ const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const pages = readJson(path.join(ROOT, 'config/pages.json'));
 const viewports = readJson(path.join(ROOT, 'config/viewports.json'));
 const pageCfg = pages[page];
-if (!pageCfg) { console.error(`Нет страницы "${page}" в config/pages.json`); process.exit(2); }
+if (!pageCfg) { console.error(`No page "${page}" in config/pages.json`); process.exit(2); }
 const width = viewports[viewport];
-if (!width) { console.error(`Нет viewport "${viewport}" в config/viewports.json`); process.exit(2); }
+if (!width) { console.error(`No viewport "${viewport}" in config/viewports.json`); process.exit(2); }
 
 const frameId = pageCfg.frames?.[viewport];
 let snapPath = args.snapshot;
@@ -38,7 +38,7 @@ if (!snapPath) {
   }
 }
 if (!snapPath || !fs.existsSync(snapPath)) {
-  console.error(`Снапшот не найден (page=${page}, viewport=${viewport}). Экспортируй frame плагином или укажи --snapshot <file>.`);
+  console.error(`Snapshot not found (page=${page}, viewport=${viewport}). Export the frame with the plugin or pass --snapshot <file>.`);
   process.exit(2);
 }
 const snapshot = readJson(snapPath);
@@ -49,23 +49,23 @@ let root = snapshot.tree;
 if (rootId && root.id !== rootId) {
   const sub = findNode(root, rootId);
   if (!sub) {
-    console.error(`В снапшоте ${path.relative(ROOT, snapPath)} нет frame ${rootId} (viewport=${viewport}).`);
+    console.error(`Snapshot ${path.relative(ROOT, snapPath)} has no frame ${rootId} (viewport=${viewport}).`);
     process.exit(2);
   }
   root = sub;
 }
 if (root.w && Math.abs(root.w - width) > 1) {
-  console.warn(`⚠ ширина frame ${root.w}px ≠ viewport ${width}px — проверь frames.${viewport} в config/pages.json`);
+  console.warn(`⚠ frame width ${root.w}px ≠ viewport ${width}px — check frames.${viewport} in config/pages.json`);
 }
 
 const mapPath = path.join(ROOT, 'maps', `${page}.map.json`);
-if (!fs.existsSync(mapPath)) { console.error(`Нет карты ${mapPath}`); process.exit(2); }
+if (!fs.existsSync(mapPath)) { console.error(`No map ${mapPath}`); process.exit(2); }
 const sharedPath = path.join(ROOT, 'maps', '_shared.map.json');
 const shared = fs.existsSync(sharedPath) ? readJson(sharedPath) : {};
 const map = { ...shared, ...readJson(mapPath) };
 
 const url = args.url ?? pageCfg.url;
-console.log(`pixel-guard: ${page} @ ${viewport} (${width}px) → ${url}\n  снапшот: ${path.relative(ROOT, snapPath)} (${snapshot.frameName} → ${root.name} ${root.w}px)`);
+console.log(`pixel-guard: ${page} @ ${viewport} (${width}px) → ${url}\n  snapshot: ${path.relative(ROOT, snapPath)} (${snapshot.frameName} → ${root.name} ${root.w}px)`);
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
@@ -75,7 +75,7 @@ const ctx = await browser.newContext({
 const pg = await ctx.newPage();
 const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
 if (resp && !resp.ok())
-  throw new Error(`страница ответила HTTP ${resp.status()} — сверять нечего: ${url}`);
+  throw new Error(`page responded with HTTP ${resp.status()} — nothing to compare: ${url}`);
 await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
 await pg.evaluate(async () => {
   for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
@@ -128,8 +128,8 @@ fs.writeFileSync(`${base}.json`, JSON.stringify(report, null, 1));
 fs.writeFileSync(`${base}.html`, renderHtml(report));
 
 for (const r of results) {
-  const mark = { pass: '✓', failed: '✗', missing: '⚠ missing', skip: '— skip', absent: '· нет на странице', 'map-error': '⚠ map' }[r.status];
-  console.log(` ${mark} ${r.key}${r.diffs?.length ? ` — ${r.diffs.length} расхождений` : ''}`);
+  const mark = { pass: '✓', failed: '✗', missing: '⚠ missing', skip: '— skip', absent: '· not on page', 'map-error': '⚠ map' }[r.status];
+  console.log(` ${mark} ${r.key}${r.diffs?.length ? ` — ${r.diffs.length} mismatches` : ''}`);
   for (const d of r.diffs ?? []) console.log(`     ${d.prop}: ${d.figma} → ${d.actual}${d.delta ? ` (${d.delta})` : ''}`);
 }
 console.log(`\n${score.pass} ✓ · ${score.failed} ✗ · ${score.missing} missing · reports/${page}-${viewport}.{json,html}`);

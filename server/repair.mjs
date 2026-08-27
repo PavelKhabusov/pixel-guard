@@ -8,7 +8,7 @@ const SNAP = path.join(ROOT, 'snapshots');
 
 const files = fs.readdirSync(SNAP).filter((f) => f.endsWith('.json') && !f.startsWith('_'));
 
-// 1) собираем библиотеку компонентов из вхождений, где дети сохранились
+// 1) build the component library from occurrences that kept their children
 const lib = {};
 for (const f of files) {
   const d = JSON.parse(fs.readFileSync(path.join(SNAP, f), 'utf8'));
@@ -19,9 +19,9 @@ for (const f of files) {
   };
   if (d.tree) walk(d.tree);
 }
-console.log(`библиотека компонентов: ${Object.keys(lib).length}`);
+console.log(`component library: ${Object.keys(lib).length}`);
 
-// 2) разворачиваем пустые ссылки
+// 2) expand empty references
 let fixed = 0, stillEmpty = 0;
 for (const f of files) {
   const p = path.join(SNAP, f);
@@ -48,7 +48,7 @@ for (const f of files) {
   fs.writeFileSync(p, JSON.stringify(d, null, 1));
   fixed += touched - left;
   stillEmpty += left;
-  console.log(`  ${f}: развёрнуто ${touched - left}${left ? `, осталось пустых ${left}` : ''}`);
+  console.log(`  ${f}: expanded ${touched - left}${left ? `, ${left} still empty` : ''}`);
 }
 
-console.log(`\nразвёрнуто ${fixed} ссылок${stillEmpty ? `, без данных осталось ${stillEmpty} (нет в библиотеке)` : ''}`);
+console.log(`\nexpanded ${fixed} references${stillEmpty ? `, ${stillEmpty} left without data (not in library)` : ''}`);

@@ -24,7 +24,7 @@ const isLoopback = (ip = '') =>
 
 const handler = (req, res) => {
   if (!isLoopback(req.socket.remoteAddress)) {
-    console.warn(`[ingest] отказано не-локальному клиенту: ${req.socket.remoteAddress}`);
+    console.warn(`[ingest] rejected non-local client: ${req.socket.remoteAddress}`);
     return res.writeHead(403).end();
   }
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -64,7 +64,7 @@ const handler = (req, res) => {
       ? files.find((f) => f === want || f === `${want}.json` || readJsonSafe(path.join(SNAP, f))?.frameId === want)
       : files[0];
     res.setHeader('Content-Type', 'application/json');
-    if (!hit) return res.writeHead(404).end(JSON.stringify({ ok: false, error: 'нет снапшота' }));
+    if (!hit) return res.writeHead(404).end(JSON.stringify({ ok: false, error: 'no snapshot' }));
     return res.end(fs.readFileSync(path.join(SNAP, hit), 'utf8'));
   }
 
@@ -90,7 +90,7 @@ const handler = (req, res) => {
         res.setHeader('Content-Type', 'application/json');
         return res.writeHead(404).end(JSON.stringify({
           ok: false,
-          error: `для ${forUrl} нет страницы в config/pages.json — добавь url или шаблон в match[]`,
+          error: `no page for ${forUrl} in config/pages.json — add its url or a pattern to match[]`,
         }));
       }
       matchedPage = { key: hit.key, how: hit.how };
@@ -98,7 +98,7 @@ const handler = (req, res) => {
       if (!want) {
         res.setHeader('Content-Type', 'application/json');
         return res.writeHead(404).end(JSON.stringify({
-          ok: false, error: `у страницы «${hit.key}» не задан frame для ${viewport}`,
+          ok: false, error: `page "${hit.key}" has no frame for ${viewport}`,
         }));
       }
     }
@@ -113,12 +113,12 @@ const handler = (req, res) => {
       const png = path.join(SNAP, f.replace(/\.json$/, '.png'));
       const depthLimit = Number(url.searchParams.get('depth') ?? 8);
 
-      // карта привязок этой страницы — чтобы наложение шло поблочно,
-      // каждый блок к своему DOM-элементу, а не одним слепком сверху.
+      // this page's map — so the overlay is applied block by block,
+      // each block onto its own DOM element, not as one flat layer on top.
       const pageKey = matchedPage?.key ?? url.searchParams.get('page');
       const pageMap = pageKey ? readJsonSafe(path.join(ROOT, 'maps', `${pageKey}.map.json`)) ?? {} : {};
       const sharedMap = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
-      // готовые PNG блоков (npm run shots) — для пиксельной сверки по контейнерам
+      // pre-rendered block PNGs (npm run shots) — for per-container pixel comparison
       const shots = readJsonSafe(path.join(SNAP, 'shots', '_shots.json')) ?? {};
       const anchors = [];
       for (const [key, entry] of Object.entries({ ...sharedMap, ...pageMap })) {
@@ -131,8 +131,8 @@ const handler = (req, res) => {
         const small = (n.w ?? 0) < 4 || (n.h ?? 0) < 4;
         if (depth > 0 && !small) {
           const fill = Array.isArray(n.fills) ? n.fills.find((f) => f.type === 'solid') : null;
-          // @-ключ цепляем только к самому компоненту (INSTANCE/COMPONENT),
-          // иначе одноимённый текст внутри секции получает тот же селектор
+          // attach an @-key only to the component itself (INSTANCE/COMPONENT),
+          // otherwise a same-named text inside the section gets the same selector
           const anchor = anchors.find((a) => a.key === n.id)
             ?? anchors.find((a) => a.key.startsWith('@')
               && (n.type === 'INSTANCE' || n.type === 'COMPONENT')
@@ -164,9 +164,9 @@ const handler = (req, res) => {
             } : null,
           });
         }
-        // Не спускаемся внутрь иконок: у ноды есть свой SVG, либо все её
-        // дети — векторы с SVG (обёртка «svg (location)» + два Vector).
-        // Иначе поверх иконки ложатся пустые боксы с чужими цветами.
+        // Don't descend into icons: the node has its own SVG, or all its
+        // children are vectors with SVG (an "svg (location)" wrapper + two Vectors).
+        // Otherwise empty boxes with foreign colours land on top of the icon.
         if (n.svgRef || n.svg) return;
         const kids = n.children ?? [];
         const vectorish = kids.length > 0 && kids.every((c) =>
@@ -187,11 +187,11 @@ const handler = (req, res) => {
     }
     return res.writeHead(404).end(JSON.stringify({
       ok: false,
-      error: want ? `снапшот с frame ${want} не найден — переэкспортируй макет` : 'нет снапшотов',
+      error: want ? `no snapshot with frame ${want} — re-export the design` : 'no snapshots',
     }));
   }
 
-  // ноды, на которые ссылается карта страницы — для сверки без Figma
+  // nodes referenced by the page map — for comparison without Figma
   if (req.method === 'GET' && url.pathname === '/nodes') {
     const forUrl = url.searchParams.get('url');
     const viewport = url.searchParams.get('viewport') ?? 'desktop';
@@ -200,7 +200,7 @@ const handler = (req, res) => {
     const pageKey = hit?.key ?? url.searchParams.get('page') ?? 'home';
     const frameId = hit?.cfg?.frames?.[viewport] ?? pages[pageKey]?.frames?.[viewport];
     res.setHeader('Content-Type', 'application/json');
-    if (!frameId) return res.writeHead(404).end(JSON.stringify({ ok: false, error: `нет frame для ${pageKey}/${viewport}` }));
+    if (!frameId) return res.writeHead(404).end(JSON.stringify({ ok: false, error: `no frame for ${pageKey}/${viewport}` }));
 
     const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json') && !f.startsWith('_')) : [];
     for (const f of files) {
@@ -231,14 +231,14 @@ const handler = (req, res) => {
       }
       return res.end(JSON.stringify({ page: pageKey, viewport, frame: j.frameName, frameW: root.w, nodes: out, found: Object.keys(out).length, wanted: keys.length }));
     }
-    return res.writeHead(404).end(JSON.stringify({ ok: false, error: `снапшот с frame ${frameId} не найден` }));
+    return res.writeHead(404).end(JSON.stringify({ ok: false, error: `no snapshot with frame ${frameId}` }));
   }
 
-  // Рендер по требованию: просим плагин отдать картинку конкретной ноды.
-  // Это замена Figma REST API — работает без токена и без лимитов.
+  // On-demand render: ask the plugin for an image of a specific node.
+  // Replaces the Figma REST API — works without a token and without rate limits.
   if (req.method === 'GET' && url.pathname === '/render') {
     const id = url.searchParams.get('id');
-    if (!id) { res.setHeader('Content-Type', 'application/json'); return res.writeHead(400).end(JSON.stringify({ ok: false, error: 'нужен ?id=<figma node id>' })); }
+    if (!id) { res.setHeader('Content-Type', 'application/json'); return res.writeHead(400).end(JSON.stringify({ ok: false, error: '?id=<figma node id> is required' })); }
     const format = (url.searchParams.get('format') ?? 'PNG').toUpperCase();
     const scale = Number(url.searchParams.get('scale') ?? 2);
     const asJson = url.searchParams.get('json') === '1';
@@ -247,7 +247,7 @@ const handler = (req, res) => {
     if (!peers().figma) {
       res.setHeader('Content-Type', 'application/json');
       return res.writeHead(503).end(JSON.stringify({
-        ok: false, error: 'плагин Figma не на связи — открой pixel-guard в Figma и включи «живой режим»',
+        ok: false, error: 'Figma plugin is not connected — open pixel-guard in Figma and enable "live mode"',
       }));
     }
 
@@ -271,14 +271,14 @@ const handler = (req, res) => {
         sendRender(res, msg.result, asJson, bg);
       },
     });
-    if (queued > 1) console.log(`[render] ${id} в очереди (${queued})`);
+    if (queued > 1) console.log(`[render] ${id} queued (${queued})`);
     return;
   }
 
   if (req.method === 'GET' && url.pathname === '/find') {
     const query = url.searchParams.get('q') ?? '';
     res.setHeader('Content-Type', 'application/json');
-    if (!peers().figma) return res.writeHead(503).end(JSON.stringify({ ok: false, error: 'плагин Figma не на связи' }));
+    if (!peers().figma) return res.writeHead(503).end(JSON.stringify({ ok: false, error: 'Figma plugin is not connected' }));
     const reqId = `f${++renderSeq}`;
     enqueue({
       reqId, timeout: 30000, event: 'find', payload: { reqId, query },
@@ -349,14 +349,14 @@ const handler = (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/map') {
     return readBody(req, res, ({ page = 'home', key, entry, remove }) => {
-      if (!key) return res.writeHead(400).end(JSON.stringify({ ok: false, error: 'нет key' }));
+      if (!key) return res.writeHead(400).end(JSON.stringify({ ok: false, error: 'key is required' }));
       const target = key.startsWith('@') ? path.join(ROOT, 'maps', '_shared.map.json') : path.join(ROOT, 'maps', `${page}.map.json`);
       const cur = readJsonSafe(target) ?? {};
       if (remove) delete cur[key];
       else cur[key] = entry;
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, JSON.stringify(cur, null, 2));
-      console.log(`[map] ${remove ? 'удалено' : 'записано'} ${key} → ${path.relative(ROOT, target)}${entry?.selector ? ` (${entry.selector})` : ''}`);
+      console.log(`[map] ${remove ? 'removed' : 'saved'} ${key} → ${path.relative(ROOT, target)}${entry?.selector ? ` (${entry.selector})` : ''}`);
       res.end(JSON.stringify({ ok: true, file: path.relative(ROOT, target), size: Object.keys(cur).length }));
     });
   }
@@ -380,7 +380,7 @@ const handler = (req, res) => {
         fs.writeFileSync(path.join(SNAP, '_project.json'), JSON.stringify(meta, null, 1));
         saved.push('snapshots/_project.json');
         const shared = meta.modules.filter((m) => m.shared).length;
-        console.log(`[ingest] проект «${project.fileName}»: ${meta.pages.length} стр, ${saved.length - 1} frame, ${meta.modules.length} модулей (${shared} сквозных)`);
+        console.log(`[ingest] project "${project.fileName}": ${meta.pages.length} pages, ${saved.length - 1} frames, ${meta.modules.length} modules (${shared} shared)`);
         publish('snapshot', { saved, project: true });
         return res.end(JSON.stringify({ ok: true, saved }));
       }
@@ -397,9 +397,9 @@ const renderWaiters = new Map();
 const renderCache = new Map();
 let renderSeq = 0;
 
-/** Плагин Figma однопоточный: пока он рендерит крупную ноду, следующий
- *  запрос просто ждёт своей очереди и «сгорает» по таймауту. Поэтому
- *  сериализуем — в работе всегда ровно одно задание. */
+/** The Figma plugin is single-threaded: while it renders a large node, the
+ *  next request just waits its turn and burns through its timeout. So we
+ *  queue jobs and cap how many are in flight at once. */
 const renderQueue = [];
 const renderActive = new Map();
 const RENDER_PARALLEL = Number(process.env.PG_RENDER_PARALLEL || 3);
@@ -421,7 +421,7 @@ function startJob(job) {
 
   job.timer = setTimeout(() => {
     renderWaiters.delete(job.reqId);
-    finishJob(job, { error: `плагин не ответил за ${Math.round(job.timeout / 1000)}с`, stage: job.stage, reqId: job.reqId });
+    finishJob(job, { error: `plugin did not respond within ${Math.round(job.timeout / 1000)}s`, stage: job.stage, reqId: job.reqId });
   }, job.timeout);
 
   renderWaiters.set(job.reqId, (msg) => {
@@ -441,8 +441,8 @@ function finishJob(job, msg) {
 const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: 'application/pdf' };
 
 function sendRender(res, result, asJson, bg = '#ffffff') {
-  // Figma отдаёт PNG без фона канваса — на тёмной теме прозрачность
-  // читается как чёрная заливка. Подкладываем непрозрачный фон.
+  // Figma exports PNG without the canvas background — on a dark theme the
+  // transparency reads as a black fill. Put an opaque background underneath.
   if (result.format === 'PNG' && bg !== 'none') {
     const flat = flattenPng(result.bytes, bg);
     if (flat) result = { ...result, bytes: flat };
@@ -503,10 +503,10 @@ listenLocal(http.createServer(handler), PORT, () =>
 try {
   const { key, cert, created, certPath } = ensureCert(CERT_DIR);
   listenLocal(https.createServer({ key, cert }, handler), TLS_PORT, () => {
-    console.log(`pixel-guard ingest: https://localhost:${TLS_PORT} → ${SNAP}  (Figma в браузере)`);
-    if (created) console.log(`  сертификат создан: ${path.relative(ROOT, certPath)}`);
-    console.log(`  один раз открой https://localhost:${TLS_PORT}/ping и прими самоподписанный сертификат`);
+    console.log(`pixel-guard ingest: https://localhost:${TLS_PORT} → ${SNAP}  (Figma in browser)`);
+    if (created) console.log(`  certificate created: ${path.relative(ROOT, certPath)}`);
+    console.log(`  open https://localhost:${TLS_PORT}/ping once and accept the self-signed certificate`);
   });
 } catch (e) {
-  console.warn(`pixel-guard: HTTPS не поднят (${e.message}). Веб-Figma сможет только скачать JSON вручную.`);
+  console.warn(`pixel-guard: HTTPS not started (${e.message}). Web Figma will only be able to download JSON manually.`);
 }

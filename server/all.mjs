@@ -31,16 +31,16 @@ for (const page of only) {
 }
 
 const w = Math.max(...rows.map((r) => r.page.length), 8);
-console.log(`\n${'страница'.padEnd(w)}  viewport   ✓    ✗   missing`);
+console.log(`\n${'page'.padEnd(w)}  viewport   ✓    ✗   missing`);
 console.log('─'.repeat(w + 30));
 let tp = 0, tf = 0, tm = 0;
 for (const r of rows) {
-  if (r.error) { console.log(`${r.page.padEnd(w)}  ${r.viewport.padEnd(9)} ошибка: ${r.error.slice(0, 40)}`); continue; }
+  if (r.error) { console.log(`${r.page.padEnd(w)}  ${r.viewport.padEnd(9)} error: ${r.error.slice(0, 40)}`); continue; }
   tp += r.pass; tf += r.failed; tm += r.missing;
   console.log(`${r.page.padEnd(w)}  ${r.viewport.padEnd(9)} ${String(r.pass).padStart(3)}  ${String(r.failed).padStart(3)}  ${String(r.missing).padStart(5)}`);
 }
 console.log('─'.repeat(w + 30));
-console.log(`${'ИТОГО'.padEnd(w)}  ${''.padEnd(9)} ${String(tp).padStart(3)}  ${String(tf).padStart(3)}  ${String(tm).padStart(5)}`);
+console.log(`${'TOTAL'.padEnd(w)}  ${''.padEnd(9)} ${String(tp).padStart(3)}  ${String(tf).padStart(3)}  ${String(tm).padStart(5)}`);
 
 fs.writeFileSync(path.join(ROOT, 'reports/_summary.json'), JSON.stringify({ rows, total: { pass: tp, failed: tf, missing: tm } }, null, 1));
 process.exit(tf ? 1 : 0);

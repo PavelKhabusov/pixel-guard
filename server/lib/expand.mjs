@@ -1,8 +1,8 @@
 /**
- * Разворачивает compRef обратно в дерево: плагин сериализует переиспользуемый
- * компонент один раз, остальные вхождения ссылаются на него. Координаты детей
- * в словаре относительны своего экземпляра, поэтому сдвигаем их на позицию
- * текущего вхождения.
+ * Expands compRef back into the tree: the plugin serializes a reused component
+ * once, the other occurrences reference it. Child coordinates in the library
+ * are relative to their own instance, so shift them to the position of the
+ * current occurrence.
  */
 export function expandTree(node, lib, base = null) {
   if (!lib || !node) return node;

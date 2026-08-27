@@ -1,7 +1,7 @@
 {
   "commands": [
     {
-      "name": "🚀 Старт (сервер + Figma)",
+      "name": "🚀 Start (server + Figma)",
       "command": "./start.sh",
       "type": "terminal",
       "group": "pixel-guard"
@@ -19,19 +19,19 @@
       "group": "pixel-guard"
     },
     {
-      "name": "🔐 Принять сертификат (веб-Figma)",
+      "name": "🔐 Accept certificate (web Figma)",
       "command": "xdg-open https://localhost:8972/ping",
       "type": "terminal",
       "group": "pixel-guard"
     },
     {
-      "name": "⇄ Сквозные модули",
+      "name": "⇄ Shared modules",
       "command": "npm run modules -- --shared",
       "type": "terminal",
       "group": "pixel-guard"
     },
     {
-      "name": "🧩 Расширения Chrome",
+      "name": "🧩 Chrome extensions",
       "command": "xdg-open chrome://extensions",
       "type": "terminal",
       "group": "pixel-guard"
@@ -43,7 +43,7 @@
       "group": "pixel-guard"
     },
     {
-      "name": "🔍 QA: все страницы",
+      "name": "🔍 QA: all pages",
       "command": "npm run qa:all",
       "type": "terminal",
       "group": "pixel-guard"
@@ -55,25 +55,25 @@
       "group": "pixel-guard"
     },
     {
-      "name": "🩹 CSS-патч: home",
+      "name": "🩹 CSS patch: home",
       "command": "npm run patch -- --page home --viewport desktop",
       "type": "terminal",
       "group": "pixel-guard"
     },
     {
-      "name": "🔌 MCP: подключить к Claude",
+      "name": "🔌 MCP: connect to Claude",
       "command": "claude mcp add pixel-guard -- node $(pwd)/server/mcp.mjs",
       "type": "terminal",
       "group": "pixel-guard"
     },
     {
-      "name": "🖼 Экспорт PNG блоков",
+      "name": "🖼 Export block PNGs",
       "command": "npm run shots",
       "type": "terminal",
       "group": "pixel-guard"
     },
     {
-      "name": "🔎 Проверить карты",
+      "name": "🔎 Verify maps",
       "command": "npm run verify -- --fix",
       "type": "terminal",
       "group": "pixel-guard"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# pixel-guard: поднимает сервер и открывает Figma на нужном макете.
-# Дальше остаётся один ручной шаг — запустить плагин (Figma не даёт
-# сделать это программно), после чего агенты работают без участия человека.
+# pixel-guard: starts the server and opens Figma on the right design.
+# One manual step remains — launching the plugin (Figma does not allow
+# doing it programmatically), after which agents work without a human.
 set -u
 cd "$(dirname "$0")"
 
@@ -12,30 +12,30 @@ FIGMA_URL=${PG_FIGMA_URL:-}
 say() { printf '\033[36m%s\033[0m\n' "$1"; }
 warn() { printf '\033[33m%s\033[0m\n' "$1"; }
 
-# 1. сервер — если уже поднят, не трогаем
+# 1. server — leave it alone if already running
 if curl -sf -m 2 "http://localhost:$PORT/ping" >/dev/null 2>&1; then
-  say "✓ сервер уже работает на :$PORT"
+  say "✓ server already running on :$PORT"
 else
-  say "▶ запускаю ingest-сервер…"
+  say "▶ starting ingest server…"
   nohup npm run server >/tmp/pixel-guard-server.log 2>&1 &
   for _ in $(seq 1 20); do
     curl -sf -m 1 "http://localhost:$PORT/ping" >/dev/null 2>&1 && break
     sleep 0.5
   done
   if curl -sf -m 2 "http://localhost:$PORT/ping" >/dev/null 2>&1; then
-    say "✓ сервер поднят (лог: /tmp/pixel-guard-server.log)"
+    say "✓ server started (log: /tmp/pixel-guard-server.log)"
   else
-    warn "✗ сервер не ответил — смотри /tmp/pixel-guard-server.log"; exit 1
+    warn "✗ server did not respond — see /tmp/pixel-guard-server.log"; exit 1
   fi
 fi
 
-# 2. плагин уже на связи? тогда ничего открывать не нужно
+# 2. plugin already connected? then nothing needs opening
 if curl -sf -m 2 "http://localhost:$PORT/ping" | grep -q '"figma"'; then
-  say "✓ плагин Figma уже на связи — всё готово, агенты могут работать"
+  say "✓ Figma plugin already connected — all set, agents can work"
   exit 0
 fi
 
-# 3. открываем Figma на нужном макете
+# 3. open Figma on the right design
 if [ -n "$FIGMA_URL" ]; then
   TARGET="$FIGMA_URL"
 elif [ -n "$FILE_KEY" ]; then
@@ -46,27 +46,27 @@ fi
 
 if command -v figma-linux-next >/dev/null 2>&1; then
   if pgrep -f figma-linux-next >/dev/null; then
-    say "✓ Figma уже запущена"
+    say "✓ Figma already running"
   else
-    say "▶ открываю Figma${TARGET:+ на макете}…"
+    say "▶ opening Figma${TARGET:+ on the design}…"
     nohup figma-linux-next ${TARGET:+"$TARGET"} >/dev/null 2>&1 &
     sleep 6
   fi
 elif [ -n "$TARGET" ]; then
   xdg-open "$TARGET" >/dev/null 2>&1 &
 else
-  warn "Figma Desktop не найдена — открой макет вручную"
+  warn "Figma Desktop not found — open the design manually"
 fi
 
 cat <<'TXT'
 
-Остался один шаг вручную (Figma не позволяет запускать плагины программно):
-  Plugins → Development → pixel-guard → включи чекбокс «живой режим»
+One manual step remains (Figma does not allow launching plugins programmatically):
+  Plugins → Development → pixel-guard → enable the "live mode" checkbox
 
-После этого доступно без твоего участия:
-  curl "http://localhost:8971/render?id=<node-id>" -o pic.png   # картинка из макета
-  curl "http://localhost:8971/find?q=<имя>"                     # поиск нод
-  агенты Claude — через MCP (figma_render_node, figma_find_nodes)
+After that, available without your involvement:
+  curl "http://localhost:8971/render?id=<node-id>" -o pic.png   # image from the design
+  curl "http://localhost:8971/find?q=<name>"                    # node search
+  Claude agents — via MCP (figma_render_node, figma_find_nodes)
 
-Проверить связь:  curl -s http://localhost:8971/ping
+Check the connection:  curl -s http://localhost:8971/ping
 TXT

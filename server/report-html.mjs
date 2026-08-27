@@ -1,8 +1,8 @@
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const LABEL = {
-  pass: '✓ совпадает', failed: '✗ расхождения', missing: 'нет в DOM',
-  skip: 'skip', 'map-error': 'нода не найдена', absent: 'нет в макете',
+  pass: '✓ match', failed: '✗ mismatch', missing: 'missing in DOM',
+  skip: 'skip', 'map-error': 'node not found', absent: 'not in design',
 };
 
 export function renderHtml(report) {
@@ -22,13 +22,13 @@ export function renderHtml(report) {
         <td class="act">${esc(d.actual)}</td><td class="delta">${esc(d.delta ?? '')}</td></tr>`)
       .join('');
     const meta = n.status === 'skip' ? esc(n.reason ?? '')
-      : n.status === 'pass' ? `${n.checked ?? 0} проверок — всё сходится`
-      : n.status === 'failed' ? `${n.checked ?? 0} проверок, ${n.diffs.length} расхождений`
+      : n.status === 'pass' ? `${n.checked ?? 0} checks — all match`
+      : n.status === 'failed' ? `${n.checked ?? 0} checks, ${n.diffs.length} mismatches`
       : '';
     return `<section class="${n.status}" data-status="${n.status}">
       <h3><b>${esc(n.key)}</b>${n.selector ? ` <code>${esc(n.selector)}</code>` : ''}</h3>
       <div class="meta"><span class="tag ${n.status}">${LABEL[n.status] ?? n.status}</span> ${meta}</div>
-      ${diffs ? `<table class="diffs"><tr><th>свойство</th><th>Figma</th><th>сайт</th><th>Δ</th></tr>${diffs}</table>` : ''}
+      ${diffs ? `<table class="diffs"><tr><th>property</th><th>Figma</th><th>site</th><th>Δ</th></tr>${diffs}</table>` : ''}
     </section>`;
   }).join('\n');
 
@@ -79,24 +79,24 @@ export function renderHtml(report) {
 </style>
 <div class="wrap">
   <h1>${esc(report.page)} @ ${esc(report.viewport)}</h1>
-  <p class="sub"><a href="${esc(report.url)}">${esc(report.url)}</a> · макет «${esc(report.frame)}» · ${esc(report.generatedAt?.slice(0, 16).replace('T', ' '))}</p>
+  <p class="sub"><a href="${esc(report.url)}">${esc(report.url)}</a> · design "${esc(report.frame)}" · ${esc(report.generatedAt?.slice(0, 16).replace('T', ' '))}</p>
 
   <div class="cards">
-    <div class="card ok"><b>${score.pass}</b><span>совпало</span></div>
-    <div class="card bad"><b>${score.failed}</b><span>расхождений</span></div>
-    <div class="card warn"><b>${score.missing}</b><span>нет в DOM</span></div>
+    <div class="card ok"><b>${score.pass}</b><span>matched</span></div>
+    <div class="card bad"><b>${score.failed}</b><span>mismatches</span></div>
+    <div class="card warn"><b>${score.missing}</b><span>missing in DOM</span></div>
     <div class="card"><b>${score.skip}</b><span>skip</span></div>
-    ${score.absent ? `<div class="card"><b>${score.absent}</b><span>нет в макете</span></div>` : ''}
-    ${score['map-error'] ? `<div class="card warn"><b>${score['map-error']}</b><span>нода не найдена</span></div>` : ''}
+    ${score.absent ? `<div class="card"><b>${score.absent}</b><span>not in design</span></div>` : ''}
+    ${score['map-error'] ? `<div class="card warn"><b>${score['map-error']}</b><span>node not found</span></div>` : ''}
   </div>
 
-  ${propRows ? `<div class="panel"><h2>Чаще всего расходится</h2><table>${propRows}</table></div>` : ''}
+  ${propRows ? `<div class="panel"><h2>Most frequent mismatches</h2><table>${propRows}</table></div>` : ''}
 
   <div class="filters">
-    <button class="on" data-f="all">все (${nodes.length})</button>
-    <button data-f="failed">✗ расхождения (${score.failed})</button>
-    <button data-f="pass">✓ совпадает (${score.pass})</button>
-    <button data-f="missing">нет в DOM (${score.missing})</button>
+    <button class="on" data-f="all">all (${nodes.length})</button>
+    <button data-f="failed">✗ mismatch (${score.failed})</button>
+    <button data-f="pass">✓ match (${score.pass})</button>
+    <button data-f="missing">missing in DOM (${score.missing})</button>
     <button data-f="skip">skip (${score.skip})</button>
   </div>
 

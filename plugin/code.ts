@@ -140,12 +140,12 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
         o.compRef = ref;
         return o;
       }
-      // первое вхождение несёт детей при себе И кладёт их в словарь:
-      // так снапшот остаётся самодостаточным, даже если compLib потеряется
+      // the first occurrence carries its children AND stores them in the dictionary:
+      // this keeps the snapshot self-contained even if compLib is lost
       if ('children' in node && node.children.length) {
-        // ВАЖНО: считаем от корня фрейма, как и везде. Раньше здесь была
-        // база самой ноды — координаты в дереве получались вперемешку
-        // (часть абсолютных, часть относительных) и всё сопоставление врало.
+        // IMPORTANT: measure from the frame root, like everywhere else. This used to
+        // use the node's own origin, which mixed absolute and relative coordinates
+        // in the tree and broke all matching.
         const kids = node.children.filter((c) => c.visible).map((c) => serialize(c, root));
         if (kids.length) {
           o.children = kids;
@@ -170,13 +170,13 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
 
 const SVG_LIMIT = 400;
 
-/** Иконки повторяются десятки раз (стрелки, соцсети): экспортируем каждую
- *  форму ОДИН раз и складываем в общий словарь, ноды ссылаются по svgRef. */
+/** Icons repeat dozens of times (arrows, social icons): export each shape
+ *  ONCE into a shared dictionary; nodes reference it via svgRef. */
 const svgCache: Record<string, string> = {};
 
-/** Переиспользуемые блоки (header/footer/карточки) не сериализуем повторно:
- *  первое вхождение кладём в общий словарь, остальные ссылаются по compRef.
- *  Ключ учитывает размер — один компонент в разных брейкпоинтах отличается. */
+/** Reusable blocks (header/footer/cards) are not serialized repeatedly:
+ *  the first occurrence goes into a shared dictionary, the rest reference it via compRef.
+ *  The key includes the size: the same component differs across breakpoints. */
 const compCache: Record<string, any> = {};
 let dedupe = false;
 
@@ -203,14 +203,14 @@ async function attachSvg(label: string) {
 
   const todo = uniq.slice(0, SVG_LIMIT);
   if (todo.length) {
-    figma.ui.postMessage({ type: 'status', text: `SVG: ${todo.length} новых из ${jobs.length} · ${label}…` });
+    figma.ui.postMessage({ type: 'status', text: `SVG: ${todo.length} new of ${jobs.length} · ${label}…` });
     for (const j of todo) {
       try {
         const bytes = await (j.node as any).exportAsync({ format: 'SVG' });
         let out = '';
         for (const b of bytes) out += String.fromCharCode(b);
         if (out.length <= 20000) svgCache[svgKey(j.node)] = out;
-      } catch (_) { /* нода не экспортируется — пропускаем */ }
+      } catch (_) { /* node cannot be exported, skip it */ }
     }
   }
 
@@ -305,7 +305,7 @@ async function exportProject(png: boolean) {
   dedupe = true;
   const pages: any[] = [];
   for (const page of figma.root.children) {
-    figma.ui.postMessage({ type: 'status', text: `Страница: ${page.name}…` });
+    figma.ui.postMessage({ type: 'status', text: `Page: ${page.name}…` });
     await page.loadAsync();
     const roots = page.children.filter(
       (n): n is FrameNode | ComponentNode | SectionNode =>
@@ -343,7 +343,7 @@ async function exportProject(png: boolean) {
     svgLib: svgCache,
     fileKey: figma.fileKey ?? null,
     fileName: figma.root.name,
-    frameName: `${figma.root.name} (проект)`,
+    frameName: `${figma.root.name} (project)`,
     pages,
     modules: collectModules(pages),
   };
@@ -351,8 +351,8 @@ async function exportProject(png: boolean) {
 
 async function renderNode(id: string, format: string, scale: number) {
   const node = await figma.getNodeByIdAsync(id) as SceneNode | null;
-  if (!node) throw new Error(`нода ${id} не найдена`);
-  if (!('exportAsync' in node)) throw new Error(`нода ${id} (${node.type}) не экспортируется`);
+  if (!node) throw new Error(`node ${id} not found`);
+  if (!('exportAsync' in node)) throw new Error(`node ${id} (${node.type}) cannot be exported`);
 
   const settings: any = format === 'SVG'
     ? { format: 'SVG' }
@@ -361,9 +361,9 @@ async function renderNode(id: string, format: string, scale: number) {
   const bytes = await Promise.race([
     (node as any).exportAsync(settings),
     new Promise((_, rej) => setTimeout(
-      () => rej(new Error(`exportAsync завис на «${node.name}» (${node.type}). `
-        + 'Обычно это нода с image-заливкой, картинка которой ещё не подгружена: '
-        + 'прокрути к ней на канвасе, чтобы Figma её загрузила, и повтори')),
+      () => rej(new Error(`exportAsync hung on "${node.name}" (${node.type}). `
+        + 'Usually this is a node with an image fill whose image has not loaded yet: '
+        + 'scroll to it on the canvas so Figma loads it, then retry')),
       120000,
     )),
   ]) as Uint8Array;
@@ -415,10 +415,10 @@ figma.ui.onmessage = async (msg: any) => {
         project,
         port: msg.port,
         mode: msg.mode || 'http',
-        summary: `${project.pages.length} стр · ${project.pages.reduce((s: number, p: any) => s + p.frames.length, 0)} frame · ${project.modules.length} модулей (${shared} сквозных)`,
+        summary: `${project.pages.length} pages · ${project.pages.reduce((s: number, p: any) => s + p.frames.length, 0)} frame · ${project.modules.length} modules (${shared} shared)`,
       });
     } catch (e: any) {
-      figma.ui.postMessage({ type: 'error', text: `Экспорт проекта: ${e.message}` });
+      figma.ui.postMessage({ type: 'error', text: `Project export: ${e.message}` });
     }
     return;
   }
@@ -428,13 +428,13 @@ figma.ui.onmessage = async (msg: any) => {
       n.type === 'FRAME' || n.type === 'COMPONENT' || n.type === 'SECTION'
   );
   if (!selection.length) {
-    figma.ui.postMessage({ type: 'error', text: 'Выдели один или несколько frame’ов' });
+    figma.ui.postMessage({ type: 'error', text: 'Select one or more frames' });
     return;
   }
   const frames: any[] = [];
   for (const frame of selection) {
     const box = frame.absoluteBoundingBox!;
-    figma.ui.postMessage({ type: 'status', text: `Обход: ${frame.name}…` });
+    figma.ui.postMessage({ type: 'status', text: `Traversing: ${frame.name}…` });
     svgJobs.length = 0;
     const tree = serialize(frame, { x: box.x, y: box.y });
     await attachSvg(frame.name);

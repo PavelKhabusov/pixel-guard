@@ -62,14 +62,14 @@
 }
 .pg-obox > svg { display: block; width: 100%; height: 100%; }
 
-/* режим «только макет»: страница приглушена, наложение читается чисто */
+/* "design only" mode: the page is dimmed, the overlay reads cleanly */
 html.pg-solo body > *:not(.pg-overlay):not(.pg-box):not(.pg-pick):not(.pg-pick-tip) {
   opacity: 0.12 !important;
   filter: grayscale(1);
 }
 html.pg-solo .pg-overlay { opacity: 1 !important; }
 
-/* шторка «до/после»: линия раздела макета и сайта */
+/* "before/after" curtain: the divider between design and site */
 .pg-split {
   position: fixed;
   top: 0;
@@ -104,8 +104,8 @@ html.pg-solo .pg-overlay { opacity: 1 !important; }
 .pg-split-grip::before { left: 3px; border-right-color: #15171a; }
 .pg-split-grip::after { right: 3px; border-left-color: #15171a; }
 
-/* Шторка: слева макет поверх приглушённого сайта, справа чистый сайт.
-   Не скрываем сайт полностью — иначе там, где макета нет, зияет дыра. */
+/* Curtain: design over the dimmed site on the left, clean site on the right.
+   The site is not hidden completely — otherwise a hole gapes where there is no design. */
 html.pg-split-on .pg-split-dim {
   position: fixed;
   inset: 0;

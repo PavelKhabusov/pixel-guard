@@ -58,36 +58,36 @@
 </style>
 
 <label class="live"><input id="live" type="checkbox" checked><span class="sw" id="bus-dot"></span>
-  живой режим
-  <small id="bus-state">выключен</small></label>
+  Live mode
+  <small id="bus-state">off</small></label>
 
 <div class="sel" id="sel" hidden>
   <span class="sel-id" id="sel-id"></span>
-  <button class="mini" id="cp-id">копировать id</button>
+  <button class="mini" id="cp-id">copy id</button>
 </div>
 
 <div class="grp">
-  <span class="grp-t">Снять</span>
-  <button id="go">фрейм</button>
-  <button id="goall" class="alt">всё</button>
+  <span class="grp-t">Capture</span>
+  <button id="go">frame</button>
+  <button id="goall" class="alt">all</button>
   <button id="save" class="alt" disabled>JSON</button>
 </div>
 
 <details>
-  <summary>настройки подключения</summary>
+  <summary>connection settings</summary>
   <div class="row">
     <select id="mode">
-      <option value="auto">авто</option>
-      <option value="https">HTTPS (Figma в браузере)</option>
+      <option value="auto">auto</option>
+      <option value="https">HTTPS (Figma in browser)</option>
       <option value="http">HTTP (Figma Desktop)</option>
-      <option value="download">только скачать файл</option>
+      <option value="download">download file only</option>
     </select>
     <input id="port" type="number" value="8971">
   </div>
-  <label class="chk"><input id="png" type="checkbox"> экспортировать PNG (тяжелее)</label>
+  <label class="chk"><input id="png" type="checkbox"> export PNG (heavier)</label>
 </details>
 
-<div id="log">Выдели frame(’ы) на канвасе и жми «Снять».</div>
+<div id="log">Select frame(s) on the canvas and press Capture.</div>
 <script>
   const isWeb = location.protocol === 'https:' || parent !== window && /figma\.com$/.test(document.referrer.split('/')[2] || '');
   const el = (id) => document.getElementById(id);
@@ -108,14 +108,14 @@
     a.download = frames.length === 1 ? `${frames[0].frameName.replace(/[^\wЀ-ӿ-]+/g, '-')}.pg.json` : 'snapshot.pg.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    log(`Скачан ${a.download}.\nПоложи его в snapshots/ и распакуй:\n  npm run import -- <файл>`);
+    log(`Downloaded ${a.download}.\nPut it in snapshots/ and unpack it:\n  npm run import -- <file>`);
   };
 
   saveBtn.onclick = () => { if (lastFrames) download(lastFrames); };
 
   el('goall').onclick = () => {
     btn.disabled = true;
-    log('Обхожу все страницы проекта…');
+    log('Traversing all project pages…');
     parent.postMessage({ pluginMessage: {
       type: 'export-project',
       port: +el('port').value || 8971,
@@ -126,7 +126,7 @@
 
   btn.onclick = () => {
     btn.disabled = true;
-    log('Собираю дерево нод…');
+    log('Collecting node tree…');
     parent.postMessage({ pluginMessage: {
       type: 'export',
       port: +el('port').value || 8971,
@@ -148,7 +148,7 @@
   let watchdog = null;
 
   const busStatus = (t, err) => {
-    el('bus-state').textContent = t.replace(/^живой режим:?\s*/i, '');
+    el('bus-state').textContent = t.replace(/^live mode:?\s*/i, '');
     el('bus-state').style.color = err ? '#e8a0a0' : '#71767d';
     el('bus-dot').classList.toggle('live-err', !!err);
   };
@@ -161,19 +161,19 @@
     bus.addEventListener('hello', () => {
       busRetry = 0;
       lastBeat = Date.now();
-      busStatus(`на связи · ${base}`);
-      log(`живой режим: подключён к ${base}`);
+      busStatus(`connected · ${base}`);
+      log(`Live mode: connected to ${base}`);
     });
     bus.addEventListener('peers', (e) => {
       lastBeat = Date.now();
       const p = JSON.parse(e.data);
-      busStatus(`на связи · браузер ${p.extension ? 'да' : 'нет'}`);
+      busStatus(`connected · browser ${p.extension ? 'yes' : 'no'}`);
     });
     bus.addEventListener('beat', () => { lastBeat = Date.now(); });
     bus.addEventListener('render', (e) => {
       lastBeat = Date.now();
       const req = JSON.parse(e.data);
-      log(`рендер: ${req.id} (${req.format || 'PNG'})…`);
+      log(`Render: ${req.id} (${req.format || 'PNG'})…`);
       fetch(`${busBase()}/render-ack`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reqId: req.reqId }),
@@ -186,12 +186,12 @@
       parent.postMessage({ pluginMessage: { type: 'find-node', ...req } }, '*');
     });
 
-    // EventSource в iframe плагина умеет отвалиться молча — переподключаемся сами
+    // EventSource inside the plugin iframe can drop silently, so we reconnect ourselves
     bus.onerror = () => {
       if (!el('live').checked) return;
       busRetry++;
       const wait = Math.min(15000, 1000 * busRetry);
-      busStatus(`нет связи, переподключаюсь через ${Math.round(wait / 1000)}с (попытка ${busRetry})`, true);
+      busStatus(`no connection, reconnecting in ${Math.round(wait / 1000)}s (attempt ${busRetry})`, true);
       clearTimeout(busTimer);
       busTimer = setTimeout(connectBus, wait);
     };
@@ -202,25 +202,25 @@
     clearInterval(watchdog);
     if (!on) {
       if (bus) { bus.close(); bus = null; }
-      busStatus('живой режим выключен');
-      log('живой режим выключен');
+      busStatus('Live mode off');
+      log('Live mode off');
       return;
     }
     busRetry = 0;
     connectBus();
-    // если сервер молчит дольше 70с (ping идёт раз в 25с) — соединение мертво
+    // if the server stays silent for more than 70s (ping every 25s), the connection is dead
     watchdog = setInterval(() => {
       if (!el('live').checked || !lastBeat) return;
       if (Date.now() - lastBeat > 70000) {
-        busStatus('связь потеряна, переподключаюсь…', true);
+        busStatus('connection lost, reconnecting…', true);
         lastBeat = Date.now();
         connectBus();
       }
     }, 15000);
   };
 
-  // Выделенная нода: id под рукой + копирование в форматах, которые
-  // сразу вставляются агенту или в терминал.
+  // Selected node: id at hand + copying in formats that can be pasted
+  // straight to the agent or the terminal.
   let selNode = null;
 
   const showSelection = (n) => {
@@ -241,18 +241,18 @@
       document.execCommand('copy');
       ta.remove();
       const was = btn.textContent;
-      btn.textContent = 'скопировано';
+      btn.textContent = 'copied';
       btn.classList.add('done');
       setTimeout(() => { btn.textContent = was; btn.classList.remove('done'); }, 1200);
     } catch (e) {
-      log(`не смог скопировать: ${e}`, true);
+      log(`Could not copy: ${e}`, true);
     }
   };
 
   el('cp-id').onclick = (e) => selNode && copy(e.target, selNode.figmaId);
 
   el('live').onchange = (e) => setLive(e.target.checked);
-  // живой режим включён по умолчанию — сразу поднимаем связь с сервером
+  // Live mode is on by default, so connect to the server right away
   if (el('live').checked) setLive(true);
 
   onmessage = async (e) => {
@@ -268,9 +268,9 @@
           body: JSON.stringify({ event: 'select', payload: msg.node, to: 'extension' }),
         });
         const j = await r.json();
-        log(j.sent ? `→ ${msg.node.name} (в браузер)` : `→ ${msg.node.name}: браузер не подключён`);
+        log(j.sent ? `→ ${msg.node.name} (to browser)` : `→ ${msg.node.name}: browser not connected`);
       } catch (err) {
-        log(`живой режим: сервер недоступен (${err})`, true);
+        log(`Live mode: server unavailable (${err})`, true);
       }
       return;
     }
@@ -281,9 +281,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(msg),
         });
-        log(msg.error ? `рендер: ошибка — ${msg.error}` : `рендер готов: ${msg.result?.name ?? ''}`);
+        log(msg.error ? `Render error: ${msg.error}` : `Render done: ${msg.result?.name ?? ''}`);
       } catch (err) {
-        log(`не отдал результат рендера: ${err}`, true);
+        log(`Could not deliver render result: ${err}`, true);
       }
       return;
     }
@@ -292,7 +292,7 @@
       lastFrames = [msg.project];
       saveBtn.disabled = false;
       const base = msg.mode === 'https' ? `https://localhost:${msg.port + 1}` : `http://localhost:${msg.port}`;
-      log(`Собрано: ${msg.summary}\nОтправляю на ${base}…`);
+      log(`Collected: ${msg.summary}\nSending to ${base}…`);
       if (msg.mode === 'download') { download([msg.project]); btn.disabled = false; return; }
       try {
         const r = await fetch(`${base}/ingest`, {
@@ -301,9 +301,9 @@
           body: JSON.stringify({ project: msg.project }),
         });
         const j = await r.json();
-        log(r.ok ? `Готово: ${msg.summary}\n${j.saved.join('\n')}` : `Сервер ответил ${r.status}`, !r.ok);
+        log(r.ok ? `Done: ${msg.summary}\n${j.saved.join('\n')}` : `Server responded ${r.status}`, !r.ok);
       } catch (err) {
-        log(`Не достучался до ${base}: ${err}.\nЗапусти npm run server или жми «Скачать JSON».`, true);
+        log(`Could not reach ${base}: ${err}.\nRun npm run server or press "JSON" to download.`, true);
       }
       btn.disabled = false;
       return;
@@ -328,7 +328,7 @@
       const body = JSON.stringify({ frames: msg.frames });
       let lastErr = null;
       for (const base of bases) {
-        log(`Отправляю ${msg.frames.length} frame(’ов) на ${base}…`);
+        log(`Sending ${msg.frames.length} frame(s) to ${base}…`);
         try {
           const r = await fetch(`${base}/ingest`, {
             method: 'POST',
@@ -338,8 +338,8 @@
           const j = await r.json();
           log(
             r.ok
-              ? `Готово:\n${j.saved.join('\n')}${bpInfo ? `\n\nБрейкпоинты:\n${bpInfo}` : ''}`
-              : `Сервер ответил ${r.status}: ${JSON.stringify(j)}`,
+              ? `Done:\n${j.saved.join('\n')}${bpInfo ? `\n\nBreakpoints:\n${bpInfo}` : ''}`
+              : `Server responded ${r.status}: ${JSON.stringify(j)}`,
             !r.ok
           );
           lastErr = null;
@@ -351,8 +351,8 @@
       if (lastErr) {
         log(
           tls
-            ? `Не достучался до ${bases.join(' и ')}: ${lastErr}.\n1) запусти: npm run server\n2) открой ${bases[0]}/ping и прими самоподписанный сертификат\n3) или жми «Скачать JSON»`
-            : `Не достучался до ${bases.join(' и ')}: ${lastErr}.\nЗапусти: npm run server (или переключи режим на HTTPS/скачивание)`,
+            ? `Could not reach ${bases.join(' and ')}: ${lastErr}.\n1) run: npm run server\n2) open ${bases[0]}/ping and accept the self-signed certificate\n3) or press "JSON" to download`
+            : `Could not reach ${bases.join(' and ')}: ${lastErr}.\nRun: npm run server (or switch the mode to HTTPS/download)`,
           true
         );
       }

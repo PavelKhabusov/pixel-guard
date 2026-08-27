@@ -1,5 +1,5 @@
 {
-  "_comment": "Ключ — Figma id ноды (995:1234, у инстансов I995:1234;567:890) или имя-путь (hero/title). Значение — привязка к DOM.",
+  "_comment": "Key is a Figma node id (995:1234, for instances I995:1234;567:890) or a name path (hero/title). Value is the DOM mapping.",
 
   "995:1234": { "selector": "h1.hero__title" },
 
@@ -7,5 +7,5 @@
 
   "995:5678": { "selector": "footer.site-footer", "ignore": ["height"] },
 
-  "not-implemented-yet": { "skip": "блок ещё не свёрстан" }
+  "not-implemented-yet": { "skip": "block not implemented yet" }
 }

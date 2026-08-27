@@ -21,7 +21,7 @@ const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const pages = readJson(path.join(ROOT, 'config/pages.json'));
 const viewports = readJson(path.join(ROOT, 'config/viewports.json'));
 const pageCfg = pages[page];
-if (!pageCfg) { console.error(`Нет страницы "${page}"`); process.exit(2); }
+if (!pageCfg) { console.error(`No page "${page}"`); process.exit(2); }
 const width = viewports[viewport];
 
 const frameId = pageCfg.frames?.[viewport];
@@ -31,12 +31,12 @@ for (const f of fs.readdirSync(path.join(ROOT, 'snapshots')).filter((f) => f.end
   if (!j.tree) continue;
   if (frameId ? j.frameId === frameId || findNode(j.tree, frameId) : j.breakpoints?.some((b) => b.viewport === viewport)) { snapFile = f; break; }
 }
-if (!snapFile) { console.error(`Снапшот не найден (page=${page}, viewport=${viewport}).`); process.exit(2); }
+if (!snapFile) { console.error(`Snapshot not found (page=${page}, viewport=${viewport}).`); process.exit(2); }
 
 const pngPath = path.join(ROOT, 'snapshots', snapFile.replace(/\.json$/, '.png'));
 if (!fs.existsSync(pngPath)) {
-  console.error(`Нет PNG макета: ${path.relative(ROOT, pngPath)}`);
-  console.error('Переэкспортируй frame плагином с включённым чекбоксом «экспортировать PNG».');
+  console.error(`No design PNG: ${path.relative(ROOT, pngPath)}`);
+  console.error('Re-export the frame with the plugin with the "export PNG" checkbox enabled.');
   process.exit(2);
 }
 
@@ -47,7 +47,7 @@ const ctx = await browser.newContext({ viewport: { width, height: 1000 } });
 const pg = await ctx.newPage();
 const resp = await pg.goto(pageCfg.url, { waitUntil: 'load', timeout: 60000 });
 if (resp && !resp.ok())
-  throw new Error(`страница ответила HTTP ${resp.status()} — сверять нечего: ${pageCfg.url}`);
+  throw new Error(`page responded with HTTP ${resp.status()} — nothing to compare: ${pageCfg.url}`);
 await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
 await pg.evaluate(async () => {
   for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
@@ -90,12 +90,12 @@ for (let i = 0; i < 10; i++) {
   bands.push(Math.round((n / (band * w)) * 1000) / 10);
 }
 
-console.log(`  макет ${design.width}×${design.height} · сайт ${shot.width}×${shot.height} · сравнено ${w}×${h}`);
+console.log(`  design ${design.width}×${design.height} · site ${shot.width}×${shot.height} · compared ${w}×${h}`);
 if (Math.abs(design.height - shot.height) > 40) {
-  console.log(`  ⚠ высота расходится на ${Math.abs(design.height - shot.height)}px — сравнивается общая часть сверху`);
+  console.log(`  ⚠ height differs by ${Math.abs(design.height - shot.height)}px — comparing the common top part`);
 }
-console.log(`\n  расхождение: ${pct}% пикселей (${changed.toLocaleString('ru')})\n`);
-console.log('  по вертикали (10 полос сверху вниз):');
+console.log(`\n  mismatch: ${pct}% of pixels (${changed.toLocaleString('ru')})\n`);
+console.log('  vertical (10 bands top to bottom):');
 for (const [i, v] of bands.entries()) {
   const bar = '█'.repeat(Math.min(40, Math.round(v / 2)));
   console.log(`   ${String(i * 10).padStart(3)}%  ${String(v).padStart(5)}%  ${bar}`);

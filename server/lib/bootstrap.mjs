@@ -14,6 +14,6 @@ export function ensureLocalConfigs(root) {
     if (!fs.existsSync(from)) continue;
     fs.mkdirSync(path.dirname(to), { recursive: true });
     fs.copyFileSync(from, to);
-    console.log(`pixel-guard: создан ${dst} из ${path.basename(src)} — заполни под свой проект`);
+    console.log(`pixel-guard: created ${dst} from ${path.basename(src)} — fill it in for your project`);
   }
 }

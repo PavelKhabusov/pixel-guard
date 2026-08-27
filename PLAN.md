@@ -1,75 +1,75 @@
-# pixel-guard — план разработки
+# pixel-guard — development plan
 
-Инструмент pixel-perfect QA: сверка живой вёрстки с макетами Figma **по элементам**
-(computed CSS + геометрия), а не только картинкой. Без Figma REST API и его лимитов —
-данные тянет свой Figma-плагин через Plugin API. Результат — машиночитаемый отчёт,
-который скармливается Claude Code для автоматического исправления вёрстки.
+A pixel-perfect QA tool: comparison of the live page with Figma designs **element by
+element** (computed CSS + geometry), not just as a picture. No Figma REST API and its
+limits — the data is pulled by its own Figma plugin via the Plugin API. The output is a
+machine-readable report that is fed to Claude Code for automatic markup fixes.
 
-Первый потребитель — редизайн корпоративного сайта: проверка вёрстки на dev-стенде,
-брейкпоинты 1920 / 912 / 357. Конкретные URL, ключи макета и привязки нод живут
-в локальных `config/pages.json` и `maps/*.map.json` (в git только `*.example.*`).
+The first consumer is a corporate site redesign: checking the markup on a dev staging
+site, breakpoints 1920 / 912 / 357. Specific URLs, design keys and node bindings live
+in local `config/pages.json` and `maps/*.map.json` (only `*.example.*` are in git).
 
-## Зачем свой инструмент
+## Why a custom tool
 
-Проверены готовые: Uiprobe, Over.fig, Overlayly, OnePixel, PerfectPixel, Visualign.
-Ни один не закрывает связку целиком:
+Existing ones were evaluated: Uiprobe, Over.fig, Overlayly, OnePixel, PerfectPixel, Visualign.
+None covers the whole chain:
 
-- нет надёжной привязки «конкретный Figma-блок ↔ конкретный HTML-элемент»;
-- нет сверки стилей (шрифты/отступы/цвета) по элементам — только визуальный overlay;
-- ломаются на недоделанных страницах (блок ещё не свёрстан → сыпется всё сопоставление);
-- не понимают переиспользуемые блоки (одна и та же ссылка/карточка в разных местах);
-- Figma REST API лимитирован (429, у Uiprobe — 4 probes/month на View-аккаунтах);
-- нет вывода, пригодного для агента: нужно «font-size 46→48px у `.hero-title`»,
-  а не «страница совпадает на 93%».
+- no reliable binding "specific Figma block ↔ specific HTML element";
+- no per-element style comparison (fonts/spacing/colors) — visual overlay only;
+- they break on unfinished pages (a block is not built yet → the whole matching falls apart);
+- they don't understand reusable blocks (the same link/card in different places);
+- the Figma REST API is rate-limited (429; Uiprobe gives 4 probes/month on View accounts);
+- no output usable by an agent: we need "font-size 46→48px on `.hero-title`",
+  not "the page matches at 93%".
 
-## Принятые решения
+## Decisions made
 
-| Вопрос | Решение |
+| Question | Decision |
 |---|---|
-| Имя/расположение | `~/DEV/pixel-guard` |
-| MVP | CSS-сверка по элементам (плагин → JSON → Playwright computedStyle → отчёт) |
-| Привязка Figma↔DOM | Автоматический матчинг + ручной override во внешнем map-файле. Никаких `data-figma` атрибутов в теме сайта |
-| Интеграция с Claude | CLI + `report.json` / `report.html`. MCP — возможная поздняя фаза |
-| Источник данных Figma | Только Plugin API (`figma.currentPage`, `exportAsync()`), REST API не используем |
+| Name/location | `~/DEV/pixel-guard` |
+| MVP | per-element CSS comparison (plugin → JSON → Playwright computedStyle → report) |
+| Figma↔DOM binding | Automatic matching + manual override in an external map file. No `data-figma` attributes in the site theme |
+| Claude integration | CLI + `report.json` / `report.html`. MCP — a possible later phase |
+| Figma data source | Plugin API only (`figma.currentPage`, `exportAsync()`), REST API not used |
 
-## Архитектура
+## Architecture
 
 ```
 Figma Desktop
  └─ pixel-guard plugin (TypeScript)
-     ├─ обход выбранных frame'ов → дерево нод: имя, тип, x/y/w/h,
-     │  fills, шрифты, line-height, letter-spacing, padding/gap (auto-layout),
-     │  border-radius, effects, компонент-инстансы
-     ├─ exportAsync() → PNG frame'ов (для фаз overlay/pixel-diff)
-     └─ POST http://127.0.0.1:<port>/ingest → снапшот на диск
+     ├─ walks the selected frames → node tree: name, type, x/y/w/h,
+     │  fills, fonts, line-height, letter-spacing, padding/gap (auto-layout),
+     │  border-radius, effects, component instances
+     ├─ exportAsync() → PNG of frames (for the overlay/pixel-diff phases)
+     └─ POST http://127.0.0.1:<port>/ingest → snapshot on disk
 
 pixel-guard server/CLI (Node.js + TypeScript)
- ├─ ingest-сервер: принимает снапшоты плагина → snapshots/<frame>.json + .png
- ├─ matcher: авто-сопоставление нод ↔ DOM + ручные override из map-файла
- ├─ collector (Playwright): открывает URL на нужном viewport,
- │  для каждой заматченной ноды берёт boundingRect + getComputedStyle
- ├─ comparator: нормализация значений → diff по правилам tolerance
- └─ reporter: report.json (для Claude) + report.html (для глаз)
+ ├─ ingest server: receives plugin snapshots → snapshots/<frame>.json + .png
+ ├─ matcher: auto-matching of nodes ↔ DOM + manual overrides from the map file
+ ├─ collector (Playwright): opens the URL at the needed viewport,
+ │  for every matched node takes boundingRect + getComputedStyle
+ ├─ comparator: value normalization → diff by tolerance rules
+ └─ reporter: report.json (for Claude) + report.html (for humans)
 ```
 
-Прогон: `pixel-guard run [--page home] [--viewport desktop]` → exit code 1,
-если расхождений больше порога.
+Run: `pixel-guard run [--page home] [--viewport desktop]` → exit code 1
+if mismatches exceed the threshold.
 
-## Структура проекта
+## Project structure
 
 ```
 pixel-guard/
 ├── plugin/                  # Figma plugin (manifest.json, code.ts, ui.html)
 ├── server/                  # ingest + matcher + collector + comparator + reporter
-├── extension/               # Chrome MV3: живой мост Figma ↔ сайт
-├── snapshots/               # выгрузки из Figma: <frame>.json + <frame>.png (gitignore)
-├── maps/                    # привязки: <page>.map.json (локально, в git — *.example.*)
-├── config/pages.json        # page → { url, frame'ы } (локально, в git — *.example.*)
-├── reports/                 # report.json / report.html / diff-картинки (gitignore)
+├── extension/               # Chrome MV3: live bridge Figma ↔ site
+├── snapshots/               # exports from Figma: <frame>.json + <frame>.png (gitignore)
+├── maps/                    # bindings: <page>.map.json (local, only *.example.* in git)
+├── config/pages.json        # page → { url, frames } (local, only *.example.* in git)
+├── reports/                 # report.json / report.html / diff images (gitignore)
 └── PLAN.md
 ```
 
-### `config/pages.json` (создаётся из `config/pages.example.json`)
+### `config/pages.json` (created from `config/pages.example.json`)
 
 ```json
 {
@@ -80,8 +80,8 @@ pixel-guard/
 }
 ```
 
-`frames` можно оставить `null`: если плагин снял секцию с адаптивами, он сам
-размечает брейкпоинты по ширине (1920 / 912 / 357) в поле `breakpoints`.
+`frames` can be left `null`: if the plugin captured a section with responsive
+variants, it labels the breakpoints by width (1920 / 912 / 357) in the `breakpoints` field itself.
 
 ### `maps/<page>.map.json`
 
@@ -94,50 +94,51 @@ pixel-guard/
 }
 ```
 
-`source: auto` перегенерируется матчером, `manual` — никогда не трогается.
-`skip` — блок сознательно исключён (не свёрстан / динамический контент).
+`source: auto` is regenerated by the matcher, `manual` is never touched.
+`skip` — the block is deliberately excluded (not built / dynamic content).
 
-## Матчер (авто-привязка + ручной override)
+## Matcher (auto-binding + manual override)
 
-Матчинг по совокупности сигналов, сверху вниз по дереву (родитель найден →
-дети ищутся внутри его DOM-поддерева):
+Matching by a combination of signals, top-down through the tree (once the parent is
+found, children are searched within its DOM subtree):
 
-1. **Текст** — точное/нормализованное совпадение текстового содержимого
-   (самый сильный сигнал для заголовков, кнопок, ссылок).
-2. **Имя ноды** — эвристика `Hero` → кандидаты `.pr-hero`, `[class*="hero"]`.
-3. **Геометрия** — близость x/y/w/h к ожидаемым (с допуском, т.к. вёрстка «плывёт»).
-4. **Тип** — TEXT→текстовые элементы, инстанс кнопки→`a`/`button`, IMAGE→`img`/фон.
+1. **Text** — exact/normalized match of the text content
+   (the strongest signal for headings, buttons, links).
+2. **Node name** — heuristic `Hero` → candidates `.pr-hero`, `[class*="hero"]`.
+3. **Geometry** — closeness of x/y/w/h to the expected values (with tolerance, since the markup "drifts").
+4. **Type** — TEXT→text elements, button instance→`a`/`button`, IMAGE→`img`/background.
 
-Скоринг кандидатов; порог уверенности. Ниже порога → нода попадает в отчёт как
-`unmatched` с топ-3 кандидатами — руками вписывается селектор в map (становится
-`manual`). Матчер НЕ падает, если блока нет: помечает `NOT IMPLEMENTED` и идёт дальше.
+Candidate scoring; a confidence threshold. Below the threshold → the node lands in the
+report as `unmatched` with the top-3 candidates — the selector is entered into the map by
+hand (becoming `manual`). The matcher does NOT fail if a block is missing: it marks it
+`NOT IMPLEMENTED` and moves on.
 
-Переиспользуемые блоки: инстансы одного компонента матчатся независимо каждый в своём
-родительском поддереве — одинаковая карточка в трёх местах = три записи в map.
+Reusable blocks: instances of the same component are matched independently, each in its
+own parent subtree — the same card in three places = three entries in the map.
 
-## Компаратор: правила сверки
+## Comparator: comparison rules
 
-Сверяемые свойства (по типам нод):
+Compared properties (by node type):
 
-- типографика: font-family, font-size, font-weight, line-height, letter-spacing,
+- typography: font-family, font-size, font-weight, line-height, letter-spacing,
   text-transform, text-align, color;
-- геометрия: width, height, позиция относительно родителя;
-- отступы: padding, gap (auto-layout ↔ flex/grid gap), margin между соседями;
-- оформление: background-color, border, border-radius, box-shadow, opacity.
+- geometry: width, height, position relative to the parent;
+- spacing: padding, gap (auto-layout ↔ flex/grid gap), margin between siblings;
+- appearance: background-color, border, border-radius, box-shadow, opacity.
 
-Нормализация перед сравнением (иначе тонны ложных фейлов):
+Normalization before comparison (otherwise tons of false failures):
 
-- цвета → единый формат (rgb/hex, альфа отдельно);
-- line-height проценты/unitless → px; font-weight имена → числа;
-- font-family — сравнение первого реального шрифта из стека;
-- px — округление, допуск по умолчанию ±1px (геометрия ±2px), настраивается
-  per-property и per-node в map (`"tolerance": {...}`);
-- то, что заведомо различается (рендер шрифтов, динамический контент), — в ignore.
+- colors → a single format (rgb/hex, alpha separately);
+- line-height percentages/unitless → px; font-weight names → numbers;
+- font-family — compare the first real font in the stack;
+- px — rounding, default tolerance ±1px (geometry ±2px), configurable
+  per-property and per-node in the map (`"tolerance": {...}`);
+- things that are known to differ (font rendering, dynamic content) go into ignore.
 
-Результат по ноде: список `{prop, figma, actual, delta, pass}`; по странице —
-свод `matched / failed / unmatched / not-implemented` + счёт расхождений.
+Result per node: a list of `{prop, figma, actual, delta, pass}`; per page —
+a summary `matched / failed / unmatched / not-implemented` + mismatch count.
 
-## Формат `report.json` (контракт для Claude Code)
+## `report.json` format (contract for Claude Code)
 
 ```json
 {
@@ -155,87 +156,87 @@ pixel-guard/
 }
 ```
 
-Требование: каждый diff должен быть **достаточен для правки без открытия Figma** —
-селектор + свойство + ожидаемое значение.
+Requirement: every diff must be **sufficient for a fix without opening Figma** —
+selector + property + expected value.
 
-## Фазы
+## Phases
 
-### Фаза 0 — каркас (½ дня)
-- Репозиторий, TypeScript, структура папок, `config/pages.json`.
-- Figma-плагин hello-world (официальный plugin starter), запуск в Dev-режиме,
-  POST на локальный сервер, снапшот пишется на диск.
-- ✅ Готово: нажал кнопку в плагине → в `snapshots/` появился JSON выбранного frame.
+### Phase 0 — skeleton (½ day)
+- Repository, TypeScript, folder structure, `config/pages.json`.
+- Hello-world Figma plugin (official plugin starter), run in Dev mode,
+  POST to a local server, snapshot written to disk.
+- ✅ Done: pressed the button in the plugin → the JSON of the selected frame appeared in `snapshots/`.
 
-### Фаза 1 — MVP: CSS-сверка по элементам (ядро)
-- Плагин: полный обход frame → дерево нод со стилями и геометрией.
-- Матчер: авто-привязка + map-файл + ручной override + `skip`/`NOT IMPLEMENTED`.
-- Collector: Playwright, три viewport'а, boundingRect + computedStyle по map.
-- Компаратор с нормализацией и tolerance.
-- `report.json` + минимальный `report.html` (таблица нод и диффов).
-- CLI: `pixel-guard run --page home --viewport desktop`, exit code по порогу.
-- ✅ Готово: прогон по главной выдаёт список конкретных расхождений
-  (селектор + свойство + figma/actual), Claude Code правит вёрстку по report.json,
-  повторный прогон показывает уменьшение failed.
+### Phase 1 — MVP: per-element CSS comparison (core)
+- Plugin: full frame walk → node tree with styles and geometry.
+- Matcher: auto-binding + map file + manual override + `skip`/`NOT IMPLEMENTED`.
+- Collector: Playwright, three viewports, boundingRect + computedStyle per the map.
+- Comparator with normalization and tolerance.
+- `report.json` + a minimal `report.html` (table of nodes and diffs).
+- CLI: `pixel-guard run --page home --viewport desktop`, exit code by threshold.
+- ✅ Done: a run on the home page produces a list of specific mismatches
+  (selector + property + figma/actual), Claude Code fixes the markup from report.json,
+  a repeated run shows fewer failed.
 
-### Фаза 2 — покрытие и удобство ✅
-- ✅ Все страницы в `pages.json`; batch-прогон `npm run qa:all` со сводкой.
-- ✅ Авто-матчер `npm run automap` + привязка мышью из панели расширения.
-- ✅ Сквозные модули в `maps/_shared.map.json` (@-ключи по имени компонента).
-- ✅ `report.html` v2: карточки счёта, сводка «чаще всего расходится», фильтры.
-- Команды в `commands-list.json` проекта (запуск сервера, прогоны) — под кнопки
-  Commands Extension.
+### Phase 2 — coverage and convenience ✅
+- ✅ All pages in `pages.json`; batch run `npm run qa:all` with a summary.
+- ✅ Auto-matcher `npm run automap` + binding with the mouse from the extension panel.
+- ✅ Shared modules in `maps/_shared.map.json` (@-keys by component name).
+- ✅ `report.html` v2: score cards, a "most frequent mismatches" summary, filters.
+- Commands in the project's `commands-list.json` (server start, runs) — for
+  Commands Extension buttons.
 
-### Фаза 3 — визуальный уровень ✅
-- ✅ `npm run pixdiff`: fullPage-скриншот против PNG макета через pixelmatch —
-  процент, разбивка по полосам, diff-картинка. Нужен экспорт с чекбоксом PNG.
-- ✅ Наложение макета поверх живого сайта из панели (картинка / каркас блоков,
-  слайдер прозрачности, difference).
-  (crop по boundingRect — точнее, чем вся страница целиком).
-- Side-by-side/overlay в `report.html` (opacity-слайдер, split).
+### Phase 3 — visual level ✅
+- ✅ `npm run pixdiff`: fullPage screenshot against the design PNG via pixelmatch —
+  percentage, breakdown by bands, diff image. Needs an export with the PNG checkbox.
+- ✅ Design overlay on top of the live site from the panel (image / block wireframe,
+  opacity slider, difference).
+  (crop by boundingRect — more precise than the whole page at once).
+- Side-by-side/overlay in `report.html` (opacity slider, split).
 
-### Фаза 4 — опционально, по итогам эксплуатации
-- ✅ Живой мост: расширение `extension/` + плагин через SSE-шину ingest-сервера
-  (`/bus`, `/emit`). Клик по ноде в Figma → подсветка элемента и дифф в браузере.
-  Figma REST API не задействован — лимитов нет by design.
-- Overlay-картинкой поверх живого сайта (PNG из exportAsync + слайдер прозрачности).
-- MCP-обёртка над CLI: тулзы `check_page`, `get_node_styles`, `get_diff`.
-- ✅ Генерация CSS-патчей: `npm run patch` (предложение правок, не автоприменение).
+### Phase 4 — optional, based on real-world use
+- ✅ Live bridge: the `extension/` extension + plugin via the ingest server's SSE bus
+  (`/bus`, `/emit`). Click a node in Figma → element highlight and diff in the browser.
+  The Figma REST API is not involved — no limits by design.
+- Image overlay on top of the live site (PNG from exportAsync + opacity slider).
+- MCP wrapper over the CLI: tools `check_page`, `get_node_styles`, `get_diff`.
+- ✅ CSS patch generation: `npm run patch` (a proposal of fixes, not auto-application).
 
-## Что переиспользуем
+## What we reuse
 
-- **figma/plugin-samples + plugin starter** — каркас плагина (MIT).
-- **FigmaToCode** (bernaferrari) — как референс извлечения стилей/структуры из нод
-  (код генерации HTML не нужен).
-- **Playwright** — браузер, viewport'ы, computedStyle, fullPage-скриншоты.
-- **pixelmatch** — попиксельный diff (фаза 3).
-- НЕ используем: figma-export-пакеты на REST API (лимиты, токены — то, от чего уходим).
+- **figma/plugin-samples + plugin starter** — plugin skeleton (MIT).
+- **FigmaToCode** (bernaferrari) — as a reference for extracting styles/structure from nodes
+  (the HTML generation code is not needed).
+- **Playwright** — browser, viewports, computedStyle, fullPage screenshots.
+- **pixelmatch** — per-pixel diff (phase 3).
+- NOT used: figma-export packages on the REST API (limits, tokens — exactly what we are moving away from).
 
-## Риски и грабли
+## Risks and pitfalls
 
-- **Права в Figma**: запуск собственного плагина в Dev-режиме требует edit-доступа
-  к файлу (или копии файла). Проверить на своём макете первым делом в фазе 0.
-- **Figma в браузере**: iframe плагина на `https://www.figma.com` не может стучаться на
-  `http://127.0.0.1` (mixed content). Решено: ingest поднимает и HTTPS-слушатель
-  (8972, самоподписанный сертификат в `config/cert/`), плюс фолбэк «скачать JSON» +
-  `npm run import`. В Desktop работает прежний HTTP на 8971.
-- Figma auto-layout ↔ CSS: gap/padding ложатся на flex прямо, но margin'ы и
-  абсолютные ноды потребуют аккуратного пересчёта относительных координат.
-- Динамика WordPress: контент из БД отличается от макета → текст-матчинг частично
-  не сработает, нужен ручной map; для таких нод сверять только стили, не текст.
-- Шрифтовой рендер браузера ≠ Figma: line-height/метрики могут расходиться на 1-2px
-  легально — решается tolerance, не считать багом инструмента.
-- Проверка идёт по живому dev-серверу (локального PHP нет) — прогоны батчить,
-  Playwright не гонять в цикле без нужды.
+- **Figma permissions**: running your own plugin in Dev mode requires edit access
+  to the file (or a copy of the file). Check on your own design first thing in phase 0.
+- **Figma in the browser**: the plugin iframe on `https://www.figma.com` cannot reach
+  `http://127.0.0.1` (mixed content). Solved: ingest also starts an HTTPS listener
+  (8972, self-signed certificate in `config/cert/`), plus the "download JSON" fallback +
+  `npm run import`. In Desktop the previous HTTP on 8971 works.
+- Figma auto-layout ↔ CSS: gap/padding map onto flex directly, but margins and
+  absolutely positioned nodes will require careful recomputation of relative coordinates.
+- WordPress dynamics: content from the DB differs from the design → text matching partly
+  won't work, a manual map is needed; for such nodes compare styles only, not text.
+- Browser font rendering ≠ Figma: line-height/metrics may legitimately differ by 1-2px —
+  handled by tolerance, not to be counted as a tool bug.
+- Checking runs against the live dev server (no local PHP) — batch the runs,
+  don't run Playwright in a loop without need.
 
-## Первые задачи (фаза 0 → 1)
+## First tasks (phase 0 → 1)
 
-1. Каркас репо + tsconfig + структура папок.
-2. Плагин-скелет: manifest, UI-кнопка «Export snapshot», POST на `127.0.0.1`.
-3. Ingest-сервер: принять и сохранить снапшот.
-4. Обход дерева нод в плагине: полный JSON стилей/геометрии (сверить вручную
-   с панелью Inspect на 2-3 нодах).
-5. Collector на Playwright: по захардкоженному map главной снять computedStyle.
-6. Компаратор + нормализация + первый `report.json`.
-7. Прогон по главной dev-стенда, разбор ложных срабатываний, донастройка
+1. Repo skeleton + tsconfig + folder structure.
+2. Plugin skeleton: manifest, an "Export snapshot" UI button, POST to `127.0.0.1`.
+3. Ingest server: receive and save the snapshot.
+4. Node tree walk in the plugin: full JSON of styles/geometry (verify by hand
+   against the Inspect panel on 2-3 nodes).
+5. Collector on Playwright: capture computedStyle from a hardcoded home page map.
+6. Comparator + normalization + the first `report.json`.
+7. Run on the dev staging home page, review of false positives, tuning of
    tolerance/ignore.
-8. Авто-матчер (после того как ядро сверки стабильно на ручном map).
+8. Auto-matcher (once the comparison core is stable on the manual map).

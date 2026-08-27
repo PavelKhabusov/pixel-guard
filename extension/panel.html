@@ -85,13 +85,13 @@
   <div class="title">
     <span class="dot" id="dot"></span>
     <span>pixel-guard</span>
-    <span class="state" id="state">подключаюсь…</span>
+    <span class="state" id="state">connecting…</span>
   </div>
   <div class="seg" style="margin-top:9px">
-    <button class="vp-btn on" data-vp="auto">авто</button>
-    <button class="vp-btn" data-vp="desktop">ПК</button>
-    <button class="vp-btn" data-vp="tablet">планшет</button>
-    <button class="vp-btn" data-vp="mobile">телефон</button>
+    <button class="vp-btn on" data-vp="auto">auto</button>
+    <button class="vp-btn" data-vp="desktop">desktop</button>
+    <button class="vp-btn" data-vp="tablet">tablet</button>
+    <button class="vp-btn" data-vp="mobile">phone</button>
   </div>
   <div class="step-sub" id="vp-note" style="text-align:left;margin-top:5px"></div>
 </div>
@@ -102,53 +102,53 @@
 </div>
 
 <div class="step">
-  <label class="chk big"><input type="checkbox" id="ov-on"> <b>Наложить макет</b></label>
+  <label class="chk big"><input type="checkbox" id="ov-on"> <b>Overlay design</b></label>
   <span class="step-sub" id="ov-note"></span>
   <div id="ov-opts" hidden>
-    <div class="row"><span>видно</span><input type="range" id="ov-op" min="0" max="100" value="100"><span id="ov-val">100%</span></div>
+    <div class="row"><span>opacity</span><input type="range" id="ov-op" min="0" max="100" value="100"><span id="ov-val">100%</span></div>
     <div class="row">
       <select id="ov-mode">
-        <option value="shots">PNG из макета (точно)</option>
-        <option value="render">цвета и текст</option>
-        <option value="outline">только рамки</option>
+        <option value="shots">PNG from design (exact)</option>
+        <option value="render">colors and text</option>
+        <option value="outline">outlines only</option>
       </select>
     </div>
-    <label class="chk" style="margin-top:8px"><input type="checkbox" id="ov-split-on"> шторка: макет / сайт</label>
+    <label class="chk" style="margin-top:8px"><input type="checkbox" id="ov-split-on"> curtain: design / site</label>
     <div class="row"><input type="range" id="ov-split" min="0" max="100" value="50" disabled><span id="ov-split-val">50%</span></div>
   <details class="more">
-    <summary>ещё настройки</summary>
+    <summary>more settings</summary>
     <div class="row">
       <label class="chk"><input type="checkbox" id="ov-diff"> difference</label>
-      <label class="chk"><input type="checkbox" id="ov-solo"> гасить сайт</label>
-      <label class="chk"><input type="checkbox" id="ov-scale" checked> авто-масштаб</label>
+      <label class="chk"><input type="checkbox" id="ov-solo"> dim site</label>
+      <label class="chk"><input type="checkbox" id="ov-scale" checked> auto-scale</label>
     </div>
     <div class="row">
       <span>X</span><input type="range" id="ov-x" min="-200" max="200" value="0" step="5">
       <span>Y</span><input type="range" id="ov-y" min="-200" max="200" value="0" step="5">
     </div>
-    <label class="chk" style="margin-top:6px"><input type="checkbox" id="ov-loose"> непривязанные ноды</label>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="ov-loose"> unbound nodes</label>
   </details>
   </div>
 </div>
 
 <div class="step">
-  <button class="btn" id="run-audit">Проверить страницу</button>
+  <button class="btn" id="run-audit">Check page</button>
   <div class="step-sub" id="audit-note" style="text-align:left;margin-top:6px"></div>
 </div>
 
 <div class="step" id="bind" hidden>
-  <div class="step-t" style="margin-bottom:8px">Привязать ноду</div>
+  <div class="step-t" style="margin-bottom:8px">Bind node</div>
   <div class="row" style="margin-top:0">
-    <select id="bind-page" title="в какую карту писать"></select>
-    <button class="btn" style="width:auto;padding:6px 10px" id="bind-go">Мышью</button>
+    <select id="bind-page" title="which map to write to"></select>
+    <button class="btn" style="width:auto;padding:6px 10px" id="bind-go">With mouse</button>
   </div>
-  <button class="btn ghost" id="bind-skip" style="margin-top:6px">Нет в вёрстке (skip)</button>
+  <button class="btn ghost" id="bind-skip" style="margin-top:6px">Not on page (skip)</button>
   <div class="row hint" id="bind-note"></div>
 </div>
 
 <div class="body" id="body">
-  <div class="empty">Открой страницу сайта и нажми «Проверить страницу».<br><br>
-    Наложение кладёт макет поверх вёрстки, сверка показывает расхождения по стилям.</div>
+  <div class="empty">Open a site page and press "Check page".<br><br>
+    The overlay puts the design on top of the page; the comparison shows style mismatches.</div>
 </div>
 <div class="log" id="log"></div>
 <script src="panel.js"></script>

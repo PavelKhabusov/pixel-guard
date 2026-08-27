@@ -5,8 +5,8 @@ let abort = null;
 let shownBadge = null;
 const iconCache = {};
 
-// Бейдж Chrome всегда рисует плашкой, поэтому индикатор вживляем
-// прямо в иконку: точка в правом нижнем углу, вырезанная из подложки.
+// Chrome always draws the badge as a label, so the indicator is baked
+// right into the icon: a dot in the bottom-right corner cut out of the base.
 async function iconWithDot(color) {
   if (iconCache[color]) return iconCache[color];
   const out = {};
@@ -77,7 +77,7 @@ function handle(event, data) {
   if (event === 'hello') {
     status.connected = true;
     if (offTimer) { clearTimeout(offTimer); offTimer = null; }
-    badge('on', '#7fb08a', 'сервер на связи');
+    badge('on', '#7fb08a', 'server connected');
     return;
   }
   if (event === 'peers') { status.peers = JSON.parse(data); return; }
@@ -112,11 +112,11 @@ async function connect() {
         if (ev) handle(ev, data);
       }
     }
-    throw new Error('поток закрыт');
+    throw new Error('stream closed');
   } catch (e) {
     if (abort?.signal.aborted) return;
     status.connected = false;
-    if (!offTimer) offTimer = setTimeout(() => { offTimer = null; if (!status.connected) badge('off', '#c98b8b', 'сервер недоступен — запусти npm run server'); }, 5000);
+    if (!offTimer) offTimer = setTimeout(() => { offTimer = null; if (!status.connected) badge('off', '#c98b8b', 'server unavailable — run npm run server'); }, 5000);
     setTimeout(connect, 3000);
   } finally {
     connecting = false;
@@ -124,9 +124,9 @@ async function connect() {
 }
 
 /**
- * Сужение вьюпорта как в DevTools: расширение не может изменить ширину
- * контента напрямую, но CDP (Emulation.setDeviceMetricsOverride) — может.
- * Это тот же механизм, которым пользуется адаптивный режим DevTools.
+ * Viewport narrowing like in DevTools: the extension cannot change the content
+ * width directly, but CDP (Emulation.setDeviceMetricsOverride) can.
+ * It is the same mechanism DevTools responsive mode uses.
  */
 const attached = new Set();
 
@@ -154,7 +154,7 @@ async function emulateWidth(tabId, width) {
   }
 }
 
-// Панель закрылась (или Chrome выгрузил её) — порт рвётся, чистим за собой.
+// Panel closed (or Chrome unloaded it) — the port breaks, clean up after ourselves.
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'pg-panel') return;
   port.onDisconnect.addListener(() => {
@@ -211,7 +211,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-split-moved') { toPanel(msg); return; }
   if (msg.type === 'pg-emulate') {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
-      if (!t) return reply({ ok: false, error: 'нет активной вкладки' });
+      if (!t) return reply({ ok: false, error: 'no active tab' });
       emulateWidth(t.id, msg.width).then(reply);
     });
     return true;
@@ -227,8 +227,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return;
   }
   if (msg.type === 'pg-shot') {
-    // CSP сайта режет http://localhost в img-src, поэтому тянем картинку
-    // из расширения и отдаём data:URI — его разрешает 'self' data:
+    // The site CSP blocks http://localhost in img-src, so fetch the image
+    // from the extension and return a data:URI — allowed by 'self' data:
     fetch(`${BASE}/shot?file=${encodeURIComponent(msg.file)}`)
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((buf) => {

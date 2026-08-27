@@ -47,8 +47,9 @@ function diff(node, el) {
   };
 
   const hug = node.autoResize === 'WIDTH_AND_HEIGHT' || node.autoResize === 'TRUNCATE';
-  // Полноширинный блок тянется на всё окно, а макет снят под фиксированную
-  // ширину: разница = ширина окна, а не ошибка вёрстки. Не сверяем.
+  // A full-width block stretches across the whole window, while the design is
+  // captured at a fixed width: the difference is the window width, not a page
+  // bug. Skip the comparison.
   const fullWidth = Math.abs(node.w - (window.__pgFrameW ?? node.w)) < 2
     && Math.abs(r.width - innerWidth) < 4;
   if (!hug && !fullWidth) cmp('width', node.w, px(r.width), 2);
@@ -196,12 +197,12 @@ function makeBox(b, opts, left, top, scale, lib) {
   const d = document.createElement('div');
   d.className = 'pg-obox';
 
-  // «PNG по блокам»: у якорного блока есть свой рендер из Figma —
-  // кладём картинку вместо перерисовки нод, это пиксель-в-пиксель
+  // "PNG per block": the anchor block has its own render from Figma —
+  // place the image instead of redrawing nodes, it is pixel-perfect
   if (opts.mode === 'shots' && b.shot) {
     const img = document.createElement('img');
-    // PNG из Figma бывает выше ноды (тени, эффекты выходят за bounding box):
-    // тянем по ширине, высоту оставляем пропорциональной, чтобы не резалось
+    // A Figma PNG can be taller than the node (shadows, effects exceed the
+    // bounding box): stretch by width, keep the height proportional so nothing is clipped
     img.style.cssText = 'width:100%;height:auto;display:block';
     const cached = shotCache.get(b.shot);
     if (cached) img.src = cached;
@@ -212,7 +213,7 @@ function makeBox(b, opts, left, top, scale, lib) {
     }
     d.appendChild(img);
     d.style.cssText = `left:${left}px;top:${top}px;width:${b.w * scale}px;overflow:visible`;
-    d.title = `${b.name} · ${b.w}×${b.h} (PNG из макета)`;
+    d.title = `${b.name} · ${b.w}×${b.h} (PNG from design)`;
     return d;
   }
 
@@ -243,9 +244,10 @@ const isFixed = (el) => {
 };
 
 /**
- * Поблочное наложение. Каждый блок с привязкой ставится на свой DOM-элемент;
- * масштаб считается от РЕАЛЬНОЙ ширины элемента (контейнер сайта резиновый,
- * макет фиксированный), fixed/sticky-блоки рисуются в том же слое координат.
+ * Per-block overlay. Every bound block is placed onto its own DOM element;
+ * the scale is computed from the ACTUAL element width (the site container is
+ * fluid, the design is fixed), fixed/sticky blocks are drawn in the same
+ * coordinate layer.
  */
 function showOverlay(data, opts) {
   buildOverlay();
@@ -258,12 +260,12 @@ function showOverlay(data, opts) {
   ov.classList.toggle('pg-diff', !!opts.diff);
   ov.classList.toggle('pg-outline', opts.mode === 'outline');
 
-  // Шторка: показываем макет только слева от линии — как в блоке
-  // визуализации «до/после». 100% = макет целиком, 0% = только сайт.
+  // Curtain: show the design only to the left of the line — like a
+  // "before/after" comparison widget. 100% = whole design, 0% = site only.
   const split = opts.split;
   ov.style.clipPath = split == null ? '' : `inset(0 ${100 - split}% 0 0)`;
-  // слева должен быть ТОЛЬКО макет: гасим сайт под шторкой, иначе слои
-  // накладываются и кажется, что шторка не работает
+  // the left side must show ONLY the design: dim the site under the curtain,
+  // otherwise the layers blend and the curtain seems not to work
   document.documentElement.style.setProperty('--pg-split', `${split ?? 0}%`);
   document.documentElement.classList.toggle('pg-split-on', split != null);
   if (split == null) { splitDim?.remove(); splitDim = null; }
@@ -279,8 +281,8 @@ function showOverlay(data, opts) {
   ov.innerHTML = '';
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
 
-  // «только макет»: приглушаем саму страницу, иначе её текст читается
-  // вперемешку с макетным и кажется, что в шапке чужие пункты
+  // "design only": dim the page itself, otherwise its text reads mixed with
+  // the design text and the header seems to contain foreign items
   document.documentElement.classList.toggle('pg-solo', !!opts.solo);
 
   if (data.png && opts.mode === 'image') {
@@ -296,8 +298,8 @@ function showOverlay(data, opts) {
   const frag = document.createDocumentFragment();
   let fixedFrag = null;
 
-  // один DOM-элемент = один слой: если на него ссылаются несколько ключей
-  // (@Header и @H|header), берём самый крупный блок, иначе слои задваиваются
+  // one DOM element = one layer: if several keys point to it
+  // (@Header and @H|header), take the largest block, otherwise layers double up
   const bySel = new Map();
   for (const b of data.boxes.filter((x) => x.anchor)) {
     const prev = bySel.get(b.anchor);
@@ -305,9 +307,9 @@ function showOverlay(data, opts) {
   }
   let anchored = [...bySel.values()];
 
-  // Якорь — это контейнер. Мелкая текстовая нода якорем быть не должна:
-  // если её позиция в вёрстке другая (переставили пункт меню), всё её
-  // поддерево уезжает вместе с ней. Такие ноды рисуем внутри родителя.
+  // An anchor is a container. A small text node must not be an anchor: if its
+  // position on the page differs (a menu item was moved), its whole subtree
+  // moves with it. Such nodes are drawn inside their parent.
   const CONTAINER_MIN = 200;
   anchored = anchored.filter((b) => {
     if (b.type === 'TEXT' && (b.w < CONTAINER_MIN || b.h < 40)) return false;
@@ -316,15 +318,15 @@ function showOverlay(data, opts) {
   const anchoredSet = new Set(anchored);
   for (const b of data.boxes) if (b.anchor && !anchoredSet.has(b)) b.anchor = null;
 
-  // В режиме PNG блок уже содержит всё своё содержимое: если родитель
-  // отрисован картинкой, вложенные якоря дают второй слой поверх — из-за
-  // этого меню в шапке двоилось.
+  // In PNG mode a block already contains all its content: if the parent is
+  // drawn as an image, nested anchors add a second layer on top — this made
+  // the header menu double.
   if (opts.mode === 'shots') {
-    // Показываем ТОЛЬКО блоки с готовым рендером. Остальные якоря — это
-    // отдельные надписи и мелкие ноды: без картинки они рисуются текстом
-    // поверх страницы и превращают наложение в кашу.
+    // Show ONLY blocks with a ready render. The other anchors are separate
+    // labels and small nodes: without an image they are drawn as text over
+    // the page and turn the overlay into a mess.
     anchored = anchored.filter((a) => a.shot);
-    // и не кладём блок поверх блока: вложенные пропускаем
+    // and do not put a block on top of a block: skip nested ones
     anchored = anchored.filter((a) => !anchored.some((p) => p !== a
       && a.x >= p.x && a.y >= p.y
       && a.x + a.w <= p.x + p.w + 1 && a.y + a.h <= p.y + p.h + 1
@@ -340,16 +342,16 @@ function showOverlay(data, opts) {
     const r = el.getBoundingClientRect();
     const fixed = isFixed(el);
 
-    // Масштабируем ТОЛЬКО резиновый контейнер (расхождение до 12%): при
-    // большей разнице это структурное различие макета и вёрстки — блок
-    // полноширинный в макете и по контейнеру в вёрстке. Сжимать его нельзя:
-    // содержимое поедет и цвета/иконки перестанут совпадать.
+    // Scale ONLY a fluid container (up to 12% difference): a larger gap is a
+    // structural difference between design and page — the block is full-width
+    // in the design and container-bound on the page. It must not be squeezed:
+    // the content would shift and colors/icons would stop matching.
     const rel = a.w > 0 ? Math.abs(r.width - a.w) / a.w : 1;
     const k = opts.autoScale === false || rel > 0.12 ? 1 : r.width / a.w;
     scaleSum += k;
 
-    // fixed/sticky: координаты от вьюпорта (элемент уже сдвинут скроллом),
-    // остальное — абсолютные координаты документа
+    // fixed/sticky: viewport coordinates (the element is already shifted by
+    // scroll), everything else — absolute document coordinates
     const baseL = r.left + (fixed ? 0 : scrollX) + off.x;
     const baseT = r.top + (fixed ? 0 : scrollY) + off.y;
     used.push({ x: a.x, y: a.y, w: a.w, h: a.h });
@@ -369,9 +371,9 @@ function showOverlay(data, opts) {
     }
   }
 
-  // Ноды без якоря кладутся по координатам макета и на длинной странице
-  // залезают в чужие блоки (пункты из середины макета попадали в шапку).
-  // Поэтому по умолчанию не рисуем — только по явному чекбоксу.
+  // Unanchored nodes are placed by design coordinates and on a long page
+  // spill into other blocks (items from the middle of the design ended up in
+  // the header). So they are not drawn by default — only via an explicit checkbox.
   if (opts.showUnanchored === true) {
     const bodyTop = document.body.getBoundingClientRect().top + scrollY;
     for (const b of data.boxes) {
@@ -416,7 +418,7 @@ function applySplitLine(split, opts) {
     splitLine.innerHTML = '<span class="pg-split-grip"></span>';
     document.documentElement.appendChild(splitLine);
 
-    // линию можно тащить мышью прямо на странице
+    // the line can be dragged with the mouse right on the page
     let dragging = false;
     const move = (e) => {
       if (!dragging || !lastOverlay) return;
@@ -472,7 +474,7 @@ function startPick(node) {
 
   const tip = document.createElement('div');
   tip.className = 'pg-pick-tip';
-  tip.textContent = `Выбери элемент для «${node.name || node.figmaId}» · Esc — отмена`;
+  tip.textContent = `Pick an element for "${node.name || node.figmaId}" · Esc to cancel`;
   document.documentElement.appendChild(tip);
 
   const onMove = (e) => {
@@ -525,8 +527,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-pick-stop') { stopPick(); reply({ ok: true }); return true; }
 });
 
-/** Сверяет всю страницу по карте без участия Figma: для каждой привязки
- *  берём ноду из снапшота (он уже на диске) и сравниваем с DOM. */
+/** Compares the whole page against the map without Figma: for every binding
+ *  take the node from the snapshot (already on disk) and compare it with the DOM. */
 function auditPage(nodesById) {
   const rows = [];
   for (const [key, entry] of Object.entries(map)) {
@@ -570,8 +572,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 
-/** fixed/sticky-шапка меняет высоту и позицию при скролле (верхняя строка
- *  уезжает), поэтому её слой пересчитываем, а не рисуем один раз. */
+/** A fixed/sticky header changes height and position on scroll (the top bar
+ *  slides away), so its layer is recomputed instead of drawn once. */
 addEventListener('scroll', () => {
   if (!lastOverlay || !fixedLayer || reflowPending) return;
   reflowPending = true;

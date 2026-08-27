@@ -4,9 +4,9 @@
 
 # pixel-guard
 
-**Pixel-perfect QA вёрстки по макетам Figma** — сверка живой страницы с макетом
-*по элементам* (computed CSS + геометрия), а не картинкой. Без Figma REST API
-и его лимитов: данные тянет свой плагин через Plugin API.
+**Pixel-perfect QA of your markup against Figma designs** — compares the live page
+with the design *element by element* (computed CSS + geometry), not as a picture.
+No Figma REST API and its limits: the data is pulled by its own plugin via the Plugin API.
 
 ![Status](https://img.shields.io/badge/status-personal%20%2F%20WIP-orange)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-1f1f1f)
@@ -23,342 +23,345 @@
 
 ---
 
-Отчёт машиночитаемый: селектор + свойство + `figma → actual`, чтобы правку можно
-было сделать не открывая макет. План и архитектура — [PLAN.md](PLAN.md).
+The report is machine-readable: selector + property + `figma → actual`, so a fix
+can be made without opening the design. Plan and architecture: [PLAN.md](PLAN.md).
 
-## Установка
+## Installation
 
 ```bash
 npm install
 npm run build:plugin
-npm run server   # создаст config/pages.json и maps/home.map.json из *.example.*
+npm run server   # creates config/pages.json and maps/home.map.json from *.example.*
 ```
 
-Локальные `config/pages.json` и `maps/*.map.json` в git не попадают: в них URL
-твоего стенда и привязки нод конкретного макета. В репозитории лежат только
-`config/pages.example.json` и `maps/home.example.map.json` — они копируются
-автоматически при первом запуске, дальше заполняешь под свой проект.
+Local `config/pages.json` and `maps/*.map.json` are not committed: they contain the
+URL of your staging site and node bindings for a specific design. The repository only
+ships `config/pages.example.json` and `maps/home.example.map.json` — they are copied
+automatically on first run, then you fill them in for your project.
 
-Плагин (нужен edit-доступ к файлу или его копия в драфтах):
+Plugin (requires edit access to the file, or a copy of it in your drafts):
 **Plugins → Development → Import plugin from manifest…** → `plugin/manifest.json`.
-Работает и в Figma Desktop, и в браузерной Figma.
+Works in both Figma Desktop and Figma in the browser.
 
-## Node id выделенной ноды
+## Node id of the selected node
 
-Кликнул ноду на канвасе — в панели появляется строка с её **id** и размерами
-(`539:7940 · 143×19`) и кнопка **«копировать id»**. Работает и при выключенном
-живом режиме.
+Click a node on the canvas — the panel shows a line with its **id** and size
+(`539:7940 · 143×19`) and a **"copy id"** button. Works even with live mode
+turned off.
 
-## Прозрачный фон рендера
+## Transparent render background
 
-Figma экспортирует ноду без фона канваса, поэтому в просмотрщике с тёмной
-темой картинка выглядит «на чёрном». `/render` и `figma_render_node`
-подкладывают белый фон по умолчанию:
+Figma exports a node without the canvas background, so in a dark-themed viewer the
+image looks "on black". `/render` and `figma_render_node` put a white background
+underneath by default:
 
 ```
-/render?id=482:3672            # белый фон
-/render?id=482:3672&bg=none    # оставить прозрачность
+/render?id=482:3672            # white background
+/render?id=482:3672&bg=none    # keep transparency
 /render?id=482:3672&bg=%23202020
 ```
 
-## Снапшот макета
+## Design snapshot
 
-1. `npm run server` (или кнопка «▶ Ingest server») — поднимает сразу два слушателя:
-   `http://localhost:8971` для Desktop и `https://localhost:8972` для браузера.
-2. В Figma выделить frame(’ы) → запустить плагин **pixel-guard** → Export snapshot.
-3. Результат: `snapshots/<frame>.json` (+ `.png`, если включён чекбокс).
+1. `npm run server` (or the "▶ Ingest server" button) — starts two listeners at once:
+   `http://localhost:8971` for Desktop and `https://localhost:8972` for the browser.
+2. In Figma select the frame(s) → run the **pixel-guard** plugin → Export snapshot.
+3. Result: `snapshots/<frame>.json` (+ `.png` if the checkbox is enabled).
 
-Режим отправки в плагине по умолчанию «авто»: в браузере — HTTPS, в Desktop — HTTP.
+The plugin's send mode defaults to "auto": HTTPS in the browser, HTTP in Desktop.
 
-### Экспорт всего проекта
+### Export the whole project
 
-Кнопка **«Экспорт всего проекта»** обходит все страницы файла, снимает каждый
-верхнеуровневый frame и сопоставляет переиспользуемые блоки по компонентам Figma:
-инстансы одного компонента схлопываются в один модуль, а те, что встречаются
-больше чем на одной странице, помечаются как **сквозные** (header, footer и т.п.).
+The **"Export whole project"** button walks every page of the file, snapshots each
+top-level frame and matches reusable blocks by Figma component: instances of the same
+component collapse into a single module, and those that appear on more than one page
+are marked as **shared** (header, footer, etc.).
 
-Результат: снапшот на каждый frame плюс `snapshots/_project.json` со сводкой.
+Result: one snapshot per frame plus `snapshots/_project.json` with a summary.
 
 ```bash
-npm run modules              # все модули проекта
-npm run modules -- --shared  # только сквозные
+npm run modules              # all modules of the project
+npm run modules -- --shared  # shared only
 ```
 
 ```
 ⇄ footer
-    инстансов: 6 · размеры: 1920x1045, 912x1352, 357x2840
-    страницы: Page 1/Главная страница, Page 1/Карта товара
+    instances: 6 · sizes: 1920x1045, 912x1352, 357x2840
+    pages: Page 1/Home page, Page 1/Product card
 ```
 
-Практический смысл: сквозной модуль достаточно привязать в карте один раз —
-расхождение в нём чинится сразу на всех страницах.
+Practical upshot: a shared module needs to be bound in the map only once — a mismatch
+in it gets fixed on every page at the same time.
 
-### Figma в браузере
+### Figma in the browser
 
-Страница плагина живёт на `https://www.figma.com`, поэтому запрос на `http://` браузер
-режет как mixed content — отсюда отдельный HTTPS-слушатель на порту 8972 с
-самоподписанным сертификатом (генерируется сам в `config/cert/`, из git исключён).
-Один раз открой <https://localhost:8972/ping> (кнопка «🔐 Принять сертификат») и прими
-предупреждение — дальше Export snapshot работает как в Desktop.
+The plugin page lives on `https://www.figma.com`, so the browser blocks requests to
+`http://` as mixed content — hence the separate HTTPS listener on port 8972 with a
+self-signed certificate (generated automatically in `config/cert/`, excluded from git).
+Open <https://localhost:8972/ping> once (the "🔐 Accept certificate" button) and accept
+the warning — after that Export snapshot works the same as in Desktop.
 
-Если с сертификатом не сложилось — режим «только скачать файл» (или кнопка «Скачать
-JSON»): плагин отдаёт снапшот файлом, дальше
+If the certificate does not work out — use the "download file only" mode (or the
+"Download JSON" button): the plugin hands the snapshot over as a file, then
 
 ```bash
 npm run import -- ~/Downloads/<frame>.pg.json
 ```
 
-## Как этим пользоваться
+## How to use it
 
-Панель расширения — три шага сверху вниз:
+The extension panel is three steps, top to bottom:
 
-1. **Брейкпоинт** — авто берёт по ширине окна, ПК/планшет/телефон сужают вьюпорт
-   через CDP (как адаптивный режим DevTools), окно браузера при этом не меняется.
-2. **Наложить макет** — «PNG из макета» кладёт рендеры блоков поверх вёрстки
-   пиксель-в-пиксель; шторка делит экран: слева макет, справа сайт.
-3. **Сверить стили** — список расхождений по свойствам; клик по строке
-   подсвечивает элемент и показывает подробности.
+1. **Breakpoint** — auto picks it from the window width; desktop/tablet/phone narrow the
+   viewport via CDP (like the responsive mode in DevTools), the browser window itself
+   does not change.
+2. **Overlay design** — "PNG from design" places block renders on top of the page
+   pixel-for-pixel; the curtain splits the screen: design on the left, site on the right.
+3. **Compare styles** — a list of mismatches by property; clicking a row highlights
+   the element and shows details.
 
-Порядок для чистого результата: `npm run shots` (один раз выгрузить PNG) →
-`npm run verify -- --fix` (проверить карты) → работа в панели.
+Order for a clean result: `npm run shots` (export PNGs once) →
+`npm run verify -- --fix` (check the maps) → work in the panel.
 
-## Проверка страницы без Figma
+## Checking a page without Figma
 
-Открыл любую страницу сайта → значок расширения → **«Проверить страницу»**.
-Панель сама определит, какой макет ей соответствует (по URL через `match[]`),
-возьмёт нужные ноды из снапшота на диске и покажет список: что сходится,
-что расходится, чего нет в DOM. Клик по строке подсвечивает элемент и
-показывает подробный дифф.
+Open any page of the site → extension icon → **"Check page"**.
+The panel figures out which design corresponds to it (by URL via `match[]`),
+takes the needed nodes from the snapshot on disk and shows a list: what matches,
+what differs, what is missing from the DOM. Clicking a row highlights the element
+and shows a detailed diff.
 
-Figma для этого открывать не нужно — снапшоты уже лежат в `snapshots/`.
-Живой мост ниже нужен только когда хочется кликать ноды прямо в макете.
+Figma does not need to be open for this — the snapshots are already in `snapshots/`.
+The live bridge below is only needed when you want to click nodes right in the design.
 
-## Живой мост Figma ↔ браузер
+## Live bridge Figma ↔ browser
 
-Расширение `extension/` соединяется с тем же ingest-сервером, что и плагин
-(SSE `/bus`), поэтому Figma REST API не используется вообще — никаких лимитов.
+The `extension/` extension connects to the same ingest server as the plugin
+(SSE `/bus`), so the Figma REST API is not used at all — no limits.
 
 1. `npm run server`.
-2. Chrome → `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное»
-   → папка `extension/`.
-3. Клик по значку расширения открывает **нативную боковую панель Chrome**
-   (Side Panel API) — она сжимает страницу, а не накрывает её.
-4. В плагине включить чекбокс **живой режим**.
-5. Кликаешь ноду в Figma → в панели появляется сверка стилей, а сам элемент
-   подсвечивается рамкой на странице по `maps/<page>.map.json`.
+2. Chrome → `chrome://extensions` → "Developer mode" → "Load unpacked"
+   → the `extension/` folder.
+3. Clicking the extension icon opens the **native Chrome side panel**
+   (Side Panel API) — it squeezes the page rather than covering it.
+4. In the plugin enable the **live mode** checkbox.
+5. Click a node in Figma → the style comparison appears in the panel, and the element
+   itself is highlighted with a frame on the page according to `maps/<page>.map.json`.
 
-Схема: плагин → `POST /emit` → сервер → SSE → background.js → content.js
-(считает дифф по живому DOM) → panel.js (показывает). Значок показывает `on`/`off`.
+Flow: plugin → `POST /emit` → server → SSE → background.js → content.js
+(computes the diff against the live DOM) → panel.js (displays it). The icon shows `on`/`off`.
 
-## Сквозные модули: `maps/_shared.map.json`
+## Shared modules: `maps/_shared.map.json`
 
-Блоки, живущие на всех страницах (header, footer, Авито-блок), привязываются
-**один раз** в `maps/_shared.map.json` — он подмешивается в карту каждой страницы,
-причём карта страницы имеет приоритет.
+Blocks that live on every page (header, footer, the Avito block) are bound
+**once** in `maps/_shared.map.json` — it is merged into every page map,
+with the page map taking priority.
 
-Ключ `@имя` ищет ноду по имени компонента Figma, а не по id. Это важно: у
-desktop/tablet/mobile один и тот же блок имеет **разные id**, но общий компонент —
-поэтому одна строка покрывает все три брейкпоинта на всех страницах сразу.
+An `@name` key looks the node up by Figma component name, not by id. This matters:
+the same block has **different ids** on desktop/tablet/mobile but a common component —
+so one line covers all three breakpoints on all pages at once.
 
 ```json
 {
   "@header": { "selector": "div.header-wrap", "ignore": ["height"] },
   "@footer": { "selector": "footer.pr-footer", "ignore": ["height"] },
-  "@menu":   { "skip": "открывается по клику, в статичном DOM нет" }
+  "@menu":   { "skip": "opens on click, not present in the static DOM" }
 }
 ```
 
-Какие модули сквозные — покажет `npm run modules -- --shared` после экспорта проекта.
+Which modules are shared is shown by `npm run modules -- --shared` after a project export.
 
-## Авто-матчер: `npm run automap`
+## Auto-matcher: `npm run automap`
 
-Чтобы не привязывать каждую ноду руками, матчер сам сопоставляет непривязанные
-ноды макета с элементами DOM — по тексту, размеру и уникальности селектора.
-
-```bash
-npm run automap -- --page home --viewport desktop            # показать кандидатов
-npm run automap -- --page home --min 80 --write              # дописать в карту
-```
-
-Каждая пара печатается со счётом и обоснованием, селектор наращивается предками
-до уникальности:
-
-```
- 122  Укладка под ключ    → li#menu-item-42690 a
-      143x19 ↔ 143x20  (текст точно, ширина, высота)
-```
-
-С `--write` найденное дописывается в карту с `"source": "auto"` — ручные привязки
-не затрагиваются. Порог `--min` регулирует строгость: 80+ — почти без ложных пар,
-45 — больше находок, но нужна вычитка.
-
-## Проверка карт: `npm run verify`
-
-Авто-матчер иногда ошибается — по совпадению текста связывает ноду шапки со
-ссылкой в футере. Такая привязка ломает и наложение, и сверку: блок рисуется
-не на своём месте.
+To avoid binding every node by hand, the matcher pairs unbound design nodes with DOM
+elements on its own — by text, size and selector uniqueness.
 
 ```bash
-npm run verify                      # показать проблемы
-npm run verify -- --fix             # убрать уехавшие авто-привязки
-npm run verify -- --page product    # только одна страница
+npm run automap -- --page home --viewport desktop            # show candidates
+npm run automap -- --page home --min 80 --write              # append to the map
 ```
 
-Проверка сравнивает **порядок** блоков: если нода в макете пятая сверху, а её
-элемент на сайте сороковой — привязка уехала. Доли высоты не годятся, макет и
-вёрстка разной длины. `--fix` трогает только записи `source: auto`; ручные
-привязки не удаляются, о них печатается предупреждение.
+Each pair is printed with a score and a rationale; the selector is extended with
+ancestors until it is unique:
 
-## Привязка мышью
+```
+ 122  Turnkey installation    → li#menu-item-42690 a
+      143x19 ↔ 143x20  (exact text, width, height)
+```
 
-Когда панель говорит «нет привязки в карте», в ней появляется блок привязки:
-выбираешь страницу, жмёшь **«Привязать мышью»** и кликаешь нужный элемент —
-селектор считается автоматически (наращивается предками до уникальности)
-и сразу пишется в карту. Esc — отмена, **«Пометить skip»** — для блоков,
-которых в вёрстке нет.
+With `--write` the findings are appended to the map with `"source": "auto"` — manual
+bindings are left untouched. The `--min` threshold controls strictness: 80+ gives almost
+no false pairs, 45 gives more matches but needs proofreading.
 
-Карта перечитывается на лету, JSON руками править не нужно. Записи получают
-`"source": "manual"` — авто-матчер их не перезатирает.
+## Checking maps: `npm run verify`
 
-## Наложение макета
-
-В режиме PNG показываются **только блоки с готовым рендером**. Остальные якоря —
-отдельные надписи и мелкие ноды: без картинки они рисовались текстом поверх
-страницы и превращали наложение в кашу. Вложенные блоки тоже пропускаются:
-если шапка отрисована картинкой, её внутренние якоря дали бы второй слой.
-
-Отсюда практика: **сначала `npm run shots`**, потом наложение. Чем больше
-блоков снято, тем полнее картина.
-
-В панели расширения — чекбокс **«наложить макет»**, слайдер прозрачности и два
-режима: картинка (нужен PNG — чекбокс при экспорте в плагине) и каркас блоков
-(работает всегда, рисует границы нод поверх страницы). Режим `difference`
-подсвечивает несовпадения.
-
-## Массовый экспорт PNG: `npm run shots`
-
-Живого рендера Figma в браузере не бывает — движок наружу не отдаётся. Поэтому
-пиксельная сверка строится на PNG, отрендеренных плагином **поблочно**:
+The auto-matcher sometimes gets it wrong — on a text match it binds a header node to a
+link in the footer. Such a binding breaks both the overlay and the comparison: the block
+is drawn in the wrong place.
 
 ```bash
-npm run shots                                  # все страницы × брейкпоинты
+npm run verify                      # show problems
+npm run verify -- --fix             # remove drifted auto-bindings
+npm run verify -- --page product    # a single page only
+```
+
+The check compares the **order** of blocks: if a node is fifth from the top in the design
+but its element is fortieth on the site, the binding has drifted. Height fractions do not
+work here, since the design and the page have different lengths. `--fix` only touches
+`source: auto` entries; manual bindings are not removed, a warning is printed for them.
+
+## Binding with the mouse
+
+When the panel says "no binding in the map", a binding block appears in it:
+pick the page, press **"Bind with mouse"** and click the element you need — the selector
+is computed automatically (extended with ancestors until unique) and written to the map
+right away. Esc cancels, **"Mark as skip"** is for blocks that do not exist in the markup.
+
+The map is re-read on the fly, no need to edit the JSON by hand. Entries get
+`"source": "manual"` — the auto-matcher does not overwrite them.
+
+## Design overlay
+
+In PNG mode **only blocks with a finished render** are shown. The remaining anchors —
+individual labels and small nodes — were drawn as text on top of the page without an
+image and turned the overlay into a mess. Nested blocks are skipped too: if the header
+is drawn as an image, its inner anchors would produce a second layer.
+
+Hence the practice: **`npm run shots` first**, then the overlay. The more blocks are
+captured, the fuller the picture.
+
+In the extension panel: the **"overlay design"** checkbox, an opacity slider and two
+modes: image (needs a PNG — the checkbox on export in the plugin) and block wireframe
+(always works, draws node borders on top of the page). The `difference` mode
+highlights mismatches.
+
+## Bulk PNG export: `npm run shots`
+
+There is no live Figma render in the browser — the engine is not exposed. So the pixel
+comparison is built on PNGs rendered by the plugin **per block**:
+
+```bash
+npm run shots                                  # all pages × breakpoints
 npm run shots -- --page home --viewport desktop
-npm run shots -- --blocksOnly                  # без полного фрейма (он тяжёлый)
-npm run shots -- --scale 2 --force             # перерендерить в 2x
+npm run shots -- --blocksOnly                  # without the full frame (it is heavy)
+npm run shots -- --scale 2 --force             # re-render at 2x
 ```
 
-Рендерится не страница целиком, а **каждый привязанный блок** — тогда наложение
-садится по контейнерам (футер на футер, шапка на шапку) и разница высот выше по
-странице ничего не сдвигает. Результат в `snapshots/shots/` + манифест `_shots.json`.
+It is not the whole page that gets rendered but **every bound block** — then the overlay
+lands on containers (footer on footer, header on header) and a height difference higher
+up the page does not shift anything. Result in `snapshots/shots/` + the `_shots.json` manifest.
 
-В панели появляется режим **«PNG по блокам (пиксель)»**: вместо перерисовки нод
-на каждый якорь кладётся его картинка из Figma — это сравнение пиксель-в-пиксель
-со всеми фото, текстами, тенями и градиентами.
+The panel gains the **"PNG per block (pixel)"** mode: instead of redrawing nodes, each
+anchor gets its image from Figma — a pixel-for-pixel comparison with all the photos,
+text, shadows and gradients.
 
-Картинки доходят до страницы через расширение как `data:` URI — CSP сайтов
-обычно режет `http://localhost` в `img-src`, а `data:` разрешён.
+Images reach the page through the extension as `data:` URIs — site CSPs usually block
+`http://localhost` in `img-src`, while `data:` is allowed.
 
-Две категории ошибок и что с ними делать:
+Two categories of errors and what to do about them:
 
-- **«плагин не ответил»** — нода с тяжёлой image-заливкой, Figma не успела
-  подгрузить картинку. Скрипт сам делает 2 повтора (`--retries N`), а если не
-  вышло — печатает список: прокрути к этим нодам на канвасе и повтори команду,
-  снимутся только они.
-- **«нода не найдена»** — снапшот снят с ДРУГОЙ копии макета, id разошлись
-  (так бывает после Duplicate файла). Повторы не помогут: нужен «Экспорт всего
-  проекта» в плагине, затем `npm run automap -- --page X --write`. Перед стартом
-  скрипт проверяет 4 ноды и, если их нет, останавливается сразу (`--noCheck` обойдёт).
+- **"plugin did not respond"** — a node with a heavy image fill, Figma did not manage to
+  load the image. The script retries twice on its own (`--retries N`), and if that fails
+  it prints a list: scroll to these nodes on the canvas and repeat the command — only
+  they will be captured.
+- **"node not found"** — the snapshot was taken from a DIFFERENT copy of the design, the
+  ids diverged (this happens after duplicating the file). Retries won't help: you need
+  "Export whole project" in the plugin, then `npm run automap -- --page X --write`.
+  Before starting, the script checks 4 nodes and stops immediately if they are missing
+  (`--noCheck` bypasses this).
 
-Экспорт идёт **по одному заданию**: `exportAsync` внутри плагина однопоточный,
-параллельные вызовы конкурируют и упираются в таймаут. Крупные блоки рендерятся
-десятками секунд — это нормально, команду можно повторять, готовые файлы
-пропускаются (`--force` перезапишет).
+Export goes **one job at a time**: `exportAsync` inside the plugin is single-threaded,
+parallel calls compete and hit the timeout. Large blocks take tens of seconds to render —
+this is normal; the command can be repeated, finished files are skipped
+(`--force` overwrites).
 
-## CSS-патчи из диффов
+## CSS patches from diffs
 
 ```bash
 npm run patch -- --page home --viewport desktop
 ```
 
-Собирает из отчёта готовый CSS: селектор, свойства из макета и прежние значения
-в комментариях. Для tablet/mobile оборачивает в `@media`. Пишется в
-`reports/<page>-<viewport>.css` — это **предложение правок**, не автоприменение:
-каскад и специфичность не учитываются, проверяй перед вставкой.
+Builds ready-made CSS from the report: selector, properties from the design and the
+previous values in comments. For tablet/mobile it is wrapped in `@media`. Written to
+`reports/<page>-<viewport>.css` — this is a **proposal of fixes**, not auto-application:
+cascade and specificity are not taken into account, review before pasting.
 
-## Пиксельный diff
+## Pixel diff
 
 ```bash
 npm run pixdiff -- --page home --viewport desktop
 ```
 
-Сравнивает fullPage-скриншот сайта с PNG макета (нужен экспорт с чекбоксом PNG):
-процент разошедшихся пикселей, разбивка по 10 горизонтальным полосам сверху вниз
-и картинка `reports/<page>-<viewport>-pixdiff.png`.
+Compares a fullPage screenshot of the site with the design PNG (needs an export with
+the PNG checkbox): the percentage of differing pixels, a breakdown by 10 horizontal
+bands top to bottom, and the image `reports/<page>-<viewport>-pixdiff.png`.
 
-## Быстрый старт: `./start.sh`
+## Quick start: `./start.sh`
 
-Одна команда (кнопка «🚀 Старт») поднимает ingest-сервер и открывает Figma на
-макете проекта. Если сервер уже работает или плагин на связи — шаги пропускаются.
+A single command (the "🚀 Start" button) brings up the ingest server and opens Figma
+on the project's design. If the server is already running or the plugin is connected,
+those steps are skipped.
 
-Один шаг остаётся ручным: **Plugins → Development → pixel-guard → «живой режим»**.
-Figma не позволяет запускать плагины из командной строки, а Linux-сборка не
-пробрасывает Electron-флаги (`--remote-debugging-port` отвергается), так что
-кликнуть за тебя нельзя. Зато включить нужно **один раз за сессию** — дальше
-агенты тянут картинки и данные без твоего участия, пока окно открыто.
+One step remains manual: **Plugins → Development → pixel-guard → "live mode"**.
+Figma does not allow launching plugins from the command line, and the Linux build does
+not pass Electron flags through (`--remote-debugging-port` is rejected), so nobody can
+click it for you. On the upside, it needs to be enabled **once per session** — after
+that agents pull images and data without your involvement as long as the window is open.
 
-Если Figma не нужна — три из пяти MCP-инструментов и вся сверка работают с диска.
+If Figma is not needed — three of the five MCP tools and the whole comparison work from disk.
 
-## MCP-сервер для агентов Claude
+## MCP server for Claude agents
 
-Даёт Claude Code доступ к макету **через плагин**, без Figma REST API и его лимитов.
+Gives Claude Code access to the design **through the plugin**, without the Figma REST
+API and its limits.
 
 ```bash
 claude mcp add pixel-guard -- node ~/DEV/pixel-guard/server/mcp.mjs
 ```
 
-Инструменты:
+Tools:
 
-| Инструмент | Что делает | Нужен плагин |
+| Tool | What it does | Needs plugin |
 |---|---|---|
-| `figma_render_node` | рендерит ноду в PNG/JPG/SVG/PDF и отдаёт агенту картинкой (или сохраняет файл через `save_to`) | да |
-| `figma_find_nodes` | ищет ноды по части имени → id, тип, размер, страница | да |
-| `figma_get_node_styles` | точные стили ноды из снапшота на диске | нет |
-| `pixel_guard_check_page` | отчёт сверки: селектор + свойство + `figma → actual` | нет |
-| `pixel_guard_list_pages` | список страниц, URL, шаблоны, брейкпоинты | нет |
+| `figma_render_node` | renders a node to PNG/JPG/SVG/PDF and returns it to the agent as an image (or saves a file via `save_to`) | yes |
+| `figma_find_nodes` | searches nodes by part of the name → id, type, size, page | yes |
+| `figma_get_node_styles` | exact node styles from the snapshot on disk | no |
+| `pixel_guard_check_page` | comparison report: selector + property + `figma → actual` | no |
+| `pixel_guard_list_pages` | list of pages, URLs, templates, breakpoints | no |
 
-Где нужен плагин — работает так: агент зовёт MCP → сервер шлёт запрос в шину →
-плагин рендерит через `exportAsync()` → картинка возвращается агенту. Требуется
-`npm run server` и открытый плагин с включённым **живым режимом**. Результаты
-рендера кешируются, повторный запрос той же ноды не дёргает Figma.
+Where the plugin is needed, it works like this: the agent calls MCP → the server sends
+a request to the bus → the plugin renders via `exportAsync()` → the image returns to the
+agent. Requires `npm run server` and an open plugin with **live mode** enabled. Render
+results are cached; a repeated request for the same node does not hit Figma.
 
-Запросы к плагину идут через **очередь с ограниченным параллелизмом** (по
-умолчанию 3 одновременно, `PG_RENDER_PARALLEL`): несколько агентов могут работать
-с MCP одновременно, но плагин не захлёбывается. `GET /render-queue` показывает,
-что в работе и сколько ждёт. Таймаут настраивается через `&timeout=<сек>`
-(по умолчанию 90), при неудаче приходит `504` со стадией `sent`/`rendering`/`lost`.
+Requests to the plugin go through a **queue with bounded concurrency** (3 at a time by
+default, `PG_RENDER_PARALLEL`): several agents can use MCP simultaneously without
+overwhelming the plugin. `GET /render-queue` shows what is in progress and how much is
+waiting. The timeout is configured via `&timeout=<sec>` (90 by default); on failure a
+`504` comes back with the stage `sent`/`rendering`/`lost`.
 
-Внутри плагина у `exportAsync` свой таймаут 45с: ноды с **image-заливкой**, чья
-картинка ещё не подгружена Figma, могут висеть бесконечно независимо от размера.
-Вместо зависания приходит понятная ошибка — прокрути к ноде на канвасе, чтобы
-Figma подгрузила изображение, и повтори.
+Inside the plugin `exportAsync` has its own 45s timeout: nodes with an **image fill**
+whose image Figma has not loaded yet can hang forever regardless of size. Instead of
+hanging you get a clear error — scroll to the node on the canvas so Figma loads the
+image, and retry.
 
-Плагин **переподключается сам**: SSE-соединение в iframe Figma умеет отвалиться
-молча, поэтому есть авто-реконнект с нарастающей паузой и watchdog — если сервер
-молчит дольше 70 секунд (heartbeat идёт раз в 20), связь пересоздаётся. В панели
-плагина видно состояние: «на связи» / «переподключаюсь». Живость видна и снаружи:
-`GET /ping` отдаёт `figmaAlive`, список соединений с их uptime и состояние очереди,
-так что проверять пробным рендером больше не нужно.
+The plugin **reconnects on its own**: the SSE connection in the Figma iframe can drop
+silently, so there is auto-reconnect with a growing backoff and a watchdog — if the server
+stays silent for more than 70 seconds (heartbeat every 20), the connection is recreated.
+The plugin panel shows the state: "connected" / "reconnecting". Liveness is visible from
+outside too: `GET /ping` returns `figmaAlive`, the list of connections with their uptime
+and the queue state, so there is no need to probe with a test render anymore.
 
-## Прогон сверки
+## Running the comparison
 
 ```bash
-npm run qa -- --page home --viewport desktop           # снапшот ищется по frameId из config/pages.json
-npm run qa -- --page home --snapshot snapshots/x.json  # или явно
-npm run qa:all                                         # все страницы × все брейкпоинты + сводка
-npm run qa:all -- --viewport desktop                   # только один брейкпоинт
+npm run qa -- --page home --viewport desktop           # snapshot is looked up by frameId from config/pages.json
+npm run qa -- --page home --snapshot snapshots/x.json  # or explicitly
+npm run qa:all                                         # all pages × all breakpoints + summary
+npm run qa:all -- --viewport desktop                   # a single breakpoint only
 ```
 
-Карта привязок — `maps/<page>.map.json`: ключ = имя-путь ноды (`hero/title`) или её id
-(`994:13213`), значение — `{ "selector": "...", "tolerance": {...}, "ignore": [...] }`
-либо `{ "skip": "причина" }`. Результат: `reports/<page>-<viewport>.json` (для Claude)
-и `.html` (для глаз); exit 1 при расхождениях.
+The binding map is `maps/<page>.map.json`: key = node name path (`hero/title`) or its id
+(`994:13213`), value = `{ "selector": "...", "tolerance": {...}, "ignore": [...] }`
+or `{ "skip": "reason" }`. Result: `reports/<page>-<viewport>.json` (for Claude)
+and `.html` (for humans); exit 1 on mismatches.
