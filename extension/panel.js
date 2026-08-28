@@ -344,6 +344,82 @@ async function runAudit() {
 
 $('run-audit').onclick = runAudit;
 
+// ── Inspect: click an element on the page → Figma id + selector + diff ──
+let inspectOn = false;
+let nodeCache = null;
+
+async function nodesForTab() {
+  const tab = await activeTab();
+  const vp = viewportFor(tab?.width);
+  const key = `${tab?.url}|${vp}`;
+  if (nodeCache?.key === key) return nodeCache.data;
+  const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}` }, res));
+  nodeCache = { key, data: data?.ok === false ? null : data };
+  return nodeCache.data;
+}
+
+async function setInspect(on) {
+  inspectOn = on;
+  $('inspect-go').classList.toggle('on', on);
+  await toActiveTab({ type: on ? 'pg-inspect-start' : 'pg-inspect-stop' });
+  if (on) $('body').innerHTML = '<div class="empty">Click an element on the page. Esc exits.</div>';
+}
+$('inspect-go').onclick = () => setInspect(!inspectOn);
+
+const copyBtn = (val) => {
+  const b = document.createElement('button');
+  b.textContent = 'copy';
+  b.onclick = async () => { await navigator.clipboard.writeText(val); b.textContent = 'copied'; b.classList.add('done'); setTimeout(() => { b.textContent = 'copy'; b.classList.remove('done'); }, 1200); };
+  return b;
+};
+const kv = (k, v, copy = v) => {
+  const d = document.createElement('div'); d.className = 'kv';
+  d.innerHTML = `<span class="k">${esc(k)}</span><span class="v">${esc(v)}</span>`;
+  if (copy) d.appendChild(copyBtn(copy));
+  return d;
+};
+
+async function showInspect(msg) {
+  const data = await nodesForTab();
+  const nodes = data?.nodes ?? {};
+  const body = $('body');
+  body.innerHTML = '';
+  const card = document.createElement('div'); card.className = 'insp';
+  const primary = msg.hits[0];
+  const figId = primary?.key ?? msg.box?.id ?? null;
+  const node = primary ? nodes[primary.key] : null;
+  const title = document.createElement('div'); title.className = 'node';
+  title.textContent = node?.name ?? primary?.name ?? msg.box?.title?.split(' · ')[0] ?? `<${msg.tag}>`;
+  card.appendChild(title);
+  if (figId) card.appendChild(kv('figma', figId + (primary && !primary.exact ? '  (ancestor)' : ''), figId));
+  if (msg.box && msg.box.id !== figId) card.appendChild(kv('design', `${msg.box.id} · ${msg.box.title}`, msg.box.id));
+  card.appendChild(kv('selector', msg.selector));
+  card.appendChild(kv('element', `<${msg.tag}> ${msg.size}${msg.text ? ` · "${msg.text}"` : ''}`, null));
+  if (figId) card.appendChild(kv('quote', `${figId} ↔ ${msg.selector}`));
+  if (!primary) {
+    const sub = document.createElement('div'); sub.className = 'sub';
+    sub.textContent = msg.box ? 'no binding in the map for this element — the id is from the overlay box under the cursor' : 'no binding in the map and no overlay box here';
+    card.appendChild(sub);
+  }
+  body.appendChild(card);
+
+  if (node && primary) {
+    const r = await toActiveTab({ type: 'pg-diff', node, selector: primary.selector });
+    if (r?.rows) {
+      const keep = body.innerHTML;
+      render({ name: node.name, figmaId: primary.key, selector: primary.selector, found: true, rows: r.rows });
+      body.innerHTML = keep + body.innerHTML;
+      $('bind').hidden = true;
+    }
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'pg-inspect-done') showInspect(msg);
+  if (msg.type === 'pg-inspect-stopped') { inspectOn = false; $('inspect-go').classList.remove('on'); }
+});
+chrome.tabs.onActivated.addListener(() => { nodeCache = null; if (inspectOn) setInspect(false); });
+
 
 // Panel closed — remove the overlay, highlight and viewport emulation.
 // pagehide in the Chrome side panel does not always fire, but the background

@@ -281,6 +281,7 @@ function makeBox(b, opts, left, top, scale, lib) {
   if (scale !== 1) css.push(`transform:scale(${scale})`, 'transform-origin:0 0', `width:${b.w}px`, `height:${b.h}px`);
   d.style.cssText = css.join(';');
   d.title = `${b.name} · ${b.w}×${b.h}${b.fill ? ' · ' + b.fill : ''}`;
+  d.dataset.pgid = b.id;
   return d;
 }
 
@@ -585,6 +586,83 @@ function startPick(node) {
   addEventListener('click', onClick, true);
   addEventListener('keydown', onKey, true);
 }
+
+/** Inspect mode: hover highlights, click reports the element — its selector,
+ *  the map keys bound to it (or an ancestor) and the design box under the
+ *  cursor — so a mismatch can be quoted as "1173:20486 ↔ aside.pr-phero__picker". */
+let inspect = null;
+
+function startInspect() {
+  stopInspect(); stopPick();
+  const hi = document.createElement('div');
+  hi.className = 'pg-pick pg-inspect';
+  document.documentElement.appendChild(hi);
+  const tip = document.createElement('div');
+  tip.className = 'pg-pick-tip';
+  tip.textContent = 'Inspect: click an element · Esc to exit';
+  document.documentElement.appendChild(tip);
+
+  const onMove = (e) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || el === hi || el === tip) return;
+    inspect.el = el;
+    const r = el.getBoundingClientRect();
+    Object.assign(hi.style, { top: `${r.top + scrollY}px`, left: `${r.left + scrollX}px`, width: `${r.width}px`, height: `${r.height}px`, display: 'block' });
+  };
+  const onClick = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const el = inspect?.el; if (!el) return;
+    const r = el.getBoundingClientRect();
+    // map entries whose selector matches the element itself, else the nearest ancestor
+    const hits = [];
+    for (let node = el, hops = 0; node && node !== document.body && hops < 5 && !hits.length; node = node.parentElement, hops++) {
+      for (const [key, entry] of Object.entries(map)) {
+        if (key.startsWith('_') || !entry?.selector) continue;
+        try { if (node.matches(entry.selector)) hits.push({ key, selector: entry.selector, name: entry.name ?? null, exact: node === el }); } catch {}
+      }
+    }
+    // smallest drawn design box under the cursor
+    let box = null;
+    for (const d of document.querySelectorAll('.pg-obox[data-pgid]')) {
+      const b = d.getBoundingClientRect();
+      if (e.clientX < b.left || e.clientX > b.right || e.clientY < b.top || e.clientY > b.bottom) continue;
+      if (!box || b.width * b.height < box.area) box = { id: d.dataset.pgid, title: d.title, area: b.width * b.height };
+    }
+    chrome.runtime.sendMessage({
+      type: 'pg-inspect-done',
+      selector: uniqueSelector(el),
+      tag: el.tagName.toLowerCase(),
+      size: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      text: (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60),
+      hits, box: box ? { id: box.id, title: box.title } : null,
+    });
+    lastEl = el; place(el);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') { chrome.runtime.sendMessage({ type: 'pg-inspect-stopped' }); stopInspect(); } };
+  inspect = { hi, tip, onMove, onClick, onKey, el: null };
+  addEventListener('mousemove', onMove, true);
+  addEventListener('click', onClick, true);
+  addEventListener('keydown', onKey, true);
+}
+
+function stopInspect() {
+  if (!inspect) return;
+  removeEventListener('mousemove', inspect.onMove, true);
+  removeEventListener('click', inspect.onClick, true);
+  removeEventListener('keydown', inspect.onKey, true);
+  inspect.hi.remove(); inspect.tip.remove();
+  inspect = null;
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-inspect-start') { startInspect(); reply({ ok: true }); return true; }
+  if (msg.type === 'pg-inspect-stop') { stopInspect(); reply({ ok: true }); return true; }
+  if (msg.type === 'pg-diff') {
+    const el = document.querySelector(msg.selector);
+    reply(el ? { rows: diff(msg.node, el) } : null);
+    return true;
+  }
+});
 
 function stopPick() {
   if (!pick) return;

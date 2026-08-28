@@ -115,3 +115,8 @@ html.pg-split-on .pg-split-dim {
   opacity: .55;
   clip-path: inset(0 calc(100% - var(--pg-split, 50%)) 0 0);
 }
+
+.pg-pick.pg-inspect {
+  border-color: #7ba7d4;
+  background: rgba(123, 167, 212, 0.16);
+}

@@ -82,6 +82,14 @@
   .okwrap { margin-top: 10px; }
   .okwrap summary { color: #71767d; font-size: 10px; cursor: pointer; font-family: Inter, sans-serif; }
 
+  .btn.on { background: #7ba7d4; color: #15171a; }
+  .insp { margin-bottom: 10px; }
+  .insp .kv { display: flex; align-items: center; gap: 6px; margin: 3px 0; font: 12px ui-monospace, Menlo, monospace; }
+  .insp .kv .k { color: #71767d; font: 10px Inter, sans-serif; width: 44px; flex: none; }
+  .insp .kv .v { flex: 1; word-break: break-all; }
+  .insp .kv button { border: 0; background: #33383e; color: #dcdfe3; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; flex: none; }
+  .insp .kv button.done { background: #7fb08a; color: #15171a; }
+  .insp .sub { font-size: 10px; color: #71767d; margin-top: 2px; }
   .arow { padding: 7px 0; border-bottom: 1px solid #2a2e33; cursor: pointer; }
   .arow:hover { background: #1f2226; }
   .arow .nm { font-size: 12px; }
@@ -151,7 +159,10 @@
   </div>
 </div>
 <div class="step">
-  <button class="btn" id="run-audit">Check page</button>
+  <div class="row" style="margin-top:0">
+    <button class="btn" id="run-audit">Check page</button>
+    <button class="btn ghost" style="width:auto;padding:8px 12px;white-space:nowrap" id="inspect-go" title="click an element on the page: Figma id, selector, diff">🔍 Inspect</button>
+  </div>
   <div class="step-sub" id="audit-note" style="text-align:left;margin-top:6px"></div>
 </div>
 

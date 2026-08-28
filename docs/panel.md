@@ -46,6 +46,15 @@ page is recognised by URL via `match[]`; each binding in the map gets a status:
 and shows the property diff. The report is written to `reports/<page>-<viewport>.{json,html}`
 — the same format as `npm run qa`.
 
+## Inspect
+
+**🔍 Inspect** next to "Check page": hover highlights elements on the page, a click shows
+a card — the Figma id bound to the element (or to its nearest bound ancestor, marked
+"ancestor"), the design box under the cursor when the overlay is on, the unique CSS
+selector, and a ready quote `1173:20486 ↔ aside.pr-phero__picker` — each with a copy
+button — plus the property diff for that node. The mirror of clicking a node in Figma.
+Esc exits.
+
 ## Live bridge
 
 With **live mode** enabled in the plugin, clicking a node in Figma shows its comparison
