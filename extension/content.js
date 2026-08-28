@@ -154,6 +154,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 
 loadMap();
 
+const within = (b, a) => b.x >= a.x && b.y >= a.y && b.x + b.w <= a.x + a.w + 1 && b.y + b.h <= a.y + a.h + 1;
+
 let ov = null;
 let fixedLayer = null;
 let lastOverlay = null;
@@ -185,7 +187,10 @@ function boxStyle(b, opts) {
       `font-weight:${f.weight}`,
       `line-height:${f.lineHeight ? f.lineHeight + 'px' : 'normal'}`,
       `text-align:${({ LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify' }[f.align] || 'left')}`,
-      'background:none', 'white-space:pre-wrap', 'overflow:hidden',
+      'background:none',
+      // single-line design text must stay on one line even with a wider fallback font
+      b.text.includes('\n') || b.h > f.size * 1.7 ? 'white-space:pre-wrap' : 'white-space:pre',
+      'overflow:visible',
     );
     if (f.letterSpacing) css.push(`letter-spacing:${f.letterSpacing}px`);
     if (f.case === 'UPPER') css.push('text-transform:uppercase');
@@ -311,10 +316,7 @@ function showOverlay(data, opts) {
   // position on the page differs (a menu item was moved), its whole subtree
   // moves with it. Such nodes are drawn inside their parent.
   const CONTAINER_MIN = 200;
-  anchored = anchored.filter((b) => {
-    if (b.type === 'TEXT' && (b.w < CONTAINER_MIN || b.h < 40)) return false;
-    return true;
-  });
+  anchored = anchored.filter((b) => !(b.w < CONTAINER_MIN && b.h < 40) && !(b.type === 'TEXT' && b.w < CONTAINER_MIN));
   const anchoredSet = new Set(anchored);
   for (const b of data.boxes) if (b.anchor && !anchoredSet.has(b)) b.anchor = null;
 
@@ -327,17 +329,20 @@ function showOverlay(data, opts) {
     // the page and turn the overlay into a mess.
     anchored = anchored.filter((a) => a.shot);
     // and do not put a block on top of a block: skip nested ones
-    anchored = anchored.filter((a) => !anchored.some((p) => p !== a
-      && a.x >= p.x && a.y >= p.y
-      && a.x + a.w <= p.x + p.w + 1 && a.y + a.h <= p.y + p.h + 1
-      && p.w * p.h > a.w * a.h));
+    anchored = anchored.filter((a) => !anchored.some((p) => p !== a && within(a, p) && p.w * p.h > a.w * a.h));
   }
 
   const used = [];
   let placed = 0, missing = 0, scaleSum = 0;
 
-  for (const a of anchored) {
-    const el = document.querySelector(a.anchor);
+  const resolved = anchored.map((a) => ({ a, el: document.querySelector(a.anchor) }));
+  const drawn = resolved.filter((x) => x.el).map((x) => x.a);
+  // A child box must be drawn once, inside its innermost anchored ancestor.
+  // Nested anchors (header → top bar → menu item) otherwise each draw the same
+  // subtree relative to their own element, and the page shows echoed text.
+  const ownedByInner = (b, a) => drawn.some((o) => o !== a && within(o, a) && o.w * o.h < a.w * a.h && within(b, o));
+
+  for (const { a, el } of resolved) {
     if (!el) { missing++; continue; }
     const r = el.getBoundingClientRect();
     const fixed = isFixed(el);
@@ -352,8 +357,12 @@ function showOverlay(data, opts) {
 
     // fixed/sticky: viewport coordinates (the element is already shifted by
     // scroll), everything else — absolute document coordinates
-    const baseL = r.left + (fixed ? 0 : scrollX) + off.x;
+    let baseL = r.left + (fixed ? 0 : scrollX) + off.x;
     const baseT = r.top + (fixed ? 0 : scrollY) + off.y;
+    // A full-width design block bound to a centered container (the design's
+    // 1920px strip vs the site's 1640px #avitoBlock): align their centers,
+    // otherwise the block starts at the container edge and hangs off the right.
+    if (Math.abs(a.w - data.w) < 2) baseL += (r.width - a.w * k) / 2;
     used.push({ x: a.x, y: a.y, w: a.w, h: a.h });
     placed++;
 
@@ -365,8 +374,7 @@ function showOverlay(data, opts) {
     target.appendChild(makeBox(a, opts, baseL, baseT, k, data.svgLib));
     if (opts.mode === 'shots' && a.shot) continue;
     for (const b of data.boxes) {
-      if (b === a || b.anchor) continue;
-      if (b.x < a.x || b.y < a.y || b.x + b.w > a.x + a.w + 1 || b.y + b.h > a.y + a.h + 1) continue;
+      if (b === a || b.anchor || !within(b, a) || ownedByInner(b, a)) continue;
       target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + (b.y - a.y) * k, k, data.svgLib));
     }
   }
@@ -378,8 +386,7 @@ function showOverlay(data, opts) {
     const bodyTop = document.body.getBoundingClientRect().top + scrollY;
     for (const b of data.boxes) {
       if (b.anchor) continue;
-      const inside = used.some((u) => b.x >= u.x && b.y >= u.y && b.x + b.w <= u.x + u.w + 1 && b.y + b.h <= u.y + u.h + 1);
-      if (inside) continue;
+      if (used.some((u) => within(b, u))) continue;
       const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y, 1, data.svgLib);
       d.classList.add('pg-loose');
       frag.appendChild(d);

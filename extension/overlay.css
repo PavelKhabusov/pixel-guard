@@ -13,7 +13,7 @@
 .pg-overlay {
   position: absolute;
   left: 0;
-  z-index: 2147483645;
+  z-index: 99998;
   pointer-events: none;
   display: none;
 }
@@ -57,7 +57,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 2147483645;
+  z-index: 99998;
   pointer-events: none;
 }
 .pg-obox > svg { display: block; width: 100%; height: 100%; }
@@ -109,7 +109,7 @@ html.pg-solo .pg-overlay { opacity: 1 !important; }
 html.pg-split-on .pg-split-dim {
   position: fixed;
   inset: 0;
-  z-index: 2147483644;
+  z-index: 99997;
   pointer-events: none;
   background: #fff;
   opacity: .82;

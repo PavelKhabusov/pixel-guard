@@ -111,7 +111,7 @@ const handler = (req, res) => {
       const root = want ? findById(j.tree, want) : j.tree;
       if (!root) continue;
       const png = path.join(SNAP, f.replace(/\.json$/, '.png'));
-      const depthLimit = Number(url.searchParams.get('depth') ?? 8);
+      const depthLimit = Number(url.searchParams.get('depth') ?? 64);
 
       // this page's map — so the overlay is applied block by block,
       // each block onto its own DOM element, not as one flat layer on top.
@@ -168,11 +168,10 @@ const handler = (req, res) => {
         // children are vectors with SVG (an "svg (location)" wrapper + two Vectors).
         // Otherwise empty boxes with foreign colours land on top of the icon.
         if (n.svgRef || n.svg) return;
-        const kids = n.children ?? [];
-        const vectorish = kids.length > 0 && kids.every((c) =>
-          c.svgRef || c.svg || c.type === 'VECTOR' || c.type === 'BOOLEAN_OPERATION');
-        if (vectorish) return;
-        for (const c of kids) walk(c, depth + 1);
+        // a bare vector without its own SVG would be an empty box in a foreign colour;
+        // a vector that carries an SVG (icon inside a 20×20 wrapper) must be drawn
+        const bare = (c) => (c.type === 'VECTOR' || c.type === 'BOOLEAN_OPERATION') && !c.svgRef && !c.svg;
+        for (const c of n.children ?? []) if (!bare(c)) walk(c, depth + 1);
       };
       walk(root, 0);
       return res.end(JSON.stringify({
