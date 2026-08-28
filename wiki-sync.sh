@@ -12,11 +12,20 @@ trap 'rm -rf "$WORK"' EXIT
 git clone -q "$WIKI_URL" "$WORK" || { echo "wiki repo not found — create the first page on GitHub, then rerun"; exit 1; }
 find "$WORK" -maxdepth 1 -name '*.md' -delete
 
+# page name = H1 title ("Extension panel" → Extension-panel); README → Home
+declare -A PAGE
 for f in docs/*.md; do
   base=$(basename "$f" .md)
-  name=$([ "$base" = README ] && echo Home || echo "$base")
-  # [text](panel.md) → [text](panel); README.md → Home
-  sed -E 's#\]\(README\.md\)#](Home)#g; s#\]\(([a-z-]+)\.md\)#](\1)#g' "$f" > "$WORK/$name.md"
+  if [ "$base" = README ]; then PAGE[$base]=Home
+  else PAGE[$base]=$(grep -m1 '^# ' "$f" | sed 's/^# //; s/ /-/g'); fi
+done
+
+SED=''
+for base in "${!PAGE[@]}"; do SED+="s#\]\($base\.md\)#](${PAGE[$base]})#g;"; done
+
+for f in docs/*.md; do
+  base=$(basename "$f" .md)
+  sed -E "$SED" "$f" > "$WORK/${PAGE[$base]}.md"
 done
 
 {
@@ -24,8 +33,7 @@ done
   echo
   for f in docs/*.md; do
     base=$(basename "$f" .md); [ "$base" = README ] && continue
-    title=$(grep -m1 '^# ' "$f" | sed 's/^# //')
-    echo "- [$title]($base)"
+    echo "- [${PAGE[$base]//-/ }](${PAGE[$base]})"
   done
 } > "$WORK/_Sidebar.md"
 
