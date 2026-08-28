@@ -396,7 +396,11 @@ const handler = (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/map') {
-    const p = path.join(ROOT, 'maps', `${url.searchParams.get('page') ?? 'home'}.map.json`);
+    // the content script asks by its own URL — the page map is picked via match[]
+    const forUrl = url.searchParams.get('url');
+    const pagesCfg = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
+    const pageKey = url.searchParams.get('page') ?? (forUrl ? matchPage(pagesCfg, forUrl)?.key : null) ?? 'home';
+    const p = path.join(ROOT, 'maps', `${pageKey}.map.json`);
     const shared = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({ ...shared, ...(readJsonSafe(p) ?? {}) }));

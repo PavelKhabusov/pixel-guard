@@ -12,8 +12,8 @@ claude mcp add pixel-guard -- node ~/DEV/pixel-guard/server/mcp.mjs
 | `figma_get_node_styles` | exact node values from the snapshot: fonts with `lineHeightPx` / `letterSpacingPx`, colours with opacity, auto-layout | disk |
 | `figma_get_node_tree` | compact subtree (`depth`, default 3): one line per node — id, type, name, x/y/w/h, fill/stroke/radius, layout `row\|column gap pad align`, font, text | disk |
 | `figma_find_nodes` | `text` — search text content in snapshots (with `frame` filter, returns position, font, parent); `query` — layer names via the plugin, or on disk with `in_snapshots` | disk / plugin |
-| `pixel_guard_measure` | live page (headless Chromium): every element matching `selector` → rect, computed styles, effective inset | site |
-| `pixel_guard_compare` | one design node ↔ one live element: every checked property as `figma → actual` with pass/fail, same rules as `qa`. No map needed | disk + site |
+| `pixel_guard_measure` | live page (headless Chromium): every visible element matching `selector` → rect, computed styles, effective inset, parent flex/grid gap and the `step` to the previous match (repeated-item spacing); hidden ones counted separately (`include_hidden`) | site |
+| `pixel_guard_compare` | one design node ↔ one live element: every checked property as `figma → actual` with pass/fail, same rules as `qa`. `depth: 1` also pairs the node's direct children with the element's children (by text, then by order; a bare text node is compared against the element itself) and checks the auto-layout gap against the real distance. No map needed | disk + site |
 | `pixel_guard_check_page` | the stored report `reports/<page>-<viewport>.json`; `only_failed: false` lists every checked property | disk |
 | `pixel_guard_list_pages` | pages, URLs, templates, breakpoints | disk |
 | `figma_render_node` | renders a node to PNG/JPG/SVG/PDF, returns the image or saves via `save_to`; `bg` fills transparency (default white, `none` keeps it) | plugin |

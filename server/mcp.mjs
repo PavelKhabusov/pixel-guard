@@ -99,6 +99,7 @@ const TOOLS = [
         url: { type: 'string', description: 'page URL (overrides page)' },
         viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
         props: { type: 'array', items: { type: 'string' }, description: 'CSS properties to return (default: the comparison set)' },
+        include_hidden: { type: 'boolean', description: 'also list display:none / zero-size matches (default false)' },
       },
       required: ['selector'],
     },
@@ -117,6 +118,7 @@ const TOOLS = [
         url: { type: 'string', description: 'page URL (overrides page)' },
         viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
         ignore: { type: 'array', items: { type: 'string' }, description: 'properties to skip' },
+        depth: { type: 'number', description: '1 = also match the node\'s direct children to the element\'s children (by text, then by order) and compare their fonts/colours/sizes plus the gap between them' },
       },
       required: ['id', 'selector'],
     },
@@ -210,13 +212,23 @@ async function callTool(name, args = {}) {
     let rows;
     try { rows = await measure(url, width, args.selector, args.props); } catch (e) { return fail(`measure failed: ${e.message}`); }
     if (!rows.length) return fail(`nothing matches "${args.selector}" on ${url} @ ${vp}`);
+    const hiddenCount = rows.filter((d) => d.hidden).length;
+    if (!args.include_hidden) rows = rows.filter((d) => !d.hidden);
+    if (!rows.length) return fail(`"${args.selector}" matches ${hiddenCount} element(s), all hidden (display:none / zero size)`);
 
     if (name === 'pixel_guard_measure') {
-      const fmt = (d, i) => `#${i + 1} <${d.tag}> ${d.rect.x},${d.rect.y} ${d.rect.width}×${d.rect.height} · ${d.children} children${d.text ? ` · "${d.text}"` : ''}\n`
-        + `   inset ${d.inset.top}/${d.inset.right}/${d.inset.bottom}/${d.inset.left}\n`
+      // step between consecutive visible siblings: the repeated-item spacing a map of one <ul> never sees
+      const step = (d, i) => {
+        const prev = rows[i - 1]; if (!prev || prev.hidden) return '';
+        const dy = Math.round((d.rect.y - prev.rect.y) * 10) / 10, dx = Math.round((d.rect.x - prev.rect.x) * 10) / 10;
+        return Math.abs(dy) >= 1 ? ` · step ↓${dy}` : Math.abs(dx) >= 1 ? ` · step →${dx}` : '';
+      };
+      const fmt = (d, i) => `#${i + 1} <${d.tag}> ${d.rect.x},${d.rect.y} ${d.rect.width}×${d.rect.height} · ${d.children} children${d.hidden ? ' · HIDDEN' : ''}${step(d, i)}${d.text ? ` · "${d.text}"` : ''}\n`
+        + `   inset ${d.inset.top}/${d.inset.right}/${d.inset.bottom}/${d.inset.left}`
+        + (d.parentGap ? ` · parent ${d.parentGap.display} gap ${d.parentGap.rowGap}/${d.parentGap.columnGap}` : '') + '\n'
         + Object.entries(d.styles).filter(([, v]) => v !== '' && v !== 'none' && v !== 'normal' && v !== '0px' && v !== 'auto')
           .map(([k, v]) => `   ${k}: ${v}`).join('\n');
-      return text(`${url} @ ${vp} (${width}px) · ${args.selector} · ${rows.length} match(es)\n\n${rows.map(fmt).join('\n\n')}`);
+      return text(`${url} @ ${vp} (${width}px) · ${args.selector} · ${rows.length} visible${hiddenCount ? ` (+${hiddenCount} hidden)` : ''}\n\n${rows.map(fmt).join('\n\n')}`);
     }
 
     const hit = resolveNode(ROOT, args.id);
@@ -226,9 +238,57 @@ async function callTool(name, args = {}) {
     const checks = compareNode(hit.node, dom, { ignore: args.ignore ?? [], frameW });
     const bad = checks.filter((c) => !c.pass);
     const line = (c) => `  ${c.pass ? '✓' : '✗'} ${c.prop}: ${c.figma} → ${c.actual}${c.delta && !c.pass ? ` (${c.delta})` : ''}`;
-    return text(`${hit.node.id} "${hit.node.name}" (${hit.node.type} ${hit.node.w}×${hit.node.h}) ↔ ${args.selector} <${dom.tag}> ${dom.rect.width}×${dom.rect.height} @ ${vp}\n`
+    let out = `${hit.node.id} "${hit.node.name}" (${hit.node.type} ${hit.node.w}×${hit.node.h}) ↔ ${args.selector} <${dom.tag}> ${dom.rect.width}×${dom.rect.height} @ ${vp}\n`
       + `${checks.length - bad.length} ✓ · ${bad.length} ✗\n\n${checks.map(line).join('\n')}`
-      + (rows.length > 1 ? `\n\n(selector matches ${rows.length} elements, compared the first)` : ''));
+      + (rows.length > 1 ? `\n\n(selector matches ${rows.length} elements, compared the first)` : '');
+
+    if ((args.depth ?? 0) >= 1) {
+      let kids;
+      try { kids = await measure(url, width, `:is(${args.selector}) > *`); } catch (e) { return fail(`measure failed: ${e.message}`); }
+      kids = kids.filter((k) => !k.hidden);
+      const figKids = (hit.node.children ?? []).filter((c) => !c.mask && (c.w ?? 0) >= 1 && (c.h ?? 0) >= 1);
+      const norm = (t) => (t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const used = new Set();
+      const byText = figKids.map((c) => (c.type === 'TEXT' && c.text
+        ? kids.findIndex((k, idx) => !used.has(idx) && norm(k.text) && (norm(k.text) === norm(c.text) || norm(k.text).startsWith(norm(c.text).slice(0, 24))) && (used.add(idx), true))
+        : -1));
+      const pairs = figKids.map((c, i) => {
+        let j = byText[i];
+        if (j < 0 && c.type !== 'TEXT' && !used.has(i) && i < kids.length) { j = i; used.add(i); }
+        return { c, k: j >= 0 ? kids[j] : null, j };
+      });
+      out += `\n\nchildren (depth 1): ${figKids.length} in design, ${kids.length} visible on the page`;
+      for (const { c, k, j } of pairs) {
+        const label = `${c.id} ${c.type} "${c.type === 'TEXT' ? (c.text ?? '').slice(0, 40) : c.name}" ${c.w}×${c.h}`;
+        if (!k && c.type === 'TEXT' && c.text && norm(dom.text).includes(norm(c.text).slice(0, 24))) {
+          // bare text node inside the element: its font and colour are the element's own
+          const cc = compareNode(c, dom, { ignore: [...(args.ignore ?? []), 'width', 'height'] });
+          const cb = cc.filter((x) => !x.pass);
+          out += `\n  ${cb.length ? '✗' : '✓'} ${label} ↔ text of <${dom.tag}> itself`
+            + (cb.length ? '\n' + cb.map((x) => `      ${x.prop}: ${x.figma} → ${x.actual}${x.delta ? ` (${x.delta})` : ''}`).join('\n') : '');
+          continue;
+        }
+        if (!k) { out += `\n  ✗ ${label} → no element`; continue; }
+        const cc = compareNode(c, k, { ignore: args.ignore ?? [] });
+        const cb = cc.filter((x) => !x.pass);
+        out += `\n  ${cb.length ? '✗' : '✓'} ${label} ↔ #${j + 1} <${k.tag}> ${k.rect.width}×${k.rect.height}${k.text ? ` "${k.text.slice(0, 40)}"` : ''}`
+          + (cb.length ? '\n' + cb.map((x) => `      ${x.prop}: ${x.figma} → ${x.actual}${x.delta ? ` (${x.delta})` : ''}`).join('\n') : '');
+      }
+      // gap: auto-layout itemSpacing vs the real distance between consecutive elements
+      const l = hit.node.layout;
+      if (l && kids.length >= 2) {
+        const horiz = l.mode === 'HORIZONTAL';
+        const steps = [];
+        for (let i = 1; i < kids.length; i++) {
+          const a = kids[i - 1].rect, b = kids[i].rect;
+          steps.push(Math.round(((horiz ? b.x - (a.x + a.width) : b.y - (a.y + a.height))) * 10) / 10);
+        }
+        const uniq = [...new Set(steps)];
+        const okGap = uniq.every((g) => Math.abs(g - (l.gap ?? 0)) <= 1);
+        out += `\n  ${okGap ? '✓' : '✗'} gap (${horiz ? 'row' : 'column'}): ${l.gap ?? 0}px → ${uniq.length === 1 ? uniq[0] + 'px' : uniq.map((g) => g + 'px').join(', ')}`;
+      }
+    }
+    return text(out);
   }
 
   if (name === 'pixel_guard_check_page') {

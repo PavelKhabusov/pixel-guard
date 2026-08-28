@@ -39,15 +39,19 @@ export async function measure(url, width, selector, props) {
   return pg.evaluate(([sel, list, insetSrc]) => {
     const inset = new Function(`return ${insetSrc}`)();
     const els = [...document.querySelectorAll(sel)];
-    return els.slice(0, 20).map((el) => {
+    const r1 = (v) => Math.round(v * 10) / 10;
+    return els.slice(0, 40).map((el) => {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
+      const hidden = cs.display === 'none' || cs.visibility === 'hidden' || (r.width === 0 && r.height === 0);
       const styles = {};
       for (const p of list) styles[p] = cs.getPropertyValue(p);
       const text = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      const pcs = el.parentElement ? getComputedStyle(el.parentElement) : null;
+      const parentGap = pcs && (pcs.display === 'flex' || pcs.display === 'grid') ? { rowGap: pcs.rowGap, columnGap: pcs.columnGap, display: pcs.display } : null;
       return {
-        rect: { x: Math.round((r.left + scrollX) * 10) / 10, y: Math.round((r.top + scrollY) * 10) / 10, width: Math.round(r.width * 10) / 10, height: Math.round(r.height * 10) / 10 },
-        styles, inset: inset(el), text, tag: el.tagName.toLowerCase(), children: el.children.length,
+        rect: { x: r1(r.left + scrollX), y: r1(r.top + scrollY), width: r1(r.width), height: r1(r.height) },
+        styles, inset: inset(el), text, tag: el.tagName.toLowerCase(), children: el.children.length, hidden, parentGap,
       };
     });
   }, [selector, want, effectivePadding.toString()]);

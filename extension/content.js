@@ -171,7 +171,8 @@ function analyse(node) {
 
 const loadMap = (page) =>
   new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/map?page=${page ?? 'home'}` }, (m) => {
+    const q = page ? `page=${encodeURIComponent(page)}` : `url=${encodeURIComponent(location.href)}`;
+    chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/map?${q}` }, (m) => {
       if (m && !m.error) map = m;
       resolve(map);
     });
