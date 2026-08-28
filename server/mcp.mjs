@@ -249,22 +249,37 @@ async function callTool(name, args = {}) {
       const figKids = (hit.node.children ?? []).filter((c) => !c.mask && (c.w ?? 0) >= 1 && (c.h ?? 0) >= 1);
       const norm = (t) => (t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
       const used = new Set();
+      // 1) text children by content; 2) a lone unmatched text child ↔ the element's own bare text;
+      // 3) everything else by order among the elements still unused
       const byText = figKids.map((c) => (c.type === 'TEXT' && c.text
         ? kids.findIndex((k, idx) => !used.has(idx) && norm(k.text) && (norm(k.text) === norm(c.text) || norm(k.text).startsWith(norm(c.text).slice(0, 24))) && (used.add(idx), true))
         : -1));
-      const pairs = figKids.map((c, i) => {
+      const bareText = norm(dom.ownText);
+      const pairs = [];
+      let cursor = 0;
+      figKids.forEach((c, i) => {
         let j = byText[i];
-        if (j < 0 && c.type !== 'TEXT' && !used.has(i) && i < kids.length) { j = i; used.add(i); }
-        return { c, k: j >= 0 ? kids[j] : null, j };
+        let self = false;
+        if (j < 0 && c.type === 'TEXT') {
+          const textKids = kids.filter((k, idx) => !used.has(idx) && norm(k.text));
+          if (bareText && (norm(c.text) ? bareText.includes(norm(c.text).slice(0, 24)) : true)) self = true;
+          else if (textKids.length === 1 && figKids.filter((x) => x.type === 'TEXT').length === 1) { j = kids.indexOf(textKids[0]); used.add(j); }
+          else if (bareText) self = true;
+        }
+        if (j < 0 && !self && c.type !== 'TEXT') {
+          while (cursor < kids.length && used.has(cursor)) cursor++;
+          if (cursor < kids.length) { j = cursor; used.add(j); cursor++; }
+        }
+        pairs.push({ c, k: j >= 0 ? kids[j] : null, j, self });
       });
       out += `\n\nchildren (depth 1): ${figKids.length} in design, ${kids.length} visible on the page`;
-      for (const { c, k, j } of pairs) {
+      for (const { c, k, j, self } of pairs) {
         const label = `${c.id} ${c.type} "${c.type === 'TEXT' ? (c.text ?? '').slice(0, 40) : c.name}" ${c.w}×${c.h}`;
-        if (!k && c.type === 'TEXT' && c.text && norm(dom.text).includes(norm(c.text).slice(0, 24))) {
+        if (self) {
           // bare text node inside the element: its font and colour are the element's own
           const cc = compareNode(c, dom, { ignore: [...(args.ignore ?? []), 'width', 'height'] });
           const cb = cc.filter((x) => !x.pass);
-          out += `\n  ${cb.length ? '✗' : '✓'} ${label} ↔ text of <${dom.tag}> itself`
+          out += `\n  ${cb.length ? '✗' : '✓'} ${label} ↔ text of <${dom.tag}> itself${norm(c.text) && !bareText.includes(norm(c.text).slice(0, 24)) ? ` (content differs: "${dom.ownText.slice(0, 40)}")` : ''}`
             + (cb.length ? '\n' + cb.map((x) => `      ${x.prop}: ${x.figma} → ${x.actual}${x.delta ? ` (${x.delta})` : ''}`).join('\n') : '');
           continue;
         }

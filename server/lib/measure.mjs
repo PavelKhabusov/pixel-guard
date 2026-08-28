@@ -47,11 +47,12 @@ export async function measure(url, width, selector, props) {
       const styles = {};
       for (const p of list) styles[p] = cs.getPropertyValue(p);
       const text = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      const ownText = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim().replace(/\s+/g, ' ').slice(0, 80);
       const pcs = el.parentElement ? getComputedStyle(el.parentElement) : null;
       const parentGap = pcs && (pcs.display === 'flex' || pcs.display === 'grid') ? { rowGap: pcs.rowGap, columnGap: pcs.columnGap, display: pcs.display } : null;
       return {
         rect: { x: r1(r.left + scrollX), y: r1(r.top + scrollY), width: r1(r.width), height: r1(r.height) },
-        styles, inset: inset(el), text, tag: el.tagName.toLowerCase(), children: el.children.length, hidden, parentGap,
+        styles, inset: inset(el), text, ownText, tag: el.tagName.toLowerCase(), children: el.children.length, hidden, parentGap,
       };
     });
   }, [selector, want, effectivePadding.toString()]);
