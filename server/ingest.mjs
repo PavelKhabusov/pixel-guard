@@ -134,6 +134,9 @@ const handler = (req, res) => {
       const keyMatches = (k, n) => {
         if (k === n.id) return true;
         if (!k.startsWith('@')) return false;
+        // "@name" is a component key: a menu link whose text happens to equal a
+        // section name ("Фотогалерея") must not inherit that section's skip
+        if (n.type !== 'INSTANCE' && n.type !== 'COMPONENT') return false;
         const [names, size] = k.slice(1).split('~');
         const [maxW, maxH] = (size ?? '').split('x').map((v) => (v ? Number(v) : Infinity));
         if ((n.w ?? 0) > maxW || (n.h ?? 0) > maxH) return false;
@@ -162,7 +165,8 @@ const handler = (req, res) => {
           if (h < 1) h = sw;
           if (w < 1) w = sw;
         }
-        const small = ((n.w ?? 0) < 4 || (n.h ?? 0) < 4) && !n.svgRef && !stroked;
+        // a thin filled bar (burger line 16×2) is a shape; only dots and hairlines are noise
+        const small = (((n.w ?? 0) < 4 && (n.h ?? 0) < 4) || (n.w ?? 0) < 1 || (n.h ?? 0) < 1) && !n.svgRef && !stroked;
         const hasImage = Array.isArray(n.fills) && n.fills.some((f) => f && f.type === 'image');
         const clipBy = clipStack.length ? clipStack[clipStack.length - 1] : (hasImage && parentId ? parentBox.get(parentId) : null);
         let radius = n.cornerRadius ?? null;
