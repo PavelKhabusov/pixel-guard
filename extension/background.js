@@ -88,7 +88,12 @@ function applyPanelFor(tab) {
 const refreshPanels = () => chrome.tabs.query({}, (tabs) => tabs.forEach(applyPanelFor));
 chrome.sidePanel?.setOptions({ enabled: false }).catch(() => {});
 chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') applyPanelFor(tab); });
-chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId).then(applyPanelFor).catch(() => {}));
+chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId).then((tab) => {
+  applyPanelFor(tab);
+  if (isTarget(tab.url)) { const w = wanted.get(tabId); if (w && !attached.has(tabId)) applyEmulation(tabId, w); }
+  else for (const id of [...attached]) applyEmulation(id, null);
+}).catch(() => {}));
+chrome.tabs.onRemoved.addListener((tabId) => { wanted.delete(tabId); attached.delete(tabId); });
 refreshPanels();
 
 const toPanel = (message) => chrome.runtime.sendMessage(message).catch(() => {});
@@ -172,8 +177,16 @@ async function connect() {
  * It is the same mechanism DevTools responsive mode uses.
  */
 const attached = new Set();
+// width per tab: the debugger is detached while a foreign tab is active (its
+// "started debugging" bar is browser-wide) and re-attached on return
+const wanted = new Map();
 
 async function emulateWidth(tabId, width) {
+  if (width) wanted.set(tabId, width); else wanted.delete(tabId);
+  return applyEmulation(tabId, width);
+}
+
+async function applyEmulation(tabId, width) {
   const target = { tabId };
   try {
     if (!attached.has(tabId)) {
@@ -209,6 +222,7 @@ chrome.runtime.onConnect.addListener((port) => {
       }
     });
     for (const tabId of [...attached]) emulateWidth(tabId, null).catch(() => {});
+    wanted.clear();
   });
 });
 
