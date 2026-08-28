@@ -112,7 +112,7 @@ for (const [key, entry] of Object.entries(map)) {
   results.push({
     key, figmaId: fig.id, selector: entry.selector,
     status: diffs.length ? 'failed' : 'pass',
-    checked: checks.length, diffs,
+    checked: checks.length, diffs, checks,
   });
 }
 await browser.close();

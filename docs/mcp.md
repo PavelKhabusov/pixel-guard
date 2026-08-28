@@ -1,24 +1,46 @@
 # MCP server for Claude agents
 
-Gives Claude Code the design **through the plugin** — no Figma REST API, no limits.
+Gives Claude Code the design **through the plugin** — no Figma REST API, no limits — and
+a headless browser to measure the live page, so a block is verified in one call.
 
 ```bash
 claude mcp add pixel-guard -- node ~/DEV/pixel-guard/server/mcp.mjs
 ```
 
-| Tool | What it does | Needs plugin |
+| Tool | What it does | Needs |
 |---|---|---|
-| `figma_render_node` | renders a node to PNG/JPG/SVG/PDF, returns it as an image or saves via `save_to` | yes |
-| `figma_find_nodes` | searches nodes by part of the name → id, type, size, page | yes |
-| `figma_get_node_styles` | exact node styles from the snapshot on disk | no |
-| `pixel_guard_check_page` | comparison report: selector + property + `figma → actual` | no |
-| `pixel_guard_list_pages` | pages, URLs, templates, breakpoints | no |
+| `figma_get_node_styles` | exact node values from the snapshot: fonts with `lineHeightPx` / `letterSpacingPx`, colours with opacity, auto-layout | disk |
+| `figma_get_node_tree` | compact subtree (`depth`, default 3): one line per node — id, type, name, x/y/w/h, fill/stroke/radius, layout `row\|column gap pad align`, font, text | disk |
+| `figma_find_nodes` | `text` — search text content in snapshots (with `frame` filter, returns position, font, parent); `query` — layer names via the plugin, or on disk with `in_snapshots` | disk / plugin |
+| `pixel_guard_measure` | live page (headless Chromium): every element matching `selector` → rect, computed styles, effective inset | site |
+| `pixel_guard_compare` | one design node ↔ one live element: every checked property as `figma → actual` with pass/fail, same rules as `qa`. No map needed | disk + site |
+| `pixel_guard_check_page` | the stored report `reports/<page>-<viewport>.json`; `only_failed: false` lists every checked property | disk |
+| `pixel_guard_list_pages` | pages, URLs, templates, breakpoints | disk |
+| `figma_render_node` | renders a node to PNG/JPG/SVG/PDF, returns the image or saves via `save_to`; `bg` fills transparency (default white, `none` keeps it) | plugin |
 
-Where the plugin is needed: agent → MCP → server → SSE bus → plugin `exportAsync()` →
-image back. Requires `npm run server` and the plugin with **live mode** on. Renders are
-cached; several agents can call at once (queue, 3 parallel by default,
-`PG_RENDER_PARALLEL`; `GET /render-queue` shows the state; `&timeout=<sec>` default 90,
-failures return `504` with the stage `sent` / `rendering` / `lost`).
+## Ids
+
+All tools accept ids as Figma shows them: `1310:27233`, `1310-27233` (from URLs) and
+instance paths `I1310:27371;1310:27233` — the last one is walked segment by segment
+(instance → child), since snapshots store a component's children once under their own ids.
+
+## Typical flow for one block
+
+1. `figma_find_nodes { text: "Хотите увидеть", frame: "Карта товара" }` → id of the text and its parent.
+2. `figma_get_node_tree { id: <block>, depth: 2 }` → layout, paddings, fonts of the whole block.
+3. `pixel_guard_compare { id: <block>, selector: "section.pr-pvis", page: "product" }` → diff.
+4. `pixel_guard_measure { selector: ".pr-pvis li", page: "product" }` → all matches with rects, to check repeated-item spacing.
+
+`page` is a key from `config/pages.json`; `url` overrides it. The browser is launched once
+per MCP process and a page is loaded once per url × viewport.
+
+## Renders
+
+Agent → MCP → server → SSE bus → plugin `exportAsync()` → image back. Requires
+`npm run server` and the plugin with **live mode** on. Renders are cached; requests go
+through a queue (3 parallel by default, `PG_RENDER_PARALLEL`; `GET /render-queue` shows
+the state; `&timeout=<sec>` default 90, failures return `504` with the stage
+`sent` / `rendering` / `lost`).
 
 Agents can also read `snapshots/*.json` and `reports/*.json` directly from disk —
 `snapshots/_project.json` is the project summary with shared modules.

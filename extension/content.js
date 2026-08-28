@@ -423,7 +423,10 @@ function showOverlay(data, opts) {
     // fixed/sticky: viewport coordinates (the element is already shifted by
     // scroll), everything else — absolute document coordinates
     let baseL = r.left + (fixed ? 0 : scrollX) + off.x;
-    const baseT = r.top + (fixed ? 0 : scrollY) + off.y;
+    let baseT = r.top + (fixed ? 0 : scrollY) + off.y;
+    // A text node bound to a block with a taller line-height (h2 at 32px vs a
+    // 22px design box): CSS centres the glyphs in the line, so centre the box too
+    if (a.type === 'TEXT' && r.height > a.h * k && r.height < a.h * k * 2.2) baseT += (r.height - a.h * k) / 2;
     // A full-width design block bound to a centered container (the design's
     // 1920px strip vs the site's 1640px #avitoBlock): align their centers,
     // otherwise the block starts at the container edge and hangs off the right.

@@ -9,6 +9,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveNode, formatTree, describeNode, searchNodes, lineHeightPx, letterSpacingPx } from './lib/snap.mjs';
+import { measure, closeBrowser } from './lib/measure.mjs';
+import { compareNode } from './lib/compare.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const BASE = process.env.PG_BASE || 'http://localhost:8971';
@@ -45,21 +48,77 @@ const TOOLS = [
   },
   {
     name: 'figma_find_nodes',
-    description: 'Find nodes in the Figma design by a part of the name (via the plugin). Returns id, name, type, size and page.',
+    description: 'Find design nodes. With `text` — searches the TEXT CONTENT in the snapshots on disk (no Figma needed), '
+      + 'returns id, position, size, font and parent. With `query` only — searches layer names via the plugin (needs live mode); '
+      + 'add `in_snapshots: true` to search names on disk instead.',
     inputSchema: {
       type: 'object',
-      properties: { query: { type: 'string', description: 'part of the node name' } },
-      required: ['query'],
+      properties: {
+        query: { type: 'string', description: 'part of the layer name' },
+        text: { type: 'string', description: 'part of the text content (snapshots only)' },
+        frame: { type: 'string', description: 'limit to a frame: part of its name, its id, or the snapshot file name' },
+        in_snapshots: { type: 'boolean', description: 'search layer names in snapshots instead of asking the plugin' },
+        limit: { type: 'number', description: 'max results, default 40' },
+      },
     },
   },
   {
     name: 'figma_get_node_styles',
-    description: 'Exact node values from the snapshot on disk: fonts, colours, sizes, padding/gap from auto-layout. '
-      + 'Works without Figma — reads snapshots/*.json.',
+    description: 'Exact node values from the snapshot on disk: fonts (with line-height and letter-spacing resolved to px), '
+      + 'colours with opacity, sizes, padding/gap from auto-layout. Accepts instance-path ids from Figma URLs '
+      + '(I1310:27371;1310:27233) and ids with a dash (1310-27233). Works without Figma.',
     inputSchema: {
       type: 'object',
       properties: { id: { type: 'string', description: 'Figma node id' } },
       required: ['id'],
+    },
+  },
+  {
+    name: 'figma_get_node_tree',
+    description: 'Compact subtree of a design node: one line per child with id, type, name, x/y/w/h, fill/stroke/radius, '
+      + 'auto-layout (row|column gap pad align), font (family size/lineHeight weight), text. From the snapshot on disk.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Figma node id (instance paths accepted)' },
+        depth: { type: 'number', description: 'levels below the node, default 3' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'pixel_guard_measure',
+    description: 'Measure the LIVE page (headless Chromium): every element matching the selector → document rect, '
+      + 'computed styles (font, line-height, color with alpha, padding, gap, border, radius, margin…) and the effective '
+      + 'content inset. `page` is a key from config/pages.json, or pass `url`.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'CSS selector' },
+        page: { type: 'string', description: 'page key from config/pages.json' },
+        url: { type: 'string', description: 'page URL (overrides page)' },
+        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
+        props: { type: 'array', items: { type: 'string' }, description: 'CSS properties to return (default: the comparison set)' },
+      },
+      required: ['selector'],
+    },
+  },
+  {
+    name: 'pixel_guard_compare',
+    description: 'Compare one design node with one live element: resolves the node from the snapshot, measures the '
+      + 'element on the page and returns every checked property as figma → actual with pass/fail (same rules as npm run qa: '
+      + 'tolerances, effective padding, full-width blocks). No map file needed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Figma node id (instance paths accepted)' },
+        selector: { type: 'string', description: 'CSS selector of the element (first match)' },
+        page: { type: 'string', description: 'page key from config/pages.json' },
+        url: { type: 'string', description: 'page URL (overrides page)' },
+        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
+        ignore: { type: 'array', items: { type: 'string' }, description: 'properties to skip' },
+      },
+      required: ['id', 'selector'],
     },
   },
   {
@@ -71,7 +130,7 @@ const TOOLS = [
       properties: {
         page: { type: 'string', description: 'page key from config/pages.json, e.g. home' },
         viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] },
-        only_failed: { type: 'boolean', description: 'mismatches only (default true)' },
+        only_failed: { type: 'boolean', description: 'mismatches only (default true); false lists every checked property incl. passed ones' },
       },
       required: ['page'],
     },
@@ -82,23 +141,6 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} },
   },
 ];
-
-function findNodeInSnapshots(id) {
-  const dir = path.join(ROOT, 'snapshots');
-  if (!fs.existsSync(dir)) return null;
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json') && !x.startsWith('_'))) {
-    const j = readJson(path.join(dir, f));
-    if (!j?.tree) continue;
-    const walk = (n) => {
-      if (n.id === id) return n;
-      for (const c of n.children ?? []) { const r = walk(c); if (r) return r; }
-      return null;
-    };
-    const hit = walk(j.tree);
-    if (hit) return { node: hit, frame: j.frameName, file: f };
-  }
-  return null;
-}
 
 async function callTool(name, args = {}) {
   if (name === 'figma_render_node') {
@@ -129,6 +171,13 @@ async function callTool(name, args = {}) {
   }
 
   if (name === 'figma_find_nodes') {
+    if (args.text || args.in_snapshots) {
+      const rows = searchNodes(ROOT, { text: args.text, name: args.query, frame: args.frame, limit: args.limit ?? 40 });
+      if (!rows.length) return text(`nothing found for "${args.text ?? args.query}" in the snapshots`);
+      return text(rows.map((n) => `${n.id}  ${n.type.padEnd(9)} ${n.x},${n.y} ${n.w}×${n.h}  ${JSON.stringify(n.text ?? n.name)}`
+        + `${n.font ? '  ' + n.font : ''}${n.fill ? '  ' + n.fill : ''}\n      in ${n.parent} · ${n.frame}`).join('\n'));
+    }
+    if (!args.query) return fail('pass `text` (content search in snapshots) or `query` (layer name)');
     const r = await api(`/find?q=${encodeURIComponent(args.query)}`);
     if (!r.ok || r.json?.ok === false) return fail(r.json?.error ?? `error ${r.status}`);
     const list = r.json.nodes ?? [];
@@ -137,10 +186,49 @@ async function callTool(name, args = {}) {
   }
 
   if (name === 'figma_get_node_styles') {
-    const hit = findNodeInSnapshots(args.id);
+    const hit = resolveNode(ROOT, args.id);
     if (!hit) return fail(`node ${args.id} is not in the snapshots — ask Pavel to export with the plugin`);
     const { children, svg, ...node } = hit.node;
-    return text(`design "${hit.frame}" (${hit.file})\n\n${JSON.stringify(node, null, 2)}`);
+    if (node.font) { node.font = { ...node.font, lineHeightPx: lineHeightPx(hit.node), letterSpacingPx: letterSpacingPx(hit.node) }; }
+    const head = `design "${hit.snap.frameName}" (${hit.snap.file})${hit.via !== 'id' ? ` · resolved via ${hit.via}` : ''}`
+      + `${hit.parent ? `\nparent: ${hit.parent.id} "${hit.parent.name}"` : ''}\nchildren: ${children?.length ?? 0}`;
+    return text(`${head}\n\n${JSON.stringify(describeNode(hit.node))}\n\n${JSON.stringify(node, null, 2)}`);
+  }
+
+  if (name === 'figma_get_node_tree') {
+    const hit = resolveNode(ROOT, args.id);
+    if (!hit) return fail(`node ${args.id} is not in the snapshots`);
+    return text(`design "${hit.snap.frameName}" (${hit.snap.file})\n\n${formatTree(hit.node, args.depth ?? 3)}`);
+  }
+
+  if (name === 'pixel_guard_measure' || name === 'pixel_guard_compare') {
+    const vp = args.viewport ?? 'desktop';
+    const width = (readJson(path.join(ROOT, 'config/viewports.json')) ?? { desktop: 1920, tablet: 912, mobile: 357 })[vp];
+    const pages = readJson(path.join(ROOT, 'config/pages.json')) ?? {};
+    const url = args.url ?? pages[args.page ?? '']?.url ?? Object.values(pages)[0]?.url;
+    if (!url) return fail('no url: pass `url` or a `page` key from config/pages.json');
+    let rows;
+    try { rows = await measure(url, width, args.selector, args.props); } catch (e) { return fail(`measure failed: ${e.message}`); }
+    if (!rows.length) return fail(`nothing matches "${args.selector}" on ${url} @ ${vp}`);
+
+    if (name === 'pixel_guard_measure') {
+      const fmt = (d, i) => `#${i + 1} <${d.tag}> ${d.rect.x},${d.rect.y} ${d.rect.width}×${d.rect.height} · ${d.children} children${d.text ? ` · "${d.text}"` : ''}\n`
+        + `   inset ${d.inset.top}/${d.inset.right}/${d.inset.bottom}/${d.inset.left}\n`
+        + Object.entries(d.styles).filter(([, v]) => v !== '' && v !== 'none' && v !== 'normal' && v !== '0px' && v !== 'auto')
+          .map(([k, v]) => `   ${k}: ${v}`).join('\n');
+      return text(`${url} @ ${vp} (${width}px) · ${args.selector} · ${rows.length} match(es)\n\n${rows.map(fmt).join('\n\n')}`);
+    }
+
+    const hit = resolveNode(ROOT, args.id);
+    if (!hit) return fail(`node ${args.id} is not in the snapshots`);
+    const frameW = hit.snap.breakpoints.find((b) => b.viewport === vp)?.width ?? (hit.snap.tree.w >= 1900 ? hit.snap.tree.w : null);
+    const dom = rows[0];
+    const checks = compareNode(hit.node, dom, { ignore: args.ignore ?? [], frameW });
+    const bad = checks.filter((c) => !c.pass);
+    const line = (c) => `  ${c.pass ? '✓' : '✗'} ${c.prop}: ${c.figma} → ${c.actual}${c.delta && !c.pass ? ` (${c.delta})` : ''}`;
+    return text(`${hit.node.id} "${hit.node.name}" (${hit.node.type} ${hit.node.w}×${hit.node.h}) ↔ ${args.selector} <${dom.tag}> ${dom.rect.width}×${dom.rect.height} @ ${vp}\n`
+      + `${checks.length - bad.length} ✓ · ${bad.length} ✗\n\n${checks.map(line).join('\n')}`
+      + (rows.length > 1 ? `\n\n(selector matches ${rows.length} elements, compared the first)` : ''));
   }
 
   if (name === 'pixel_guard_check_page') {
@@ -153,8 +241,9 @@ async function callTool(name, args = {}) {
     const head = `${rep.page} @ ${rep.viewport} → ${rep.url}\n`
       + `${rep.score.pass} ✓ · ${rep.score.failed} ✗ · ${rep.score.missing} missing in DOM · ${rep.score.skip} skip\n`;
     const body = nodes.map((n) => {
-      const diffs = (n.diffs ?? []).map((d) => `    ${d.prop}: ${d.figma} → ${d.actual}${d.delta ? ` (${d.delta})` : ''}`).join('\n');
-      return `\n${n.selector ?? n.key} [${n.status}]\n${diffs}`;
+      const rows = onlyFailed ? (n.diffs ?? []) : (n.checks ?? n.diffs ?? []);
+      const lines = rows.map((d) => `    ${d.pass ? '✓' : '✗'} ${d.prop}: ${d.figma} → ${d.actual}${d.delta && !d.pass ? ` (${d.delta})` : ''}`).join('\n');
+      return `\n${n.selector ?? n.key} [${n.status}${n.checked != null ? `, ${n.checked} checked` : ''}]${n.reason ? ` — ${n.reason}` : ''}\n${lines}`;
     }).join('');
     return text(head + (body || '\nno mismatches'));
   }
@@ -209,4 +298,6 @@ process.stdin.on('data', (chunk) => {
   }
 });
 
+process.on('exit', () => { closeBrowser().catch(() => {}); });
+process.stdin.on('end', () => closeBrowser().finally(() => process.exit(0)));
 process.stderr.write(`pixel-guard MCP ready · server ${BASE}\n`);
