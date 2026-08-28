@@ -52,20 +52,40 @@ export function resolveNode(root, id) {
     if (direct) return { ...direct, snap: s, via: 'id' };
   }
   if (segs.length === 1) return null;
+
+  // an id inside a subtree: exact, or the same id at the end of a nested instance path
+  const findIn = (scope, seg) => {
+    let hit = null;
+    walk(scope, (n, parent) => {
+      if (hit) return false;
+      const nid = n.id ?? '';
+      if (nid === seg || nid === `I${seg}` || nid.endsWith(`;${seg}`)) { hit = { node: n, parent }; return false; }
+    });
+    return hit;
+  };
+
+  // the tail is looked up ONLY inside the instance's subtree, in the snapshot
+  // where the instance lives — a same-numbered node elsewhere is a different thing
+  let instanceOnly = null;
   for (const s of snaps) {
-    let scope = s.tree;
+    const inst = findIn(s.tree, segs[0]);
+    if (!inst) continue;
+    let scope = inst;
     let ok = true;
-    for (const seg of segs) {
-      const hit = findById(scope, seg) ?? findById(scope, `I${seg}`);
+    for (const seg of segs.slice(1)) {
+      const hit = findIn(scope.node, seg);
       if (!hit) { ok = false; break; }
-      scope = hit.node;
+      scope = hit;
     }
-    if (ok) { const p = findById(s.tree, segs[segs.length - 1]); return { node: scope, parent: p?.parent ?? null, snap: s, via: 'instance-path' }; }
+    if (ok) return { node: scope.node, parent: scope.parent, snap: s, via: 'instance-path' };
+    if (!instanceOnly) instanceOnly = { node: inst.node, parent: inst.parent, snap: s, via: `instance-only (child ${segs[segs.length - 1]} is not inside — the snapshot may be older than the design)` };
   }
+  if (instanceOnly) return instanceOnly;
+
   const last = segs[segs.length - 1];
   for (const s of snaps) {
-    const hit = findById(s.tree, last);
-    if (hit) return { ...hit, snap: s, via: 'last-segment' };
+    const hit = findIn(s.tree, last);
+    if (hit) return { ...hit, snap: s, via: `last-segment (instance ${segs[0]} is not in any snapshot — this may be a different node)` };
   }
   return null;
 }
