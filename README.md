@@ -109,6 +109,8 @@ npm run server            # creates config/pages.json and maps/*.map.json from *
 
 ## Documentation
 
+Also mirrored to the [GitHub Wiki](https://github.com/PavelKhabusov/pixel-guard/wiki) (`./wiki-sync.sh`).
+
 | | |
 |---|---|
 | [Getting started](docs/getting-started.md) | install, first snapshot, first check |
