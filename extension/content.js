@@ -736,3 +736,31 @@ addEventListener('scroll', () => {
     showOverlay(lastOverlay.data, lastOverlay.opts);
   });
 }, { passive: true });
+
+/** The extension was reloaded: this script is orphaned — no messages reach it,
+ *  but its overlay would stay on the page forever. Watch the port to the
+ *  background; when the context is gone, take everything down. */
+const PG_DOM = '.pg-overlay, .pg-box, .pg-pick, .pg-pick-tip, .pg-split, .pg-split-dim';
+
+function teardown() {
+  try { hideOverlay(); } catch {}
+  try { stopPick(); stopInspect(); } catch {}
+  for (const el of document.querySelectorAll(PG_DOM)) el.remove();
+  document.documentElement.classList.remove('pg-solo', 'pg-split-on');
+  ov = null; box = null; lastEl = null; lastOverlay = null;
+}
+
+// leftovers of a previous, already dead instance
+for (const el of document.querySelectorAll(PG_DOM)) el.remove();
+document.documentElement.classList.remove('pg-solo', 'pg-split-on');
+
+function watchContext() {
+  let port;
+  try { port = chrome.runtime.connect({ name: 'pg-content' }); } catch { teardown(); return; }
+  port.onDisconnect.addListener(() => {
+    // the service worker merely went idle — reconnect; the extension is gone — clean up
+    if (chrome.runtime?.id) setTimeout(watchContext, 500);
+    else teardown();
+  });
+}
+watchContext();
