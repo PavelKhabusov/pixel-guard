@@ -37,6 +37,11 @@ done
   done
 } > "$WORK/_Sidebar.md"
 
+VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo dev)
+REPO=$(git remote get-url origin | sed -E 's#\.git$##; s#^git@github\.com:#https://github.com/#')
+printf 'pixel-guard v%s · synced from [docs/](%s/tree/master/docs) on %s · edit in the repo, not here — the wiki is overwritten by `./wiki-sync.sh`\n' \
+  "$VERSION" "$REPO" "$(date +%F)" > "$WORK/_Footer.md"
+
 cd "$WORK"
 git add -A
 if git diff --cached --quiet; then echo "wiki is up to date"; exit 0; fi
