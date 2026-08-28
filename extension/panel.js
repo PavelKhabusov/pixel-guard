@@ -79,7 +79,7 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
-const ovState = { on: false, opacity: 0.5, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
+const ovState = { on: false, opacity: 1, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
 const toActiveTab = (msg) =>
   new Promise((resolve) => {
@@ -155,14 +155,16 @@ $('ov-on').onchange = (e) => {
 };
 chrome.tabs.onActivated.addListener(() => { ovState.data = null; if (ovState.on) applyOverlay(); });
 chrome.tabs.onUpdated.addListener((id, info) => { if (info.status === 'complete') { ovState.data = null; if (ovState.on) applyOverlay(); } });
+ovState.opacity = $('ov-op').value / 100;
 $('ov-op').oninput = (e) => {
   ovState.opacity = e.target.value / 100;
   $('ov-val').textContent = `${e.target.value}%`;
   if (ovState.on) applyOverlay();
 };
+ovState.mode = $('ov-mode').value;
 $('ov-mode').onchange = (e) => { ovState.mode = e.target.value; if (ovState.on) applyOverlay(); };
-$('ov-x').oninput = (e) => { ovState.offsetX = +e.target.value || 0; if (ovState.on) applyOverlay(); };
-$('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; if (ovState.on) applyOverlay(); };
+$('ov-x').oninput = (e) => { ovState.offsetX = +e.target.value || 0; $('ov-x-val').textContent = e.target.value; if (ovState.on) applyOverlay(); };
+$('ov-y').oninput = (e) => { ovState.offsetY = +e.target.value || 0; $('ov-y-val').textContent = e.target.value; if (ovState.on) applyOverlay(); };
 $('ov-loose').onchange = (e) => { ovState.loose = e.target.checked; if (ovState.on) applyOverlay(); };
 $('ov-scale').onchange = (e) => { ovState.autoScale = e.target.checked; if (ovState.on) applyOverlay(); };
 $('ov-solo').onchange = (e) => { ovState.solo = e.target.checked; if (ovState.on) applyOverlay(); };

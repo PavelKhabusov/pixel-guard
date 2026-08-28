@@ -174,7 +174,10 @@ function boxStyle(b, opts) {
   const css = [];
   if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
   if (opts.mode !== 'outline') {
-    if (b.fill && !b.svg && !b.svgRef) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
+    // a photo placeholder: the design has an image fill we cannot reproduce,
+    // hatch it so the slot reads as "picture goes here" and not as a blank
+    if (b.image && !b.svg && !b.svgRef) css.push('background:repeating-linear-gradient(45deg,#d9d9d9 0 8px,#ececec 8px 16px)');
+    else if (b.fill && !b.svg && !b.svgRef) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
     if (b.radius != null) css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
     if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
   }
@@ -258,9 +261,10 @@ function showOverlay(data, opts) {
   buildOverlay();
   lastOverlay = { data, opts };
   const off = { x: opts.offsetX ?? 0, y: opts.offsetY ?? 0 };
+  const layerOpacity = opts.split != null ? 1 : (opts.opacity ?? 0.5);
   Object.assign(ov.style, {
     top: '0px', left: '0px', width: '100%', height: '0px',
-    opacity: String(opts.opacity ?? 0.5), display: 'block',
+    opacity: String(layerOpacity), display: 'block',
   });
   ov.classList.toggle('pg-diff', !!opts.diff);
   ov.classList.toggle('pg-outline', opts.mode === 'outline');
@@ -303,12 +307,21 @@ function showOverlay(data, opts) {
   const frag = document.createDocumentFragment();
   let fixedFrag = null;
 
-  // one DOM element = one layer: if several keys point to it
-  // (@Header and @H|header), take the largest block, otherwise layers double up
+  // one DOM element = one layer: if several keys point to it (the hero and
+  // the whole product component both bound to section.pr-phero), keep the
+  // block whose size is closest to the element — the larger one would drag
+  // its whole subtree onto a section that only holds a part of it
   const bySel = new Map();
+  const elSize = new Map();
   for (const b of data.boxes.filter((x) => x.anchor)) {
+    if (!elSize.has(b.anchor)) {
+      const el = document.querySelector(b.anchor);
+      elSize.set(b.anchor, el ? el.getBoundingClientRect() : null);
+    }
+    const r = elSize.get(b.anchor);
+    const dist = (x) => (r ? Math.abs(x.w - r.width) + Math.abs(x.h - r.height) : -(x.w * x.h));
     const prev = bySel.get(b.anchor);
-    if (!prev || b.w * b.h > prev.w * prev.h) bySel.set(b.anchor, b);
+    if (!prev || dist(b) < dist(prev)) bySel.set(b.anchor, b);
   }
   let anchored = [...bySel.values()];
 
@@ -336,11 +349,23 @@ function showOverlay(data, opts) {
   let placed = 0, missing = 0, scaleSum = 0;
 
   const resolved = anchored.map((a) => ({ a, el: document.querySelector(a.anchor) }));
-  const drawn = resolved.filter((x) => x.el).map((x) => x.a);
-  // A child box must be drawn once, inside its innermost anchored ancestor.
-  // Nested anchors (header → top bar → menu item) otherwise each draw the same
-  // subtree relative to their own element, and the page shows echoed text.
-  const ownedByInner = (b, a) => drawn.some((o) => o !== a && within(o, a) && o.w * o.h < a.w * a.h && within(b, o));
+  const drawnSet = new Set(resolved.filter((x) => x.el).map((x) => x.a));
+  // A child box is drawn once, by its nearest anchored ancestor in the design
+  // tree — not by geometry: a row that hangs below its parent's bounds (the
+  // phone row under the sticky calculator) still belongs to that parent.
+  const byId = new Map(data.boxes.map((b) => [b.id, b]));
+  const ownerOf = (b) => {
+    for (let p = byId.get(b.parent); p; p = byId.get(p.parent)) if (drawnSet.has(p)) return p;
+    return null;
+  };
+  const children = new Map();
+  for (const b of data.boxes) {
+    if (b.anchor && drawnSet.has(b)) continue;
+    const o = ownerOf(b);
+    if (!o) continue;
+    if (!children.has(o)) children.set(o, []);
+    children.get(o).push(b);
+  }
 
   for (const { a, el } of resolved) {
     if (!el) { missing++; continue; }
@@ -373,8 +398,7 @@ function showOverlay(data, opts) {
     }
     target.appendChild(makeBox(a, opts, baseL, baseT, k, data.svgLib));
     if (opts.mode === 'shots' && a.shot) continue;
-    for (const b of data.boxes) {
-      if (b === a || b.anchor || !within(b, a) || ownedByInner(b, a)) continue;
+    for (const b of children.get(a) ?? []) {
       target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + (b.y - a.y) * k, k, data.svgLib));
     }
   }
@@ -385,7 +409,7 @@ function showOverlay(data, opts) {
   if (opts.showUnanchored === true) {
     const bodyTop = document.body.getBoundingClientRect().top + scrollY;
     for (const b of data.boxes) {
-      if (b.anchor) continue;
+      if (b.anchor || ownerOf(b)) continue;
       if (used.some((u) => within(b, u))) continue;
       const d = makeBox(b, opts, b.x + off.x, bodyTop + b.y + off.y, 1, data.svgLib);
       d.classList.add('pg-loose');
@@ -397,7 +421,7 @@ function showOverlay(data, opts) {
   if (fixedFrag) {
     fixedLayer = document.createElement('div');
     fixedLayer.className = 'pg-overlay pg-fixed' + (opts.diff ? ' pg-diff' : '') + (opts.mode === 'outline' ? ' pg-outline' : '');
-    fixedLayer.style.opacity = String(opts.opacity ?? 0.5);
+    fixedLayer.style.opacity = String(layerOpacity);
     fixedLayer.style.display = 'block';
     if (opts.split != null) fixedLayer.style.clipPath = `inset(0 ${100 - opts.split}% 0 0)`;
     fixedLayer.appendChild(fixedFrag);

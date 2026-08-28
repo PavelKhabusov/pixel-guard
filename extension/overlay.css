@@ -111,7 +111,7 @@ html.pg-split-on .pg-split-dim {
   inset: 0;
   z-index: 99997;
   pointer-events: none;
-  background: #fff;
-  opacity: .82;
+  background: #e9ecef;
+  opacity: .55;
   clip-path: inset(0 calc(100% - var(--pg-split, 50%)) 0 0);
 }

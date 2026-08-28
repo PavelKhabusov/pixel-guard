@@ -121,16 +121,57 @@ const handler = (req, res) => {
       // pre-rendered block PNGs (npm run shots) — for per-container pixel comparison
       const shots = readJsonSafe(path.join(SNAP, 'shots', '_shots.json')) ?? {};
       const anchors = [];
+      const skips = [];
       for (const [key, entry] of Object.entries({ ...sharedMap, ...pageMap })) {
-        if (key.startsWith('_') || !entry?.selector) continue;
-        anchors.push({ key, selector: entry.selector });
+        if (key.startsWith('_')) continue;
+        if (entry?.skip) skips.push(key);
+        else if (entry?.selector) anchors.push({ key, selector: entry.selector });
       }
+      // "skip" in the map means the block is not in the markup at all:
+      // drawing it would put a design-only section over some other block
+      // "@name~WxH" matches by component/name within the size limit
+      const keyMatches = (k, n) => {
+        if (k === n.id) return true;
+        if (!k.startsWith('@')) return false;
+        const [names, size] = k.slice(1).split('~');
+        const [maxW, maxH] = (size ?? '').split('x').map((v) => (v ? Number(v) : Infinity));
+        if ((n.w ?? 0) > maxW || (n.h ?? 0) > maxH) return false;
+        return names.split('|').some((nm) => nm.trim().toLowerCase() === (n.component ?? n.name ?? '').toLowerCase());
+      };
+      // a node that has a selector is never skipped: "@Header" (the 393px
+      // mobile component) must not swallow the desktop header bound via @H|header
+      const skipped = (n) => !anchors.some((a) => keyMatches(a.key, n)) && skips.some((k) => keyMatches(k, n));
       const boxes = [];
-      const walk = (n, depth) => {
-        if (depth > depthLimit) return;
-        const small = (n.w ?? 0) < 4 || (n.h ?? 0) < 4;
-        if (depth > 0 && !small) {
+      // A frame with clipsContent cuts whatever hangs outside it (a 1112px
+      // photo inside a 480px slot). Older snapshots have no clip flag — then
+      // only image fills are clamped: a photo overflowing its slot is always
+      // clipped, an overflowing row of buttons usually is not.
+      const clipStack = [];
+      const walk = (n, depth, parentId) => {
+        if (depth > depthLimit || (depth > 0 && skipped(n))) return;
+        let { x, y, w, h } = n;
+        // a LINE is 0px tall in Figma — give it its stroke weight, otherwise it
+        // is dropped as "too small" and dividers vanish from the overlay
+        const stroked = Array.isArray(n.strokes) && n.strokes.length > 0;
+        if (n.type === 'LINE' || (stroked && (h < 1 || w < 1))) {
+          const sw = n.strokeWeight === 'mixed' ? 1 : (n.strokeWeight || 1);
+          if (h < 1) h = sw;
+          if (w < 1) w = sw;
+        }
+        const small = ((n.w ?? 0) < 4 || (n.h ?? 0) < 4) && !n.svgRef && !stroked;
+        const hasImage = Array.isArray(n.fills) && n.fills.some((f) => f && f.type === 'image');
+        const clipBy = clipStack.length ? clipStack[clipStack.length - 1] : (hasImage && parentId ? parentBox.get(parentId) : null);
+        let radius = n.cornerRadius ?? null;
+        if (depth > 0 && clipBy) {
+          const x2 = Math.min(x + w, clipBy.x + clipBy.w), y2 = Math.min(y + h, clipBy.y + clipBy.h);
+          const clamped = x < clipBy.x || y < clipBy.y || x + w > clipBy.x + clipBy.w || y + h > clipBy.y + clipBy.h;
+          x = Math.max(x, clipBy.x); y = Math.max(y, clipBy.y);
+          w = Math.max(0, x2 - x); h = Math.max(0, y2 - y);
+          if (clamped && radius == null) radius = clipBy.radius ?? null;
+        }
+        if (depth > 0 && !small && w >= 1 && h >= 1) {
           const fill = Array.isArray(n.fills) ? n.fills.find((f) => f.type === 'solid') : null;
+          const image = Array.isArray(n.fills) && n.fills.some((f) => f.type === 'image');
           // attach an @-key only to the component itself (INSTANCE/COMPONENT),
           // otherwise a same-named text inside the section gets the same selector
           const anchor = anchors.find((a) => a.key === n.id)
@@ -139,15 +180,16 @@ const handler = (req, res) => {
               && a.key.slice(1).split('~')[0].split('|')
                    .some((nm) => nm.toLowerCase() === (n.component ?? n.name ?? '').toLowerCase()));
           boxes.push({
-            id: n.id, name: n.name, type: n.type,
+            id: n.id, name: n.name, type: n.type, parent: parentId,
             anchor: anchor?.selector ?? null,
             anchorKey: anchor?.key ?? null,
-            x: Math.round((n.x - (root.x ?? 0)) * 10) / 10,
-            y: Math.round((n.y - (root.y ?? 0)) * 10) / 10,
-            w: n.w, h: n.h,
+            x: Math.round((x - (root.x ?? 0)) * 10) / 10,
+            y: Math.round((y - (root.y ?? 0)) * 10) / 10,
+            w: Math.round(w * 10) / 10, h: Math.round(h * 10) / 10,
             fill: fill ? fill.color : null,
             fillOpacity: fill ? fill.opacity ?? 1 : null,
-            radius: n.cornerRadius ?? null,
+            image,
+            radius,
             stroke: n.strokes?.[0]?.color ?? null,
             strokeWeight: n.strokeWeight === 'mixed' ? 1 : n.strokeWeight ?? null,
             opacity: n.opacity ?? 1,
@@ -171,9 +213,14 @@ const handler = (req, res) => {
         // a bare vector without its own SVG would be an empty box in a foreign colour;
         // a vector that carries an SVG (icon inside a 20×20 wrapper) must be drawn
         const bare = (c) => (c.type === 'VECTOR' || c.type === 'BOOLEAN_OPERATION') && !c.svgRef && !c.svg;
-        for (const c of n.children ?? []) if (!bare(c)) walk(c, depth + 1);
+        parentBox.set(n.id, { x, y, w, h, radius });
+        const clips = depth > 0 && n.clip;
+        if (clips) clipStack.push({ x, y, w, h, radius });
+        for (const c of n.children ?? []) if (!bare(c)) walk(c, depth + 1, depth > 0 ? n.id : null);
+        if (clips) clipStack.pop();
       };
-      walk(root, 0);
+      const parentBox = new Map();
+      walk(root, 0, null);
       return res.end(JSON.stringify({
         frame: j.frameName, page: matchedPage?.key, matchedBy: matchedPage?.how,
         w: root.w, h: root.h, boxes,

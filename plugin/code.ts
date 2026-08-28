@@ -81,6 +81,7 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
       if ('strokeAlign' in node) o.strokeAlign = node.strokeAlign;
     }
   }
+  if ('clipsContent' in node && (node as FrameNode).clipsContent) o.clip = true;
   if ('cornerRadius' in node) {
     const r = m(node.cornerRadius as number | PluginAPI['mixed']);
     if (r === 'mixed') {
@@ -168,7 +169,7 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
   return o;
 }
 
-const SVG_LIMIT = 400;
+const SVG_LIMIT = 800;
 
 /** Icons repeat dozens of times (arrows, social icons): export each shape
  *  ONCE into a shared dictionary; nodes reference it via svgRef. */
@@ -180,43 +181,64 @@ const svgCache: Record<string, string> = {};
 const compCache: Record<string, any> = {};
 let dedupe = false;
 
-function svgKey(node: SceneNode): string {
+// Before export a node is identified by what makes it unique: the component
+// for instances, the node itself otherwise. Storage is by content hash, so
+// identical icons are still shared while same-named "Vector 20x20" are not
+// confused with one another.
+function svgPreKey(node: SceneNode): string {
   const mc = node.type === 'INSTANCE' ? mainKey(node) : null;
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
   const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : '?';
-  return mc ? `c:${mc}:${size}` : `n:${node.name}:${size}:${node.type}`;
+  return mc ? `c:${mc}:${size}` : `id:${node.id}`;
 }
+
+function svgHash(s: string): string {
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193);
+    h2 = Math.imul(h2 + c, 0x9e3779b1) ^ (h2 >>> 13);
+  }
+  return `s:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}:${s.length}`;
+}
+
+const svgRefByPreKey: Record<string, string> = {};
 
 async function attachSvg(label: string) {
   const jobs = svgJobs.splice(0, svgJobs.length);
   if (!jobs.length) return;
 
-  const fresh = jobs.filter((j) => !svgCache[svgKey(j.node)]);
   const uniq: typeof jobs = [];
   const seen: Record<string, boolean> = {};
-  for (const j of fresh) {
-    const k = svgKey(j.node);
-    if (seen[k]) continue;
+  for (const j of jobs) {
+    const k = svgPreKey(j.node);
+    if (svgRefByPreKey[k] || seen[k]) continue;
     seen[k] = true;
     uniq.push(j);
   }
 
   const todo = uniq.slice(0, SVG_LIMIT);
   if (todo.length) {
-    figma.ui.postMessage({ type: 'status', text: `SVG: ${todo.length} new of ${jobs.length} · ${label}…` });
+    let done = 0;
     for (const j of todo) {
+      done++;
+      if (done === 1 || done === todo.length || done % 4 === 0)
+        figma.ui.postMessage({ type: 'progress', stage: `SVG · ${label}`, done, total: todo.length });
       try {
         const bytes = await (j.node as any).exportAsync({ format: 'SVG' });
         let out = '';
         for (const b of bytes) out += String.fromCharCode(b);
-        if (out.length <= 20000) svgCache[svgKey(j.node)] = out;
+        if (out.length > 20000) continue;
+        const ref = svgHash(out);
+        svgCache[ref] = out;
+        svgRefByPreKey[svgPreKey(j.node)] = ref;
       } catch (_) { /* node cannot be exported, skip it */ }
     }
   }
 
   for (const j of jobs) {
-    const k = svgKey(j.node);
-    if (svgCache[k]) j.box.svgRef = k;
+    const ref = svgRefByPreKey[svgPreKey(j.node)];
+    if (ref) j.box.svgRef = ref;
   }
 }
 
@@ -304,8 +326,11 @@ function collectModules(pages: any[]): any[] {
 async function exportProject(png: boolean) {
   dedupe = true;
   const pages: any[] = [];
+  const pageTotal = figma.root.children.length;
+  let pageIdx = 0;
   for (const page of figma.root.children) {
-    figma.ui.postMessage({ type: 'status', text: `Page: ${page.name}…` });
+    pageIdx++;
+    figma.ui.postMessage({ type: 'progress', stage: `Page ${pageIdx}/${pageTotal} · ${page.name}`, done: pageIdx - 1, total: pageTotal });
     await page.loadAsync();
     const roots = page.children.filter(
       (n): n is FrameNode | ComponentNode | SectionNode =>
@@ -316,7 +341,7 @@ async function exportProject(png: boolean) {
     for (const frame of roots) {
       const box = frame.absoluteBoundingBox;
       if (!box) continue;
-      figma.ui.postMessage({ type: 'status', text: `${page.name} → ${frame.name}…` });
+      figma.ui.postMessage({ type: 'progress', stage: `Page ${pageIdx}/${pageTotal} · ${frame.name}`, done: pageIdx - 1, total: pageTotal });
       svgJobs.length = 0;
       const item: any = {
         frameId: frame.id,
@@ -432,9 +457,11 @@ figma.ui.onmessage = async (msg: any) => {
     return;
   }
   const frames: any[] = [];
+  let frameIdx = 0;
   for (const frame of selection) {
     const box = frame.absoluteBoundingBox!;
-    figma.ui.postMessage({ type: 'status', text: `Traversing: ${frame.name}…` });
+    frameIdx++;
+    figma.ui.postMessage({ type: 'progress', stage: `Frame ${frameIdx}/${selection.length} · ${frame.name}`, done: frameIdx - 1, total: selection.length });
     svgJobs.length = 0;
     const tree = serialize(frame, { x: box.x, y: box.y });
     await attachSvg(frame.name);
@@ -451,7 +478,7 @@ figma.ui.onmessage = async (msg: any) => {
       tree,
     };
     if (msg.png) {
-      figma.ui.postMessage({ type: 'status', text: `PNG: ${frame.name}…` });
+      figma.ui.postMessage({ type: 'progress', stage: `PNG · ${frame.name}`, done: frameIdx - 1, total: selection.length });
       const bytes = await frame.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
       item.png = figma.base64Encode(bytes);
     }

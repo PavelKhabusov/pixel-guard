@@ -52,6 +52,20 @@
   .more summary { font-size: 10px; color: #71767d; cursor: pointer; }
   .chk { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11px; }
 
+  .ov-head { display: flex; align-items: center; gap: 8px; }
+  .ov-head .chk.big { flex: 1; }
+  .ov-mode { background: #222b36; color: #dde5ee; border: 1px solid #34424f; border-radius: 6px;
+             padding: 4px 6px; font-size: 11px; }
+  .ov-note { text-align: left; margin-top: 4px; min-height: 0; }
+  .ov-note:empty { display: none; }
+  .ctl { display: grid; grid-template-columns: 64px 1fr 40px; align-items: center; gap: 8px;
+         margin-top: 9px; font-size: 11px; color: #b9c6d4; }
+  .ctl-l { color: #b9c6d4; white-space: nowrap; }
+  .ctl input[type=range] { width: 100%; margin: 0; accent-color: #7ba7d4; }
+  .ctl input[type=range]:disabled { opacity: .35; }
+  .ctl-v { text-align: right; font: 11px ui-monospace, Menlo, monospace; color: #8fb5da; }
+  .ctl-hint { margin-top: 5px; font-size: 10px; color: #6f7f8f; line-height: 1.4; }
+  .chk-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
   .body { flex: 1; overflow: auto; padding: 12px 14px; }
   .empty { color: #71767d; font-size: 11px; line-height: 1.5; }
   .node { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
@@ -102,35 +116,40 @@
 </div>
 
 <div class="step">
-  <label class="chk big"><input type="checkbox" id="ov-on"> <b>Overlay design</b></label>
-  <span class="step-sub" id="ov-note"></span>
+  <div class="ov-head">
+    <label class="chk big"><input type="checkbox" id="ov-on"> <b>Overlay design</b></label>
+    <select id="ov-mode" class="ov-mode">
+      <option value="render" selected>colors + text</option>
+      <option value="shots">PNG</option>
+      <option value="outline">outlines</option>
+    </select>
+  </div>
+  <div class="step-sub ov-note" id="ov-note"></div>
   <div id="ov-opts" hidden>
-    <div class="row"><span>opacity</span><input type="range" id="ov-op" min="0" max="100" value="100"><span id="ov-val">100%</span></div>
-    <div class="row">
-      <select id="ov-mode">
-        <option value="shots">PNG from design (exact)</option>
-        <option value="render">colors and text</option>
-        <option value="outline">outlines only</option>
-      </select>
+    <div class="ctl">
+      <span class="ctl-l">opacity</span>
+      <input type="range" id="ov-op" min="0" max="100" value="100">
+      <span class="ctl-v" id="ov-val">100%</span>
     </div>
-    <label class="chk" style="margin-top:8px"><input type="checkbox" id="ov-split-on"> curtain: design / site</label>
-    <div class="row"><input type="range" id="ov-split" min="0" max="100" value="50" disabled><span id="ov-split-val">50%</span></div>
-  <details class="more">
-    <summary>more settings</summary>
-    <div class="row">
-      <label class="chk"><input type="checkbox" id="ov-diff"> difference</label>
-      <label class="chk"><input type="checkbox" id="ov-solo"> dim site</label>
-      <label class="chk"><input type="checkbox" id="ov-scale" checked> auto-scale</label>
+    <div class="ctl">
+      <label class="ctl-l chk"><input type="checkbox" id="ov-split-on"> curtain</label>
+      <input type="range" id="ov-split" min="0" max="100" value="50" disabled>
+      <span class="ctl-v" id="ov-split-val">50%</span>
     </div>
-    <div class="row">
-      <span>X</span><input type="range" id="ov-x" min="-200" max="200" value="0" step="5">
-      <span>Y</span><input type="range" id="ov-y" min="-200" max="200" value="0" step="5">
-    </div>
-    <label class="chk" style="margin-top:6px"><input type="checkbox" id="ov-loose"> unbound nodes</label>
-  </details>
+    <div class="ctl-hint">curtain: design on the left of the line, site on the right — drag the line on the page</div>
+    <details class="more">
+      <summary>more settings</summary>
+      <div class="chk-row">
+        <label class="chk"><input type="checkbox" id="ov-scale" checked> auto-scale</label>
+        <label class="chk"><input type="checkbox" id="ov-diff"> difference</label>
+        <label class="chk"><input type="checkbox" id="ov-solo"> dim site</label>
+        <label class="chk"><input type="checkbox" id="ov-loose"> unbound nodes</label>
+      </div>
+      <div class="ctl"><span class="ctl-l">shift X</span><input type="range" id="ov-x" min="-200" max="200" value="0" step="5"><span class="ctl-v" id="ov-x-val">0</span></div>
+      <div class="ctl"><span class="ctl-l">shift Y</span><input type="range" id="ov-y" min="-200" max="200" value="0" step="5"><span class="ctl-v" id="ov-y-val">0</span></div>
+    </details>
   </div>
 </div>
-
 <div class="step">
   <button class="btn" id="run-audit">Check page</button>
   <div class="step-sub" id="audit-note" style="text-align:left;margin-top:6px"></div>
