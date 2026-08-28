@@ -151,8 +151,16 @@ const handler = (req, res) => {
       // only image fills are clamped: a photo overflowing its slot is always
       // clipped, an overflowing row of buttons usually is not.
       const clipStack = [];
+      // a skipped node is not drawn, but a bound descendant still is: "skip" on
+      // a design-only wrapper row must not swallow the photo and picker inside it
+      const hasAnchorInside = (n) => (n.children ?? []).some((c) => anchors.some((a) => keyMatches(a.key, c)) || hasAnchorInside(c));
       const walk = (n, depth, parentId) => {
-        if (depth > depthLimit || (depth > 0 && skipped(n))) return;
+        if (depth > depthLimit) return;
+        if (depth > 0 && skipped(n)) {
+          if (!hasAnchorInside(n)) return;
+          for (const c of n.children ?? []) walk(c, depth + 1, parentId);
+          return;
+        }
         // masks are invisible; older snapshots have no flag — the clipPath group
         // from an SVG import is recognised by its name (clip0_810_1524)
         if (n.mask || /^clip\d*_/i.test(n.name ?? '')) return;
