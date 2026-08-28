@@ -77,6 +77,12 @@
       "command": "npm run verify -- --fix",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "📖 Sync docs → GitHub Wiki",
+      "command": "./wiki-sync.sh",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }
