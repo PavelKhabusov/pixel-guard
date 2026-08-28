@@ -181,6 +181,7 @@ async function connect() {
  * It is the same mechanism DevTools responsive mode uses.
  */
 const attached = new Set();
+chrome.debugger.onDetach.addListener((src) => attached.delete(src.tabId));
 // The service worker dies after ~30s idle and forgets in-memory state, while
 // debugger sessions survive. So the wanted width lives in session storage and
 // "who is attached" is asked from Chrome itself.
@@ -203,17 +204,16 @@ async function emulateWidth(tabId, width) {
 async function applyEmulation(tabId, width) {
   const target = { tabId };
   try {
-    if (!attached.has(tabId)) {
-      await chrome.debugger.attach(target, '1.3');
-      attached.add(tabId);
-      chrome.debugger.onDetach.addListener((src) => attached.delete(src.tabId));
-    }
     if (!width) {
-      await chrome.debugger.sendCommand(target, 'Emulation.clearDeviceMetricsOverride');
+      await chrome.debugger.sendCommand(target, 'Emulation.clearDeviceMetricsOverride').catch(() => {});
       await chrome.debugger.detach(target).catch(() => {});
       attached.delete(tabId);
       return { ok: true, width: null };
     }
+    if (!attached.has(tabId) && !(await attachedTabs()).includes(tabId)) {
+      await chrome.debugger.attach(target, '1.3');
+    }
+    attached.add(tabId);
     await chrome.debugger.sendCommand(target, 'Emulation.setDeviceMetricsOverride', {
       width, height: 0, deviceScaleFactor: 0, mobile: width <= 600,
     });
