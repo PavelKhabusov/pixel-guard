@@ -366,10 +366,26 @@ async function setInspect(on) {
 }
 $('inspect-go').onclick = () => setInspect(!inspectOn);
 
+// clipboard API refuses when the panel document is not focused (the click
+// came from the page a moment ago) — fall back to a hidden textarea
+async function copyText(val) {
+  try { await navigator.clipboard.writeText(val); return true; } catch {}
+  const ta = document.createElement('textarea');
+  ta.value = val; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  ta.remove();
+  return ok;
+}
 const copyBtn = (val) => {
   const b = document.createElement('button');
   b.textContent = 'copy';
-  b.onclick = async () => { await navigator.clipboard.writeText(val); b.textContent = 'copied'; b.classList.add('done'); setTimeout(() => { b.textContent = 'copy'; b.classList.remove('done'); }, 1200); };
+  b.onclick = async () => {
+    const ok = await copyText(val);
+    b.textContent = ok ? 'copied' : 'failed'; b.classList.toggle('done', ok);
+    setTimeout(() => { b.textContent = 'copy'; b.classList.remove('done'); }, 1200);
+  };
   return b;
 };
 const kv = (k, v, copy = v) => {
@@ -388,19 +404,14 @@ async function showInspect(msg) {
   const primary = msg.hits[0];
   const figId = primary?.key ?? msg.box?.id ?? null;
   const node = primary ? nodes[primary.key] : null;
-  const title = document.createElement('div'); title.className = 'node';
-  title.textContent = node?.name ?? primary?.name ?? msg.box?.title?.split(' · ')[0] ?? `<${msg.tag}>`;
-  card.appendChild(title);
-  if (figId) card.appendChild(kv('figma', figId + (primary && !primary.exact ? '  (ancestor)' : ''), figId));
-  if (msg.box && msg.box.id !== figId) card.appendChild(kv('design', `${msg.box.id} · ${msg.box.title}`, msg.box.id));
+  if (figId) card.appendChild(kv('figma', figId));
   card.appendChild(kv('selector', msg.selector));
-  card.appendChild(kv('element', `<${msg.tag}> ${msg.size}${msg.text ? ` · "${msg.text}"` : ''}`, null));
   if (figId) card.appendChild(kv('quote', `${figId} ↔ ${msg.selector}`));
-  if (!primary) {
-    const sub = document.createElement('div'); sub.className = 'sub';
-    sub.textContent = msg.box ? 'no binding in the map for this element — the id is from the overlay box under the cursor' : 'no binding in the map and no overlay box here';
-    card.appendChild(sub);
-  }
+  const sub = document.createElement('div'); sub.className = 'sub';
+  sub.textContent = !figId ? 'no binding in the map and no overlay box here'
+    : primary && !primary.exact ? 'id of the nearest bound ancestor'
+    : !primary ? 'id from the overlay box under the cursor (not in the map)' : '';
+  if (sub.textContent) card.appendChild(sub);
   body.appendChild(card);
 
   if (node && primary) {
