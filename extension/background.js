@@ -88,12 +88,16 @@ function applyPanelFor(tab) {
 const refreshPanels = () => chrome.tabs.query({}, (tabs) => tabs.forEach(applyPanelFor));
 chrome.sidePanel?.setOptions({ enabled: false }).catch(() => {});
 chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') applyPanelFor(tab); });
-chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId).then((tab) => {
+chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId).then(async (tab) => {
   applyPanelFor(tab);
-  if (isTarget(tab.url)) { const w = wanted.get(tabId); if (w && !attached.has(tabId)) applyEmulation(tabId, w); }
-  else for (const id of [...attached]) applyEmulation(id, null);
+  if (isTarget(tab.url)) {
+    const w = await wantedWidth(tabId);
+    if (w && !(await attachedTabs()).includes(tabId)) applyEmulation(tabId, w);
+  } else {
+    for (const id of await attachedTabs()) applyEmulation(id, null);
+  }
 }).catch(() => {}));
-chrome.tabs.onRemoved.addListener((tabId) => { wanted.delete(tabId); attached.delete(tabId); });
+chrome.tabs.onRemoved.addListener((tabId) => { attached.delete(tabId); setWanted(tabId, null); });
 refreshPanels();
 
 const toPanel = (message) => chrome.runtime.sendMessage(message).catch(() => {});
@@ -177,12 +181,22 @@ async function connect() {
  * It is the same mechanism DevTools responsive mode uses.
  */
 const attached = new Set();
-// width per tab: the debugger is detached while a foreign tab is active (its
-// "started debugging" bar is browser-wide) and re-attached on return
-const wanted = new Map();
+// The service worker dies after ~30s idle and forgets in-memory state, while
+// debugger sessions survive. So the wanted width lives in session storage and
+// "who is attached" is asked from Chrome itself.
+const setWanted = async (tabId, width) => {
+  const { wanted = {} } = await chrome.storage.session.get('wanted');
+  if (width) wanted[tabId] = width; else delete wanted[tabId];
+  await chrome.storage.session.set({ wanted });
+};
+const wantedWidth = async (tabId) => ((await chrome.storage.session.get('wanted')).wanted ?? {})[tabId] ?? null;
+const attachedTabs = async () => {
+  const targets = await chrome.debugger.getTargets().catch(() => []);
+  return targets.filter((t) => t.attached && t.tabId != null).map((t) => t.tabId);
+};
 
 async function emulateWidth(tabId, width) {
-  if (width) wanted.set(tabId, width); else wanted.delete(tabId);
+  await setWanted(tabId, width);
   return applyEmulation(tabId, width);
 }
 
@@ -221,8 +235,8 @@ chrome.runtime.onConnect.addListener((port) => {
         chrome.tabs.sendMessage(t.id, { type: 'pg-unhighlight' }).catch(() => {});
       }
     });
-    for (const tabId of [...attached]) emulateWidth(tabId, null).catch(() => {});
-    wanted.clear();
+    attachedTabs().then((ids) => { for (const tabId of ids) emulateWidth(tabId, null).catch(() => {}); });
+    chrome.storage.session.set({ wanted: {} });
   });
 });
 
