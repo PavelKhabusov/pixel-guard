@@ -85,12 +85,48 @@ function diff(node, el) {
 
   if (node.layout) {
     const [pt, pr, pb, pl] = node.layout.padding || [];
-    cmp('padding-top', pt, px(s.paddingTop));
-    cmp('padding-right', pr, px(s.paddingRight));
-    cmp('padding-bottom', pb, px(s.paddingBottom));
-    cmp('padding-left', pl, px(s.paddingLeft));
+    const inset = effectivePadding(el);
+    // Figma keeps padding on the section; the site may put it on a nested
+    // centered container — accept the literal padding OR the effective inset
+    const pad = (side, fig, lit) => {
+      if (fig == null || lit == null) return;
+      cmp(`padding-${side}`, fig, Math.abs(lit - fig) <= 1 ? lit : inset[side]);
+    };
+    pad('top', pt, px(s.paddingTop));
+    pad('right', pr, px(s.paddingRight));
+    pad('bottom', pb, px(s.paddingBottom));
+    pad('left', pl, px(s.paddingLeft));
   }
   return out;
+}
+
+// same as server/lib/inset.mjs — content scripts cannot import it
+function effectivePadding(el) {
+  const pf = (v) => parseFloat(v) || 0;
+  const cs = getComputedStyle(el);
+  const r = el.getBoundingClientRect();
+  let pad = { top: pf(cs.paddingTop), right: pf(cs.paddingRight), bottom: pf(cs.paddingBottom), left: pf(cs.paddingLeft) };
+  let cur = el;
+  for (let hops = 0; hops < 4; hops++) {
+    const kids = [...cur.children].filter((c) => {
+      const d = getComputedStyle(c);
+      return d.display !== 'none' && d.position !== 'absolute' && d.position !== 'fixed';
+    });
+    if (kids.length !== 1) break;
+    const k = kids[0];
+    const kr = k.getBoundingClientRect();
+    if (kr.width < 1 || kr.height < 1) break;
+    const kc = getComputedStyle(k);
+    pad = {
+      top: kr.top - r.top + pf(kc.paddingTop),
+      right: r.right - kr.right + pf(kc.paddingRight),
+      bottom: r.bottom - kr.bottom + pf(kc.paddingBottom),
+      left: kr.left - r.left + pf(kc.paddingLeft),
+    };
+    cur = k;
+  }
+  const round = (v) => Math.round(v * 10) / 10;
+  return { top: round(pad.top), right: round(pad.right), bottom: round(pad.bottom), left: round(pad.left) };
 }
 
 function lookup(node) {
@@ -170,6 +206,10 @@ function buildOverlay() {
   return ov;
 }
 
+// #rrggbb + Figma paint opacity → #rrggbbaa; the design's half-transparent
+// text and 25% dividers must not turn solid in the overlay
+const withAlpha = (hex, op) => (hex && op != null && op < 1 ? hex + Math.round(op * 255).toString(16).padStart(2, '0') : hex);
+
 function boxStyle(b, opts) {
   const css = [];
   if (b.opacity != null && b.opacity !== 1) css.push(`opacity:${b.opacity}`);
@@ -177,14 +217,14 @@ function boxStyle(b, opts) {
     // a photo placeholder: the design has an image fill we cannot reproduce,
     // hatch it so the slot reads as "picture goes here" and not as a blank
     if (b.image && !b.svg && !b.svgRef) css.push('background:repeating-linear-gradient(45deg,#d9d9d9 0 8px,#ececec 8px 16px)');
-    else if (b.fill && !b.svg && !b.svgRef) css.push(`background:${b.fill}${b.fillOpacity != null && b.fillOpacity < 1 ? Math.round(b.fillOpacity * 255).toString(16).padStart(2, '0') : ''}`);
+    else if (b.fill && !b.svg && !b.svgRef) css.push(`background:${withAlpha(b.fill, b.fillOpacity)}`);
     if (b.radius != null) css.push(`border-radius:${Array.isArray(b.radius) ? b.radius.map((r) => r + 'px').join(' ') : b.radius + 'px'}`);
-    if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${b.stroke}`);
+    if (b.stroke) css.push(`box-shadow:inset 0 0 0 ${b.strokeWeight || 1}px ${withAlpha(b.stroke, b.strokeOpacity)}`);
   }
   if (b.text != null && b.font && opts.mode !== 'outline') {
     const f = b.font;
     css.push(
-      `color:${b.fill || '#000'}`,
+      `color:${withAlpha(b.fill, b.fillOpacity) || '#000'}`,
       `font-family:'${f.family}',sans-serif`,
       `font-size:${f.size}px`,
       `font-weight:${f.weight}`,

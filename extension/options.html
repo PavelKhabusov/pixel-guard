@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pixel-guard — sites</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 14px; width: 340px; background: #17191c; color: #dcdfe3;
+         font: 13px/1.45 Inter, system-ui, sans-serif; }
+  h1 { font-size: 13px; margin: 0 0 8px; }
+  .hint { font-size: 11px; color: #71767d; margin-bottom: 10px; line-height: 1.4; }
+  .list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .host { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; background: #1f2226;
+          font: 12px ui-monospace, Menlo, monospace; }
+  .host .src { margin-left: auto; font: 10px Inter, sans-serif; color: #71767d; }
+  .host button { border: 0; background: none; color: #c98b8b; cursor: pointer; font-size: 12px; padding: 0 2px; }
+  .add { display: flex; gap: 6px; }
+  .add input { flex: 1; background: #1f2226; color: #dcdfe3; border: 1px solid #33383e; border-radius: 6px;
+               padding: 6px 8px; font: 12px ui-monospace, Menlo, monospace; }
+  .btn { padding: 6px 10px; border: 0; border-radius: 6px; background: #8b939c; color: #15171a;
+         font-weight: 600; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  .btn.ghost { background: #33383e; color: #dcdfe3; font-weight: 500; width: 100%; margin-top: 8px; }
+  .empty { color: #71767d; font-size: 11px; }
+</style>
+<h1>Sites where pixel-guard works</h1>
+<div class="hint">The panel and viewport emulation are only available on these hosts.
+  Hosts from <code>config/pages.json</code> come from the server; the rest are added here.</div>
+<div class="list" id="list"></div>
+<div class="add">
+  <input id="host" placeholder="dev.example.com">
+  <button class="btn" id="add">Add</button>
+</div>
+<button class="btn ghost" id="add-cur">Add the current site</button>
+<script src="options.js"></script>

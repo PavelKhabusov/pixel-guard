@@ -9,6 +9,7 @@ import { subscribe, publish, peers, peerDetails } from './lib/bus.mjs';
 import { ensureLocalConfigs } from './lib/bootstrap.mjs';
 import { matchPage } from './lib/pagematch.mjs';
 import { flattenPng } from './lib/flatten.mjs';
+import { renderHtml } from './report-html.mjs';
 
 const PORT = Number(process.env.PORT || 8971);
 const TLS_PORT = Number(process.env.TLS_PORT || PORT + 1);
@@ -149,6 +150,9 @@ const handler = (req, res) => {
       const clipStack = [];
       const walk = (n, depth, parentId) => {
         if (depth > depthLimit || (depth > 0 && skipped(n))) return;
+        // masks are invisible; older snapshots have no flag — the clipPath group
+        // from an SVG import is recognised by its name (clip0_810_1524)
+        if (n.mask || /^clip\d*_/i.test(n.name ?? '')) return;
         let { x, y, w, h } = n;
         // a LINE is 0px tall in Figma — give it its stroke weight, otherwise it
         // is dropped as "too small" and dividers vanish from the overlay
@@ -191,6 +195,7 @@ const handler = (req, res) => {
             image,
             radius,
             stroke: n.strokes?.[0]?.color ?? null,
+            strokeOpacity: n.strokes?.[0] ? n.strokes[0].opacity ?? 1 : null,
             strokeWeight: n.strokeWeight === 'mixed' ? 1 : n.strokeWeight ?? null,
             opacity: n.opacity ?? 1,
             text: n.type === 'TEXT' ? n.text ?? '' : null,
@@ -275,7 +280,7 @@ const handler = (req, res) => {
         const { children, ...rest } = out[k];
         out[k] = rest;
       }
-      return res.end(JSON.stringify({ page: pageKey, viewport, frame: j.frameName, frameW: root.w, nodes: out, found: Object.keys(out).length, wanted: keys.length }));
+      return res.end(JSON.stringify({ page: pageKey, viewport, frame: j.frameName, frameId, frameW: root.w, nodes: out, found: Object.keys(out).length, wanted: keys.length }));
     }
     return res.writeHead(404).end(JSON.stringify({ ok: false, error: `no snapshot with frame ${frameId}` }));
   }
@@ -391,6 +396,28 @@ const handler = (req, res) => {
     const shared = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({ ...shared, ...(readJsonSafe(p) ?? {}) }));
+  }
+
+  // "Check page" in the extension writes the same report as `npm run qa`
+  if (req.method === 'POST' && url.pathname === '/report') {
+    return readBody(req, res, ({ page, viewport = 'desktop', url: pageUrl, frame, frameId, rows = [] }) => {
+      if (!page) return res.writeHead(400).end(JSON.stringify({ ok: false, error: 'page is required' }));
+      const score = { pass: 0, failed: 0, missing: 0, skip: 0, absent: 0, 'map-error': 0 };
+      const nodes = rows.map((r) => {
+        const status = r.status === 'nofig' ? 'absent' : r.status;
+        score[status] = (score[status] ?? 0) + 1;
+        const diffs = (r.rows ?? []).filter((x) => !x.pass).map((x) => ({ prop: x.prop, figma: x.fig, actual: x.act, pass: false, ...(x.delta && { delta: x.delta }) }));
+        return { key: r.key, selector: r.selector, status, ...(r.reason && { reason: r.reason }), ...(r.rows && { checked: r.rows.length, diffs }) };
+      });
+      const report = { page, viewport, url: pageUrl, frame, frameId, generatedAt: new Date().toISOString(), source: 'extension', score, nodes };
+      fs.mkdirSync(path.join(ROOT, 'reports'), { recursive: true });
+      const base = path.join(ROOT, 'reports', `${page}-${viewport}`);
+      fs.writeFileSync(`${base}.json`, JSON.stringify(report, null, 1));
+      fs.writeFileSync(`${base}.html`, renderHtml(report));
+      console.log(`[report] ${page}-${viewport}: ${score.pass} ✓ · ${score.failed} ✗ (from extension)`);
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true, file: `reports/${page}-${viewport}.json` }));
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/map') {

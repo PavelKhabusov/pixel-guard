@@ -110,11 +110,19 @@ npm run import -- ~/Downloads/<frame>.pg.json
 
 ## How to use it
 
+The extension lives only on allowed sites: hosts from `config/pages.json` (refreshed on
+every connection to the server) plus the ones added on the extension's options page. The
+side panel is bound to the tab, not the window — it does not follow you to other tabs, and
+on a foreign site the icon opens the options page instead (with "Add the current site").
+No debugger/emulation is attached outside the allowed hosts.
+
 The extension panel is three steps, top to bottom:
 
-1. **Breakpoint** — auto picks it from the window width; desktop/tablet/phone narrow the
-   viewport via CDP (like the responsive mode in DevTools), the browser window itself
-   does not change.
+1. **Breakpoint** — desktop by default: the page viewport is narrowed/widened via CDP to the
+   design width (like the responsive mode in DevTools), the browser window itself does not
+   change, so blocks land on the pixel. Tablet/phone do the same; **auto** is the fourth
+   mode — no emulation, the design is picked from the window width (blocks get scaled).
+   The choice is remembered.
 2. **Overlay design** — "PNG from design" places block renders on top of the page
    pixel-for-pixel; the curtain splits the screen: design on the left, site on the right.
 3. **Compare styles** — a list of mismatches by property; clicking a row highlights
@@ -133,6 +141,13 @@ and shows a detailed diff.
 
 Figma does not need to be open for this — the snapshots are already in `snapshots/`.
 The live bridge below is only needed when you want to click nodes right in the design.
+
+"Check page" also writes `reports/<page>-<viewport>.{json,html}` — the same report
+`npm run qa` produces, so the CLI is only needed for headless/batch runs (`qa:all`).
+
+Padding is compared by the **effective inset**: Figma keeps padding on the section frame,
+while the site often puts it on a nested centered `.container`. The check accepts either
+the element's own padding or the distance from its edge to the content.
 
 ## Live bridge Figma ↔ browser
 

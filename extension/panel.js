@@ -191,7 +191,10 @@ const activeTab = () => new Promise((res) => {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));
 });
 
-let vpChoice = 'auto';
+// Desktop by default: the design is fixed-width, so the page viewport is
+// emulated to the same width and the overlay lands on the pixel. "auto" (no
+// emulation, design picked by window width) is an explicit fourth mode.
+let vpChoice = 'desktop';
 const VP_W = { desktop: 1920, tablet: 912, mobile: 357 };
 
 const autoViewport = (w) => (!w ? 'desktop' : w <= 600 ? 'mobile' : w <= 1100 ? 'tablet' : 'desktop');
@@ -217,16 +220,21 @@ async function emulateViewport(vp) {
   return r;
 }
 
-document.querySelectorAll('.vp-btn').forEach((b) => {
-  b.onclick = async () => {
-    document.querySelectorAll('.vp-btn').forEach((x) => x.classList.toggle('on', x === b));
-    vpChoice = b.dataset.vp;
-    ovState.data = null;
-    await emulateViewport(vpChoice);
-    showVpNote();
-    if (ovState.on) applyOverlay();
-  };
-});
+async function setViewport(vp) {
+  vpChoice = VP_W[vp] || vp === 'auto' ? vp : 'desktop';
+  document.querySelectorAll('.vp-btn').forEach((x) => x.classList.toggle('on', x.dataset.vp === vpChoice));
+  try { chrome.storage.local.set({ vpChoice }); } catch {}
+  ovState.data = null;
+  await emulateViewport(vpChoice);
+  showVpNote();
+  if (ovState.on) applyOverlay();
+}
+
+document.querySelectorAll('.vp-btn').forEach((b) => { b.onclick = () => setViewport(b.dataset.vp); });
+
+chrome.storage.local.get('vpChoice', (v) => setViewport(v?.vpChoice ?? 'desktop'));
+// a new tab gets the same emulation, otherwise the overlay silently falls back to the window width
+chrome.tabs.onActivated.addListener(() => { if (vpChoice !== 'auto') emulateViewport(vpChoice).then(showVpNote); });
 
 // panel is closing — remove emulation, otherwise the page stays narrow
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
@@ -289,7 +297,6 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 fillPages();
-setTimeout(showVpNote, 300);
 
 
 async function runAudit() {
@@ -312,6 +319,8 @@ async function runAudit() {
 
   const n = (s) => rows.filter((r) => r.status === s).length;
   note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} not in DOM · ${n('skip')} skip`;
+  post('/report', { page: data.page, viewport: vp, url: tab?.url, frame: data.frame, frameId: data.frameId, rows })
+    .then((r) => { if (r?.ok) note.textContent += ` · saved ${r.file}`; });
 
   const order = { failed: 0, missing: 1, nofig: 2, pass: 3, skip: 4 };
   const label = { pass: '✓', failed: '✗', missing: 'not in DOM', nofig: 'not in design', skip: 'skip' };

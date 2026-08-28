@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { findNode } from './lib/resolve.mjs';
 import { compareNode, DOM_PROPS } from './lib/compare.mjs';
+import { effectivePadding } from './lib/inset.mjs';
 import { renderHtml } from './report-html.mjs';
 import { ensureLocalConfigs } from './lib/bootstrap.mjs';
 
@@ -93,15 +94,16 @@ for (const [key, entry] of Object.entries(map)) {
     continue;
   }
 
-  const dom = await pg.evaluate(([sel, props]) => {
+  const dom = await pg.evaluate(([sel, props, insetSrc]) => {
     const el = document.querySelector(sel);
     if (!el) return null;
     const cs = getComputedStyle(el);
     const r = el.getBoundingClientRect();
     const styles = {};
     for (const p of props) styles[p] = cs.getPropertyValue(p);
-    return { rect: { width: r.width, height: r.height }, styles };
-  }, [entry.selector, DOM_PROPS]);
+    const inset = new Function(`return ${insetSrc}`)()(el);
+    return { rect: { width: r.width, height: r.height }, styles, inset };
+  }, [entry.selector, DOM_PROPS, effectivePadding.toString()]);
 
   if (!dom) { results.push({ key, figmaId: fig.id, selector: entry.selector, status: 'missing' }); continue; }
 

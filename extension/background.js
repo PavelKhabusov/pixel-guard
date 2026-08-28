@@ -49,11 +49,53 @@ const badge = (state, color, title) => {
 
 const SKIP = /^(chrome|edge|about|devtools|chrome-extension):|^https?:\/\/(www\.)?figma\.com\//;
 
+// The extension only works on allowed sites: hosts from config/pages.json plus
+// the ones added on the options page. The side panel is disabled globally and
+// enabled per tab, so it never travels to other tabs when switching.
+let serverHosts = [];
+let userHosts = [];
+chrome.storage.local.get(['hosts', 'userHosts'], (v) => {
+  if (Array.isArray(v?.hosts)) serverHosts = v.hosts;
+  if (Array.isArray(v?.userHosts)) userHosts = v.userHosts;
+  refreshPanels();
+});
+chrome.storage.onChanged.addListener((ch) => {
+  if (ch.userHosts) { userHosts = ch.userHosts.newValue ?? []; refreshPanels(); }
+});
+
+async function loadHosts() {
+  try {
+    const r = await fetch(`${BASE}/pages`);
+    const list = await r.json();
+    const set = new Set();
+    for (const p of list) { try { set.add(new URL(p.url).host); } catch {} }
+    serverHosts = [...set];
+    chrome.storage.local.set({ hosts: serverHosts });
+    refreshPanels();
+  } catch {}
+}
+
+const allHosts = () => [...new Set([...serverHosts, ...userHosts])];
+const isTarget = (url) => {
+  if (!url || SKIP.test(url)) return false;
+  try { return allHosts().includes(new URL(url).host); } catch { return false; }
+};
+
+function applyPanelFor(tab) {
+  if (!tab?.id) return;
+  chrome.sidePanel?.setOptions({ tabId: tab.id, path: 'panel.html', enabled: isTarget(tab.url) }).catch(() => {});
+}
+const refreshPanels = () => chrome.tabs.query({}, (tabs) => tabs.forEach(applyPanelFor));
+chrome.sidePanel?.setOptions({ enabled: false }).catch(() => {});
+chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') applyPanelFor(tab); });
+chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId).then(applyPanelFor).catch(() => {}));
+refreshPanels();
+
 const toPanel = (message) => chrome.runtime.sendMessage(message).catch(() => {});
 
 function toTabs(message) {
   chrome.tabs.query({}, (tabs) => {
-    const targets = tabs.filter((t) => t.url && !SKIP.test(t.url));
+    const targets = tabs.filter((t) => isTarget(t.url));
     status.targets = targets.length;
     if (message.type !== 'pg-select') {
       for (const t of targets) chrome.tabs.sendMessage(t.id, message).catch(() => {});
@@ -76,6 +118,7 @@ function toTabs(message) {
 function handle(event, data) {
   if (event === 'hello') {
     status.connected = true;
+    loadHosts();
     if (offTimer) { clearTimeout(offTimer); offTimer = null; }
     badge('on', '#7fb08a', 'server connected');
     return;
@@ -159,7 +202,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'pg-panel') return;
   port.onDisconnect.addListener(() => {
     chrome.tabs.query({}, (tabs) => {
-      for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
+      for (const t of tabs.filter((x) => isTarget(x.url))) {
         chrome.tabs.sendMessage(t.id, { type: 'pg-overlay-hide' }).catch(() => {});
         chrome.tabs.sendMessage(t.id, { type: 'pg-pick-stop' }).catch(() => {});
         chrome.tabs.sendMessage(t.id, { type: 'pg-unhighlight' }).catch(() => {});
@@ -169,17 +212,20 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
+chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false }).catch(() => {});
 
+// target site: open the panel for THIS tab only; anything else: the options
+// page, where the current site can be added to the list
 chrome.action.onClicked.addListener((tab) => {
-  if (tab.windowId != null) chrome.sidePanel?.open({ windowId: tab.windowId }).catch(() => {});
+  if (isTarget(tab.url)) chrome.sidePanel?.open({ tabId: tab.id }).catch(() => {});
+  else chrome.runtime.openOptionsPage();
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-status') {
     panelSeen = Date.now();
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
-      if (!t || SKIP.test(t.url ?? '')) return reply(status);
+      if (!isTarget(t?.url)) return reply(status);
       chrome.tabs.sendMessage(t.id, { type: 'pg-mapsize' })
         .then((n) => reply({ ...status, mapSize: n ?? 0 }))
         .catch(() => reply(status));
@@ -187,6 +233,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return true;
   }
   if (msg.type === 'pg-reconnect') { connect(); reply({ ok: true }); return true; }
+  if (msg.type === 'pg-hosts') { reply({ server: serverHosts, user: userHosts }); return true; }
   if (msg.type === 'pg-emit') {
     fetch(`${BASE}/emit`, {
       method: 'POST',
@@ -212,13 +259,14 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-emulate') {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
       if (!t) return reply({ ok: false, error: 'no active tab' });
+      if (!isTarget(t.url)) return reply({ ok: false, error: 'not a project site' });
       emulateWidth(t.id, msg.width).then(reply);
     });
     return true;
   }
   if (msg.type === 'pg-cleanup') {
     chrome.tabs.query({}, (tabs) => {
-      for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
+      for (const t of tabs.filter((x) => isTarget(x.url))) {
         chrome.tabs.sendMessage(t.id, { type: 'pg-overlay-hide' }).catch(() => {});
         chrome.tabs.sendMessage(t.id, { type: 'pg-pick-stop' }).catch(() => {});
         chrome.tabs.sendMessage(t.id, { type: 'pg-unhighlight' }).catch(() => {});
@@ -253,7 +301,7 @@ setInterval(() => {
   if (!panelSeen || Date.now() - panelSeen < 6000) return;
   panelSeen = 0;
   chrome.tabs.query({}, (tabs) => {
-    for (const t of tabs.filter((x) => x.url && !SKIP.test(x.url))) {
+    for (const t of tabs.filter((x) => isTarget(x.url))) {
       chrome.tabs.sendMessage(t.id, { type: 'pg-overlay-hide' }).catch(() => {});
       chrome.tabs.sendMessage(t.id, { type: 'pg-pick-stop' }).catch(() => {});
     }

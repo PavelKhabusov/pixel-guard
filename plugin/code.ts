@@ -52,6 +52,9 @@ const svgJobs: Array<{ node: SceneNode; box: any }> = [];
 
 function serialize(node: SceneNode, root: { x: number; y: number }): any {
   const o: any = { id: node.id, name: node.name, type: node.type };
+  // a mask (clipPath from an imported SVG) is not a visible shape — the overlay
+  // would otherwise draw it as a solid black square under the icon
+  if ('isMask' in node && (node as any).isMask) o.mask = true;
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
   if (box) {
     o.x = Math.round((box.x - root.x) * 10) / 10;
@@ -228,7 +231,8 @@ async function attachSvg(label: string) {
         const bytes = await (j.node as any).exportAsync({ format: 'SVG' });
         let out = '';
         for (const b of bytes) out += String.fromCharCode(b);
-        if (out.length > 20000) continue;
+        // a lettering logo path is ~40k; the dictionary stores each shape once
+        if (out.length > 120000) continue;
         const ref = svgHash(out);
         svgCache[ref] = out;
         svgRefByPreKey[svgPreKey(j.node)] = ref;

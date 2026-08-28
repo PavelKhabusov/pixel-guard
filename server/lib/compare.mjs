@@ -89,10 +89,19 @@ export function compareNode(fig, dom, entry = {}) {
     }
     if (fig.layout) {
       const [pt, pr, pb, pl] = fig.layout.padding;
-      numCheck('padding-top', pt, px(s['padding-top']), tol.px);
-      numCheck('padding-right', pr, px(s['padding-right']), tol.px);
-      numCheck('padding-bottom', pb, px(s['padding-bottom']), tol.px);
-      numCheck('padding-left', pl, px(s['padding-left']), tol.px);
+      // Figma keeps padding on the section; the site may put it on a nested
+      // centered container — compare the literal padding OR the effective inset
+      const padCheck = (side, figVal) => {
+        const lit = px(s[`padding-${side}`]);
+        const eff = dom.inset?.[side];
+        if (figVal == null || lit == null) return;
+        const near = (v) => v != null && Math.abs(v - figVal) <= tol.px;
+        numCheck(`padding-${side}`, figVal, near(lit) ? lit : eff ?? lit, tol.px);
+      };
+      padCheck('top', pt);
+      padCheck('right', pr);
+      padCheck('bottom', pb);
+      padCheck('left', pl);
       if ((s.display === 'flex' || s.display === 'grid') && s.gap !== 'normal')
         numCheck('gap', fig.layout.gap, px(s['row-gap'] === 'normal' ? s['column-gap'] : s['row-gap']), tol.px);
     }
