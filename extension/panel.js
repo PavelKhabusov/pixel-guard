@@ -412,17 +412,16 @@ async function showInspect(msg) {
     : primary && !primary.exact ? 'id of the nearest bound ancestor'
     : !primary ? 'id from the overlay box under the cursor (not in the map)' : '';
   if (sub.textContent) card.appendChild(sub);
-  body.appendChild(card);
-
+  // render() replaces body.innerHTML — serialising the card into it would drop
+  // the copy buttons' handlers, so the card is prepended as a live node afterwards
   if (node && primary) {
     const r = await toActiveTab({ type: 'pg-diff', node, selector: primary.selector });
     if (r?.rows) {
-      const keep = body.innerHTML;
       render({ name: node.name, figmaId: primary.key, selector: primary.selector, found: true, rows: r.rows });
-      body.innerHTML = keep + body.innerHTML;
       $('bind').hidden = true;
     }
   }
+  body.prepend(card);
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
