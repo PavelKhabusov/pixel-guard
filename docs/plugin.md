@@ -33,10 +33,12 @@ come back from the CLI / MCP. Reconnects on its own (backoff + 70 s watchdog);
 ## Renders
 
 `/render?id=482:3672` renders a node via `exportAsync()`; `&bg=none` keeps transparency
-(default is a white background — otherwise dark viewers show "on black"). Requests go
-through a queue (3 parallel by default, `PG_RENDER_PARALLEL`); `exportAsync` has a 45 s
-timeout — a node with an image fill Figma has not loaded yet hangs, scroll to it on the
-canvas and retry.
+(default is a white background — otherwise dark viewers show "on black"). The plugin
+renders **one node at a time** (exportAsync is single-threaded; the server queue is
+`PG_RENDER_PARALLEL`, default 1) and first scrolls the node into view on its page so
+Figma loads its image fills — the reason big raster blocks used to hang. A render that
+still exceeds the timeout (`&timeout=<sec>`, default 90) finishes in the background and
+is served from the cache on retry.
 
 `npm run shots` renders **every bound block** for the PNG overlay mode — see [cli.md](cli.md).
 

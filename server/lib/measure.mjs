@@ -6,9 +6,13 @@ import { effectivePadding } from './inset.mjs';
 let browser = null;
 const pages = new Map();
 
-async function getPage(url, width) {
+const PAGE_TTL = 60000;
+
+async function getPage(url, width, fresh = false) {
   const key = `${width}|${url}`;
-  if (pages.has(key)) return pages.get(key);
+  const c = pages.get(key);
+  if (c && !fresh && Date.now() - c.at < PAGE_TTL) return c.pg;
+  if (c) { await c.pg.context().close().catch(() => {}); pages.delete(key); }
   if (!browser) {
     const { chromium } = await import('playwright');
     browser = await chromium.launch();
@@ -18,23 +22,28 @@ async function getPage(url, width) {
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36 pixel-guard',
   });
   const pg = await ctx.newPage();
+  // no HTTP cache: a first load that raced its stylesheets must not be served again
+  const cdp = await ctx.newCDPSession(pg);
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
   const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
   if (resp && !resp.ok()) { await ctx.close(); throw new Error(`HTTP ${resp.status()} for ${url}`); }
+  await pg.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  await pg.evaluate(() => document.fonts?.ready).catch(() => {});
   await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
   await pg.evaluate(async () => {
     for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); }
     scrollTo(0, 0);
   });
   await pg.waitForTimeout(300);
-  pages.set(key, pg);
+  pages.set(key, { pg, at: Date.now() });
   return pg;
 }
 
 const EXTRA = ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'opacity', 'box-shadow', 'border-top-style', 'position', 'width', 'height', 'max-width'];
 
 /** Live measurement of every element matching the selector. */
-export async function measure(url, width, selector, props) {
-  const pg = await getPage(url, width);
+export async function measure(url, width, selector, props, { fresh = false } = {}) {
+  const pg = await getPage(url, width, fresh);
   const want = props?.length ? props : [...DOM_PROPS, ...EXTRA];
   return pg.evaluate(([sel, list, insetSrc]) => {
     const inset = new Function(`return ${insetSrc}`)();
@@ -59,7 +68,7 @@ export async function measure(url, width, selector, props) {
 }
 
 export async function closeBrowser() {
-  for (const pg of pages.values()) await pg.context().close().catch(() => {});
+  for (const { pg } of pages.values()) await pg.context().close().catch(() => {});
   pages.clear();
   if (browser) { await browser.close().catch(() => {}); browser = null; }
 }

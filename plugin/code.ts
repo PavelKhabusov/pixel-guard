@@ -394,10 +394,25 @@ async function exportProject(png: boolean) {
   };
 }
 
+/** Renders run one at a time: exportAsync is single-threaded inside Figma and
+ *  several heavy exports at once all stall past the server timeout. */
+let renderChain: Promise<unknown> = Promise.resolve();
+
 async function renderNode(id: string, format: string, scale: number) {
   const node = await figma.getNodeByIdAsync(id) as SceneNode | null;
   if (!node) throw new Error(`node ${id} not found`);
   if (!('exportAsync' in node)) throw new Error(`node ${id} (${node.type}) cannot be exported`);
+
+  // A node with image fills exports only after Figma has loaded its rasters —
+  // and it loads them for what is on screen. So bring the node into view first
+  // (what the docs used to ask the user to do by hand).
+  try {
+    let page: BaseNode | null = node;
+    while (page && page.type !== 'PAGE') page = page.parent;
+    if (page && page.id !== figma.currentPage.id) await figma.setCurrentPageAsync(page as PageNode);
+    figma.viewport.scrollAndZoomIntoView([node]);
+    await new Promise((r) => setTimeout(r, 400));
+  } catch (_) { /* viewport not available (e.g. headless) */ }
 
   const settings: any = format === 'SVG'
     ? { format: 'SVG' }
@@ -424,12 +439,14 @@ async function renderNode(id: string, format: string, scale: number) {
 
 figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'render-request') {
-    try {
-      const r = await renderNode(msg.id, msg.format ?? 'PNG', msg.scale ?? 2);
-      figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, result: r });
-    } catch (e: any) {
-      figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, error: e.message });
-    }
+    renderChain = renderChain.then(async () => {
+      try {
+        const r = await renderNode(msg.id, msg.format ?? 'PNG', msg.scale ?? 2);
+        figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, result: r });
+      } catch (e: any) {
+        figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, error: e.message });
+      }
+    });
     return;
   }
   if (msg.type === 'find-node') {

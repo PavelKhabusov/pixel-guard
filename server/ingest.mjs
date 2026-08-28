@@ -492,7 +492,8 @@ let renderSeq = 0;
  *  queue jobs and cap how many are in flight at once. */
 const renderQueue = [];
 const renderActive = new Map();
-const RENDER_PARALLEL = Number(process.env.PG_RENDER_PARALLEL || 3);
+// the plugin exports one node at a time anyway; parallel requests only burn their timeouts in its queue
+const RENDER_PARALLEL = Number(process.env.PG_RENDER_PARALLEL || 1);
 
 function enqueue(job) {
   renderQueue.push(job);

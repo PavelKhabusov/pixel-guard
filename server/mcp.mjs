@@ -100,6 +100,7 @@ const TOOLS = [
         viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
         props: { type: 'array', items: { type: 'string' }, description: 'CSS properties to return (default: the comparison set)' },
         include_hidden: { type: 'boolean', description: 'also list display:none / zero-size matches (default false)' },
+        fresh: { type: 'boolean', description: 'reload the page instead of reusing the one loaded in the last 60 s' },
       },
       required: ['selector'],
     },
@@ -118,6 +119,7 @@ const TOOLS = [
         url: { type: 'string', description: 'page URL (overrides page)' },
         viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
         ignore: { type: 'array', items: { type: 'string' }, description: 'properties to skip' },
+        fresh: { type: 'boolean', description: 'reload the page instead of reusing the one loaded in the last 60 s' },
         depth: { type: 'number', description: '1 = also match the node\'s direct children to the element\'s children (by text, then by order) and compare their fonts/colours/sizes plus the gap between them' },
       },
       required: ['id', 'selector'],
@@ -210,7 +212,7 @@ async function callTool(name, args = {}) {
     const url = args.url ?? pages[args.page ?? '']?.url ?? Object.values(pages)[0]?.url;
     if (!url) return fail('no url: pass `url` or a `page` key from config/pages.json');
     let rows;
-    try { rows = await measure(url, width, args.selector, args.props); } catch (e) { return fail(`measure failed: ${e.message}`); }
+    try { rows = await measure(url, width, args.selector, args.props, { fresh: !!args.fresh }); } catch (e) { return fail(`measure failed: ${e.message}`); }
     if (!rows.length) return fail(`nothing matches "${args.selector}" on ${url} @ ${vp}`);
     const hiddenCount = rows.filter((d) => d.hidden).length;
     if (!args.include_hidden) rows = rows.filter((d) => !d.hidden);
