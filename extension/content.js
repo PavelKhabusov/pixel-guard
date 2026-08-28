@@ -275,7 +275,19 @@ function makeBox(b, opts, left, top, scale, lib) {
       el.setAttribute('height', '100%');
     }
   } else if (b.text != null && b.font && opts.mode !== 'outline') {
-    d.textContent = b.text;
+    if (b.segments?.length) {
+      for (const sg of b.segments) {
+        const sp = document.createElement('span');
+        sp.textContent = sg.text;
+        const css = [];
+        if (sg.fill) css.push(`color:${withAlpha(sg.fill, sg.fillOpacity)}`);
+        if (sg.weight) css.push(`font-weight:${sg.weight}`);
+        if (sg.size) css.push(`font-size:${sg.size}px`);
+        if (sg.family) css.push(`font-family:'${sg.family}',sans-serif`);
+        sp.style.cssText = css.join(';');
+        d.appendChild(sp);
+      }
+    } else d.textContent = b.text;
   }
   const css = [`left:${left}px`, `top:${top}px`, `width:${b.w * scale}px`, `height:${b.h * scale}px`, ...boxStyle(b, opts)];
   if (scale !== 1) css.push(`transform:scale(${scale})`, 'transform-origin:0 0', `width:${b.w}px`, `height:${b.h}px`);

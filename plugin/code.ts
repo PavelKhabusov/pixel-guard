@@ -123,6 +123,22 @@ function serialize(node: SceneNode, root: { x: number; y: number }): any {
       decoration: m(node.textDecoration),
       align: node.textAlignHorizontal,
     };
+    // mixed colour/weight inside one text ("Форма: Лэндхаус" — grey label, dark value):
+    // export the styled runs so the overlay can paint each one
+    if (o.fills === 'mixed' || fn === 'mixed' || o.font.weight === 'mixed' || o.font.size === 'mixed') {
+      try {
+        o.segments = node.getStyledTextSegments(['fills', 'fontName', 'fontWeight', 'fontSize']).map((sg) => {
+          const fill = serPaints(sg.fills);
+          const solid = Array.isArray(fill) ? fill.find((f: any) => f.type === 'solid') : null;
+          return {
+            text: sg.characters,
+            fill: solid ? solid.color : null,
+            fillOpacity: solid ? solid.opacity : null,
+            family: sg.fontName.family, weight: sg.fontWeight, size: sg.fontSize,
+          };
+        });
+      } catch (_) { /* older API */ }
+    }
   }
 
   if (node.type === 'INSTANCE' || node.type === 'COMPONENT') {

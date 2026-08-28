@@ -211,6 +211,7 @@ const handler = (req, res) => {
             strokeWeight: n.strokeWeight === 'mixed' ? 1 : n.strokeWeight ?? null,
             opacity: n.opacity ?? 1,
             text: n.type === 'TEXT' ? n.text ?? '' : null,
+            segments: n.type === 'TEXT' && Array.isArray(n.segments) ? n.segments : null,
             svgRef: n.svgRef ?? null,
             shot: anchor ? (shots[`${pageKey}|${viewport}|${anchor.key}`]?.file ?? null) : null,
             font: n.type === 'TEXT' && n.font ? {

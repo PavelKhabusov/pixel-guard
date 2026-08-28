@@ -118,6 +118,7 @@ export function describeNode(n) {
     if (f.decoration && f.decoration !== 'NONE') o.decoration = f.decoration;
     if (f.align && f.align !== 'LEFT') o.align = f.align;
     if (n.autoResize) o.autoResize = n.autoResize;
+    if (Array.isArray(n.segments)) o.segments = n.segments.map((sg) => `"${sg.text}" ${sg.fill ?? '?'}${sg.fillOpacity != null && sg.fillOpacity < 1 ? ` @${sg.fillOpacity}` : ''} ${sg.weight}/${sg.size}`).join(' | ');
   }
   if (n.mask) o.mask = true;
   if (n.svgRef) o.svg = true;
