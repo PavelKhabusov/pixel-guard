@@ -55,6 +55,14 @@
          border-radius: 7px; white-space: pre-wrap; word-break: break-word;
          font: 11px/1.5 ui-monospace, Menlo, monospace; color: #9ec9a8; }
   #log.err { color: #e8a0a0; }
+  #prog { margin-top: 12px; padding: 9px 10px; background: #1f2226; border-radius: 7px; }
+  #prog[hidden] { display: none; }
+  .prog-top { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #b9c6d4; }
+  .prog-top b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prog-top span { color: #71767d; flex: none; font: 11px ui-monospace, Menlo, monospace; }
+  .prog-bar { height: 4px; margin-top: 7px; border-radius: 2px; background: #33383e; overflow: hidden; }
+  .prog-bar i { display: block; height: 100%; width: 0; background: #8b939c; border-radius: 2px;
+                transition: width .15s; }
 </style>
 
 <label class="live"><input id="live" type="checkbox" checked><span class="sw" id="bus-dot"></span>
@@ -87,11 +95,22 @@
   <label class="chk"><input id="png" type="checkbox"> export PNG (heavier)</label>
 </details>
 
+<div id="prog" hidden>
+  <div class="prog-top"><b id="prog-stage"></b><span id="prog-n"></span></div>
+  <div class="prog-bar"><i id="prog-fill"></i></div>
+</div>
 <div id="log">Select frame(s) on the canvas and press Capture.</div>
 <script>
   const isWeb = location.protocol === 'https:' || parent !== window && /figma\.com$/.test(document.referrer.split('/')[2] || '');
   const el = (id) => document.getElementById(id);
   const log = (t, err) => { const l = el('log'); l.textContent = t; l.className = err ? 'err' : ''; };
+  const progress = (p) => {
+    if (!p) { el('prog').hidden = true; return; }
+    el('prog').hidden = false;
+    el('prog-stage').textContent = p.stage;
+    el('prog-n').textContent = `${p.done}/${p.total}`;
+    el('prog-fill').style.width = `${p.total ? Math.round((p.done / p.total) * 100) : 0}%`;
+  };
   const btn = el('go');
   const saveBtn = el('save');
   let lastFrames = null;
@@ -288,6 +307,8 @@
       return;
     }
     if (msg.type === 'status') log(msg.text);
+    if (msg.type === 'progress') progress(msg);
+    if (msg.type === 'payload' || msg.type === 'project' || msg.type === 'error') progress(null);
     if (msg.type === 'project') {
       lastFrames = [msg.project];
       saveBtn.disabled = false;
