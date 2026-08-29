@@ -544,6 +544,7 @@ function sendRender(res, result, asJson, bg = '#ffffff') {
   }
   res.setHeader('Content-Type', MIME[result.format] ?? 'application/octet-stream');
   res.setHeader('X-Node-Name', encodeURIComponent(result.name ?? ''));
+  if (result.fallback) res.setHeader('X-Render-Fallback', encodeURIComponent(result.fallback));
   return res.end(Buffer.from(result.bytes, 'base64'));
 }
 

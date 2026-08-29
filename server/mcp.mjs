@@ -20,7 +20,7 @@ const readJson = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
 
 async function api(pathname, { raw = false } = {}) {
   const r = await fetch(`${BASE}${pathname}`);
-  if (raw) return { ok: r.ok, status: r.status, buf: Buffer.from(await r.arrayBuffer()), type: r.headers.get('content-type') };
+  if (raw) return { ok: r.ok, status: r.status, buf: Buffer.from(await r.arrayBuffer()), type: r.headers.get('content-type'), fallback: r.headers.get('x-render-fallback') ? decodeURIComponent(r.headers.get('x-render-fallback')) : null };
   const j = await r.json().catch(() => null);
   return { ok: r.ok, status: r.status, json: j };
 }
@@ -42,6 +42,7 @@ const TOOLS = [
         scale: { type: 'number', description: 'scale for PNG/JPG, default 2' },
         save_to: { type: 'string', description: 'if set, save the file to this path instead of returning the image' },
         bg: { type: 'string', description: 'background under PNG transparency: a hex like #ffffff (default) or "none" to keep it transparent' },
+        timeout: { type: 'number', description: 'seconds to wait for the plugin, default 180, max 300 — big raster blocks take minutes' },
       },
       required: ['id'],
     },
@@ -150,14 +151,14 @@ async function callTool(name, args = {}) {
   if (name === 'figma_render_node') {
     const format = (args.format ?? 'PNG').toUpperCase();
     const q = `/render?id=${encodeURIComponent(args.id)}&format=${format}&scale=${args.scale ?? 2}`
-      + `&bg=${encodeURIComponent(args.bg ?? '#ffffff')}`;
+      + `&bg=${encodeURIComponent(args.bg ?? '#ffffff')}&timeout=${Math.min(300, Math.max(5, Number(args.timeout ?? 180)))}`;
 
     if (args.save_to) {
       const r = await api(q, { raw: true });
       if (!r.ok) return fail(`render failed: ${r.buf.toString('utf8').slice(0, 300)}`);
       fs.mkdirSync(path.dirname(path.resolve(args.save_to)), { recursive: true });
       fs.writeFileSync(path.resolve(args.save_to), r.buf);
-      return text(`saved: ${args.save_to} (${Math.round(r.buf.length / 1024)} KB, ${format})`);
+      return text(`saved: ${args.save_to} (${Math.round(r.buf.length / 1024)} KB, ${format})${r.fallback ? `\n⚠ ${r.fallback}` : ''}`);
     }
 
     const r = await api(`${q}&json=1`);
@@ -168,7 +169,7 @@ async function callTool(name, args = {}) {
     }
     return {
       content: [
-        { type: 'text', text: `${r.json.name} · ${r.json.type} · ${r.json.width}×${r.json.height}` },
+        { type: 'text', text: `${r.json.name} · ${r.json.type} · ${r.json.width}×${r.json.height}${r.json.fallback ? `\n⚠ ${r.json.fallback}` : ''}` },
         { type: 'image', data: r.json.bytes, mimeType: format === 'JPG' ? 'image/jpeg' : 'image/png' },
       ],
     };

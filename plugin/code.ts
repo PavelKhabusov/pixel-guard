@@ -418,15 +418,42 @@ async function renderNode(id: string, format: string, scale: number) {
     ? { format: 'SVG' }
     : { format, constraint: { type: 'SCALE', value: scale || 1 } };
 
-  const bytes = await Promise.race([
-    (node as any).exportAsync(settings),
-    new Promise((_, rej) => setTimeout(
-      () => rej(new Error(`exportAsync hung on "${node.name}" (${node.type}). `
-        + 'Usually this is a node with an image fill whose image has not loaded yet: '
-        + 'scroll to it on the canvas so Figma loads it, then retry')),
-      120000,
-    )),
-  ]) as Uint8Array;
+  // Image fills: fetching the bytes through the image API loads the raster
+  // regardless of the viewport, which is what exportAsync waits for. Collect
+  // the hashes of the node and its subtree (bounded) and warm them first.
+  const hashes: string[] = [];
+  const collect = (n: any, depth: number) => {
+    if (depth > 6 || hashes.length > 40) return;
+    const fills = n.fills;
+    if (Array.isArray(fills)) for (const f of fills) if (f.type === 'IMAGE' && f.imageHash && f.visible !== false) hashes.push(f.imageHash);
+    if ('children' in n) for (const c of n.children) collect(c, depth + 1);
+  };
+  collect(node, 0);
+  const withTimeout = <T,>(p: Promise<T>, ms: number, what: string) => Promise.race([
+    p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(what)), ms)),
+  ]);
+  const images: Record<string, Uint8Array> = {};
+  for (const h of [...new Set(hashes)]) {
+    try {
+      const img = figma.getImageByHash(h);
+      if (img) images[h] = await withTimeout(img.getBytesAsync(), 30000, `image ${h} did not load in 30s`);
+    } catch (_) { /* a missing image must not block the export */ }
+  }
+
+  let bytes: Uint8Array;
+  let fallback: string | null = null;
+  try {
+    bytes = await withTimeout(
+      (node as any).exportAsync(settings) as Promise<Uint8Array>, 90000,
+      `exportAsync hung on "${node.name}" (${node.type}) — an image fill Figma could not rasterise`,
+    );
+  } catch (e: any) {
+    // a single image rectangle: hand over the source picture instead of nothing
+    const own = Array.isArray((node as any).fills) ? (node as any).fills.find((f: any) => f.type === 'IMAGE' && images[f.imageHash]) : null;
+    if (!own || format === 'SVG' || format === 'PDF') throw e;
+    bytes = images[own.imageHash];
+    fallback = 'source image (exportAsync hung) — the original raster, not the cropped/scaled node';
+  }
 
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
   return {
@@ -434,6 +461,7 @@ async function renderNode(id: string, format: string, scale: number) {
     width: box ? Math.round(box.width) : null,
     height: box ? Math.round(box.height) : null,
     bytes: figma.base64Encode(bytes),
+    fallback,
   };
 }
 
