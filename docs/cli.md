@@ -6,9 +6,9 @@ All commands run from the project root; `--page` is a key from `config/pages.jso
 | Command | What it does |
 |---|---|
 | `npm run server` | ingest server: HTTP 8971 + HTTPS 8972, SSE bus, `/overlay`, `/nodes`, `/render`, `/report` |
-| `npm run qa -- --page home --viewport desktop` | headless comparison (Playwright) → `reports/<page>-<viewport>.{json,html}`, exit 1 on mismatches |
+| `npm run qa -- --page home --viewport desktop [--fresh]` | headless comparison (Playwright, HTTP cache off; `--fresh` busts server-side caches too) → `reports/<page>-<viewport>.{json,html}`, exit 1 on mismatches |
 | `npm run qa:all [-- --viewport desktop]` | all pages × breakpoints + summary |
-| `npm run automap -- --page home [--min 80] [--write]` | pairs unbound nodes with DOM elements by text, size and selector uniqueness; `--write` appends `"source": "auto"` |
+| `npm run automap -- --page home [--min 80] [--write]` | pairs unbound nodes with DOM elements by text, size and selector uniqueness; `--write` appends `"source": "auto"` with its `score` (`suspect: true` under 80) |
 | `npm run verify [-- --fix] [--page X]` | finds drifted bindings by block **order** (5th in the design, 40th on the page); `--fix` removes `auto` ones only |
 | `npm run shots [-- --page X --viewport Y --blocksOnly --scale 2 --force --retries N]` | renders every bound block to PNG for the overlay → `snapshots/shots/` + `_shots.json` |
 | `npm run patch -- --page home --viewport desktop` | CSS from the report's diffs → `reports/<page>-<viewport>.css` — a **proposal**, cascade not considered |

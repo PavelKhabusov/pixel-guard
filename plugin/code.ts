@@ -398,10 +398,29 @@ async function exportProject(png: boolean) {
  *  several heavy exports at once all stall past the server timeout. */
 let renderChain: Promise<unknown> = Promise.resolve();
 
-async function renderNode(id: string, format: string, scale: number) {
+async function renderNode(id: string, format: string, scale: number, source = false) {
   const node = await figma.getNodeByIdAsync(id) as SceneNode | null;
   if (!node) throw new Error(`node ${id} not found`);
   if (!('exportAsync' in node)) throw new Error(`node ${id} (${node.type}) cannot be exported`);
+
+  // fast path: hand over the raw image fill without exportAsync — for photo
+  // rectangles it is the difference between seconds and a hung export
+  if (source) {
+    const fills = (node as any).fills;
+    const imgFill = Array.isArray(fills) ? fills.find((f: any) => f.type === 'IMAGE' && f.imageHash) : null;
+    if (!imgFill) throw new Error(`node ${id} has no image fill — source=1 only makes sense for photo nodes`);
+    const img = figma.getImageByHash(imgFill.imageHash);
+    if (!img) throw new Error(`image ${imgFill.imageHash} not found`);
+    const raw = await img.getBytesAsync();
+    const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
+    return {
+      id, name: node.name, type: node.type, format: 'PNG',
+      width: box ? Math.round(box.width) : null,
+      height: box ? Math.round(box.height) : null,
+      bytes: figma.base64Encode(raw),
+      fallback: 'source image fill — the original raster, not the cropped/scaled node',
+    };
+  }
 
   // A node with image fills exports only after Figma has loaded its rasters —
   // and it loads them for what is on screen. So bring the node into view first
@@ -469,7 +488,7 @@ figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'render-request') {
     renderChain = renderChain.then(async () => {
       try {
-        const r = await renderNode(msg.id, msg.format ?? 'PNG', msg.scale ?? 2);
+        const r = await renderNode(msg.id, msg.format ?? 'PNG', msg.scale ?? 2, !!msg.source);
         figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, result: r });
       } catch (e: any) {
         figma.ui.postMessage({ type: 'render-done', reqId: msg.reqId, error: e.message });

@@ -74,7 +74,12 @@ const ctx = await browser.newContext({
   userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36 pixel-guard',
 });
 const pg = await ctx.newPage();
-const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
+// dev servers and CDNs love to serve yesterday: no HTTP cache, and --fresh
+// additionally busts any server-side cache with a throwaway query param
+const cdp = await ctx.newCDPSession(pg);
+await cdp.send('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
+const target = args.fresh ? `${url}${url.includes('?') ? '&' : '?'}pgfresh=${Date.now()}` : url;
+const resp = await pg.goto(target, { waitUntil: 'load', timeout: 60000 });
 if (resp && !resp.ok())
   throw new Error(`page responded with HTTP ${resp.status()} — nothing to compare: ${url}`);
 await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
@@ -90,7 +95,7 @@ for (const [key, entry] of Object.entries(map)) {
   if (entry.skip) { results.push({ key, status: 'skip', reason: entry.skip }); continue; }
   const fig = findNode(root, key);
   if (!fig) {
-    results.push({ key, selector: entry.selector, status: key.startsWith('@') ? 'absent' : 'map-error' });
+    results.push({ key, figmaId: key.startsWith('@') ? null : key, selector: entry.selector, name: entry.name ?? null, status: key.startsWith('@') ? 'absent' : 'map-error' });
     continue;
   }
 
@@ -131,7 +136,7 @@ fs.writeFileSync(`${base}.html`, renderHtml(report));
 
 for (const r of results) {
   const mark = { pass: '✓', failed: '✗', missing: '⚠ missing', skip: '— skip', absent: '· not on page', 'map-error': '⚠ map' }[r.status];
-  console.log(` ${mark} ${r.key}${r.diffs?.length ? ` — ${r.diffs.length} mismatches` : ''}`);
+  console.log(` ${mark} ${r.key}${r.status === 'map-error' ? ` (id ${r.key} is not in frame ${root.id} — re-export or remove from the map)` : ''}${r.diffs?.length ? ` — ${r.diffs.length} mismatches` : ''}`);
   for (const d of r.diffs ?? []) console.log(`     ${d.prop}: ${d.figma} → ${d.actual}${d.delta ? ` (${d.delta})` : ''}`);
 }
 console.log(`\n${score.pass} ✓ · ${score.failed} ✗ · ${score.missing} missing · reports/${page}-${viewport}.{json,html}`);

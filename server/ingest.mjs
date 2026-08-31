@@ -303,10 +303,16 @@ const handler = (req, res) => {
   if (req.method === 'GET' && url.pathname === '/render') {
     const id = url.searchParams.get('id');
     if (!id) { res.setHeader('Content-Type', 'application/json'); return res.writeHead(400).end(JSON.stringify({ ok: false, error: '?id=<figma node id> is required' })); }
-    const format = (url.searchParams.get('format') ?? 'PNG').toUpperCase();
+    const format0 = (url.searchParams.get('format') ?? 'PNG').toUpperCase();
+    // WEBP is produced on the server from the plugin's PNG
+    const toWebp = format0 === 'WEBP';
+    const format = toWebp ? 'PNG' : format0;
     const scale = Number(url.searchParams.get('scale') ?? 2);
     const asJson = url.searchParams.get('json') === '1';
     const bg = url.searchParams.get('bg') ?? '#ffffff';
+    const maxW = Number(url.searchParams.get('width') ?? 0) || null;
+    // fast path: hand over the node's image fill without exportAsync at all
+    const source = url.searchParams.get('source') === '1';
 
     if (!peers().figma) {
       res.setHeader('Content-Type', 'application/json');
@@ -315,14 +321,25 @@ const handler = (req, res) => {
       }));
     }
 
-    const cacheKey = `${id}:${format}:${scale}:${bg}`;
+    const cacheKey = `${id}:${format}:${scale}:${bg}:${source ? 's' : ''}`;
+    const deliver = async (result) => {
+      if ((toWebp || maxW) && (result.format === 'PNG' || result.fallback)) {
+        try {
+          const t = await transformImage(result.bytes, { width: maxW, webp: toWebp, bg: bg === 'none' ? null : bg });
+          result = { ...result, bytes: t.bytes, format: toWebp ? 'WEBP' : 'PNG', outWidth: t.width, outHeight: t.height, flattened: true };
+        } catch (e) {
+          console.warn(`[render] transform failed: ${e.message} — sending the original`);
+        }
+      }
+      sendRender(res, result, asJson, result.flattened ? 'none' : bg);
+    };
     const cached = renderCache.get(cacheKey);
-    if (cached) return sendRender(res, cached, asJson, bg);
+    if (cached) return void deliver(cached);
 
     const reqId = `r${++renderSeq}`;
     const timeout = Math.min(300000, Math.max(5000, Number(url.searchParams.get('timeout') ?? 90) * 1000));
     const queued = enqueue({
-      reqId, timeout, event: 'render', payload: { reqId, id, format, scale },
+      reqId, timeout, event: 'render', payload: { reqId, id, format, scale, source },
       done: (msg) => {
         if (msg.error) {
           res.setHeader('Content-Type', 'application/json');
@@ -332,7 +349,7 @@ const handler = (req, res) => {
         }
         renderCache.set(cacheKey, msg.result);
         if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
-        sendRender(res, msg.result, asJson, bg);
+        deliver(msg.result);
       },
     });
     if (queued > 1) console.log(`[render] ${id} queued (${queued})`);
@@ -529,7 +546,33 @@ function finishJob(job, msg) {
   setImmediate(pumpQueue);
 }
 
-const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: 'application/pdf' };
+const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: 'application/pdf', WEBP: 'image/webp' };
+
+/** Downscale / convert to WEBP in a headless page: a 13 MB source photo
+ *  becomes a ready-to-use image in a second, with no native image deps. */
+let _tfPage = null;
+async function transformImage(base64, { width, webp, bg }) {
+  if (!_tfPage) {
+    const { chromium } = await import('playwright');
+    const b = await chromium.launch();
+    _tfPage = await (await b.newContext()).newPage();
+  }
+  const head = Buffer.from(base64.slice(0, 12), 'base64');
+  const mime = head[0] === 0xff && head[1] === 0xd8 ? 'image/jpeg' : 'image/png';
+  return _tfPage.evaluate(async ([b64, w, webp, bg, mime]) => {
+    const img = new Image();
+    img.src = `data:${mime};base64,${b64}`;
+    await img.decode();
+    const k = w && img.naturalWidth > w ? w / img.naturalWidth : 1;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(img.naturalWidth * k));
+    cv.height = Math.max(1, Math.round(img.naturalHeight * k));
+    const g = cv.getContext('2d');
+    if (bg) { g.fillStyle = bg; g.fillRect(0, 0, cv.width, cv.height); }
+    g.drawImage(img, 0, 0, cv.width, cv.height);
+    return { bytes: cv.toDataURL(webp ? 'image/webp' : 'image/png', 0.85).split(',')[1], width: cv.width, height: cv.height };
+  }, [base64, width, webp, bg, mime]);
+}
 
 function sendRender(res, result, asJson, bg = '#ffffff') {
   // Figma exports PNG without the canvas background — on a dark theme the

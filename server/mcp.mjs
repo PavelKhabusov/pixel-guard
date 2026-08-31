@@ -38,13 +38,16 @@ const TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Figma node id, e.g. 445:3377' },
-        format: { type: 'string', enum: ['PNG', 'JPG', 'SVG', 'PDF'], description: 'format, default PNG' },
+        format: { type: 'string', enum: ['PNG', 'JPG', 'SVG', 'PDF', 'WEBP'], description: 'format, default PNG; WEBP is converted on the server — the cheap way to pull photos' },
         scale: { type: 'number', description: 'scale for PNG/JPG, default 2' },
         save_to: { type: 'string', description: 'if set, save the file to this path instead of returning the image' },
         bg: { type: 'string', description: 'background under PNG transparency: a hex like #ffffff (default) or "none" to keep it transparent' },
         timeout: { type: 'number', description: 'seconds to wait for the plugin, default 180, max 300 — big raster blocks take minutes' },
+        width: { type: 'number', description: 'downscale to this width on the server (keeps aspect)' },
+        source: { type: 'boolean', description: 'for a photo node: return its raw image fill WITHOUT exportAsync — seconds instead of a hung export; combine with width/format WEBP' },
+        ids: { type: 'array', items: { type: 'string' }, description: 'several nodes in one call; requires save_dir' },
+        save_dir: { type: 'string', description: 'directory for batch renders; files are named <id>.<ext>' },
       },
-      required: ['id'],
     },
   },
   {
@@ -70,8 +73,10 @@ const TOOLS = [
       + '(I1310:27371;1310:27233) and ids with a dash (1310-27233). Works without Figma.',
     inputSchema: {
       type: 'object',
-      properties: { id: { type: 'string', description: 'Figma node id' } },
-      required: ['id'],
+      properties: {
+        id: { type: 'string', description: 'Figma node id' },
+        ids: { type: 'array', items: { type: 'string' }, description: 'several ids at once — one round-trip instead of N' },
+      },
     },
   },
   {
@@ -150,8 +155,26 @@ const TOOLS = [
 async function callTool(name, args = {}) {
   if (name === 'figma_render_node') {
     const format = (args.format ?? 'PNG').toUpperCase();
-    const q = `/render?id=${encodeURIComponent(args.id)}&format=${format}&scale=${args.scale ?? 2}`
-      + `&bg=${encodeURIComponent(args.bg ?? '#ffffff')}&timeout=${Math.min(300, Math.max(5, Number(args.timeout ?? 180)))}`;
+    const mk = (id) => `/render?id=${encodeURIComponent(id)}&format=${format}&scale=${args.scale ?? 2}`
+      + `&bg=${encodeURIComponent(args.bg ?? '#ffffff')}&timeout=${Math.min(300, Math.max(5, Number(args.timeout ?? 180)))}`
+      + (args.width ? `&width=${Math.round(args.width)}` : '') + (args.source ? '&source=1' : '');
+    const ext = { PNG: 'png', JPG: 'jpg', SVG: 'svg', PDF: 'pdf', WEBP: 'webp' }[format] ?? 'bin';
+
+    if (Array.isArray(args.ids) && args.ids.length) {
+      if (!args.save_dir) return fail('batch render needs save_dir');
+      fs.mkdirSync(path.resolve(args.save_dir), { recursive: true });
+      const lines = [];
+      for (const one of args.ids) {
+        const r = await api(mk(one), { raw: true });
+        if (!r.ok) { lines.push(`✗ ${one}: ${r.buf.toString('utf8').slice(0, 160)}`); continue; }
+        const f = path.resolve(args.save_dir, `${one.replace(/[:;]/g, '_')}.${ext}`);
+        fs.writeFileSync(f, r.buf);
+        lines.push(`✓ ${one} → ${f} (${Math.round(r.buf.length / 1024)} KB)${r.fallback ? ` ⚠ ${r.fallback}` : ''}`);
+      }
+      return text(lines.join('\n'));
+    }
+    if (!args.id) return fail('pass id or ids[]');
+    const q = mk(args.id);
 
     if (args.save_to) {
       const r = await api(q, { raw: true });
@@ -184,13 +207,27 @@ async function callTool(name, args = {}) {
     }
     if (!args.query) return fail('pass `text` (content search in snapshots) or `query` (layer name)');
     const r = await api(`/find?q=${encodeURIComponent(args.query)}`);
-    if (!r.ok || r.json?.ok === false) return fail(r.json?.error ?? `error ${r.status}`);
+    if (!r.ok || r.json?.ok === false) {
+      // plugin not connected — the snapshots on disk still know the names
+      const rows = searchNodes(ROOT, { name: args.query, frame: args.frame, limit: args.limit ?? 40 });
+      if (rows.length) return text(`(plugin offline — searched the snapshots)\n` + rows.map((n) => `${n.id}  ${n.type.padEnd(9)} ${n.x},${n.y} ${n.w}×${n.h}  ${JSON.stringify(n.name)}\n      in ${n.parent} · ${n.frame} (${n.file})`).join('\n'));
+      return fail(r.json?.error ?? `error ${r.status}`);
+    }
     const list = r.json.nodes ?? [];
     if (!list.length) return text(`nothing found for "${args.query}"`);
     return text(list.map((n) => `${n.id}  ${n.type.padEnd(9)} ${n.width}×${n.height}  ${n.name}  [${n.page}]`).join('\n'));
   }
 
   if (name === 'figma_get_node_styles') {
+    if (Array.isArray(args.ids) && args.ids.length) {
+      const parts = args.ids.map((one) => {
+        const h = resolveNode(ROOT, one);
+        if (!h) return `${one}: not in the snapshots`;
+        return `${one}${h.via !== 'id' ? ` (via ${h.via})` : ''}: ${JSON.stringify(describeNode(h.node))}`;
+      });
+      return text(parts.join('\n\n'));
+    }
+    if (!args.id) return fail('pass id or ids[]');
     const hit = resolveNode(ROOT, args.id);
     if (!hit) return fail(`node ${args.id} is not in the snapshots — ask Pavel to export with the plugin`);
     const { children, svg, ...node } = hit.node;
@@ -213,7 +250,7 @@ async function callTool(name, args = {}) {
     const url = args.url ?? pages[args.page ?? '']?.url ?? Object.values(pages)[0]?.url;
     if (!url) return fail('no url: pass `url` or a `page` key from config/pages.json');
     let rows;
-    try { rows = await measure(url, width, args.selector, args.props, { fresh: !!args.fresh }); } catch (e) { return fail(`measure failed: ${e.message}`); }
+    try { rows = await measure(url, width, args.selector, args.props, { fresh: !!args.fresh, sources: !!args.sources }); } catch (e) { return fail(`measure failed: ${e.message}`); }
     if (!rows.length) return fail(`nothing matches "${args.selector}" on ${url} @ ${vp}`);
     const hiddenCount = rows.filter((d) => d.hidden).length;
     if (!args.include_hidden) rows = rows.filter((d) => !d.hidden);
@@ -230,7 +267,7 @@ async function callTool(name, args = {}) {
         + `   inset ${d.inset.top}/${d.inset.right}/${d.inset.bottom}/${d.inset.left}`
         + (d.parentGap ? ` · parent ${d.parentGap.display} gap ${d.parentGap.rowGap}/${d.parentGap.columnGap}` : '') + '\n'
         + Object.entries(d.styles).filter(([, v]) => v !== '' && v !== 'none' && v !== 'normal' && v !== '0px' && v !== 'auto')
-          .map(([k, v]) => `   ${k}: ${v}`).join('\n');
+          .map(([k, v]) => `   ${k}: ${v}${d.sources?.[k] ? `\n      ↳ ${d.sources[k]}` : ''}`).join('\n');
       return text(`${url} @ ${vp} (${width}px) · ${args.selector} · ${rows.length} visible${hiddenCount ? ` (+${hiddenCount} hidden)` : ''}\n\n${rows.map(fmt).join('\n\n')}`);
     }
 

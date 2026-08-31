@@ -90,7 +90,8 @@ if (write && min < 70) {
 
 if (write && hits.length) {
   const next = { ...existing };
-  for (const m of hits) next[m.figmaId] = { selector: m.selector, source: 'auto', name: m.name };
+  // the score travels into the map: qa/verify/Inspect can show which pairs are shaky
+  for (const m of hits) next[m.figmaId] = { selector: m.selector, source: 'auto', name: m.name, score: m.score, ...(m.score < 80 ? { suspect: true } : {}) };
   fs.writeFileSync(mapPath, JSON.stringify(next, null, 2));
   console.log(`\n→ appended to maps/${page}.map.json (${hits.length} mappings, source: auto)`);
   console.log('  Verify with a run; remove extras or replace them with { "skip": "…" }.');
