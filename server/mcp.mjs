@@ -126,6 +126,8 @@ const TOOLS = [
         viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
         ignore: { type: 'array', items: { type: 'string' }, description: 'properties to skip' },
         fresh: { type: 'boolean', description: 'reload the page instead of reusing the one loaded in the last 60 s' },
+        prepare: { type: 'array', items: { type: 'object' }, description: 'steps before measuring AJAX content: [{click: "#tab"}, {waitFor: ".panel"}, {hover}, {scrollTo}, {fill, value}, {wait: ms}]; a page from config/pages.json applies its own prepare[] automatically' },
+        ready: { type: 'string', description: 'SPA/React: selector that must be visible before measuring (hydration / data fetch finished); pages.json "ready" applies automatically' },
         depth: { type: 'number', description: '1 = also match the node\'s direct children to the element\'s children (by text, then by order) and compare their fonts/colours/sizes plus the gap between them' },
       },
       required: ['id', 'selector'],
@@ -249,8 +251,10 @@ async function callTool(name, args = {}) {
     const pages = readJson(path.join(ROOT, 'config/pages.json')) ?? {};
     const url = args.url ?? pages[args.page ?? '']?.url ?? Object.values(pages)[0]?.url;
     if (!url) return fail('no url: pass `url` or a `page` key from config/pages.json');
+    const prepare = [...(pages[args.page ?? '']?.prepare ?? []), ...(Array.isArray(args.prepare) ? args.prepare : [])];
+    const mopts = { fresh: !!args.fresh, sources: !!args.sources, prepare: prepare.length ? prepare : null, ready: args.ready ?? pages[args.page ?? '']?.ready ?? null };
     let rows;
-    try { rows = await measure(url, width, args.selector, args.props, { fresh: !!args.fresh, sources: !!args.sources }); } catch (e) { return fail(`measure failed: ${e.message}`); }
+    try { rows = await measure(url, width, args.selector, args.props, mopts); } catch (e) { return fail(`measure failed: ${e.message}`); }
     if (!rows.length) return fail(`nothing matches "${args.selector}" on ${url} @ ${vp}`);
     const hiddenCount = rows.filter((d) => d.hidden).length;
     if (!args.include_hidden) rows = rows.filter((d) => !d.hidden);
@@ -284,7 +288,7 @@ async function callTool(name, args = {}) {
 
     if ((args.depth ?? 0) >= 1) {
       let kids;
-      try { kids = await measure(url, width, `:is(${args.selector}) > *`); } catch (e) { return fail(`measure failed: ${e.message}`); }
+      try { kids = await measure(url, width, `:is(${args.selector}) > *`, null, mopts); } catch (e) { return fail(`measure failed: ${e.message}`); }
       kids = kids.filter((k) => !k.hidden);
       const figKids = (hit.node.children ?? []).filter((c) => !c.mask && (c.w ?? 0) >= 1 && (c.h ?? 0) >= 1);
       const norm = (t) => (t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();

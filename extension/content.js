@@ -191,6 +191,24 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 
 loadMap();
 
+/** SPA navigation (React Router, Next): the URL changes without a reload, so the
+ *  page map and the overlay data must follow it. */
+(() => {
+  let last = location.href;
+  const changed = () => {
+    if (location.href === last) return;
+    last = location.href;
+    map = {};
+    loadMap().then(() => chrome.runtime.sendMessage({ type: 'pg-spa-nav', url: location.href }).catch(() => {}));
+  };
+  for (const m of ['pushState', 'replaceState']) {
+    const orig = history[m];
+    history[m] = function (...a) { const r = orig.apply(this, a); setTimeout(changed, 0); return r; };
+  }
+  addEventListener('popstate', () => setTimeout(changed, 0));
+  addEventListener('hashchange', () => setTimeout(changed, 0));
+})();
+
 const within = (b, a) => b.x >= a.x && b.y >= a.y && b.x + b.w <= a.x + a.w + 1 && b.y + b.h <= a.y + a.h + 1;
 
 let ov = null;
@@ -540,8 +558,16 @@ let pick = null;
 
 function uniqueSelector(el) {
   const nice = (e) => {
-    const cls = [...e.classList].filter((c) => !/^(is-|js-|swiper-|wp-|has-|active|current)/.test(c));
-    return e.tagName.toLowerCase() + (e.id ? '#' + CSS.escape(e.id) : '') + cls.slice(0, 3).map((c) => '.' + CSS.escape(c)).join('');
+    // React / CSS-modules / styled-components produce hashed classes that change
+    // on every build — prefer stable hooks and drop the generated ones
+    const hashed = (c) => /^(sc-|css-|jsx-|emotion-|chakra-|Mui[A-Z]\w*-root-\d|_[a-z0-9]{5,}$)/.test(c) || /__[A-Za-z0-9_-]{5,}$/.test(c) || /[a-z]-[a-z0-9]{6,}$/i.test(c) && /\d/.test(c) && /[a-z]/.test(c) && c.length > 12;
+    const cls = [...e.classList].filter((c) => !/^(is-|js-|swiper-|wp-|has-|active|current)/.test(c) && !hashed(c));
+    for (const a of ['data-testid', 'data-test', 'data-cy', 'data-qa']) {
+      const v = e.getAttribute(a);
+      if (v) return `${e.tagName.toLowerCase()}[${a}="${CSS.escape(v)}"]`;
+    }
+    const idOk = e.id && !/\d{3,}|^[a-z]+-[a-z0-9]{6,}$|^:r/.test(e.id);
+    return e.tagName.toLowerCase() + (idOk ? '#' + CSS.escape(e.id) : '') + cls.slice(0, 3).map((c) => '.' + CSS.escape(c)).join('');
   };
   let sel = nice(el);
   if (document.querySelectorAll(sel).length === 1) return sel;

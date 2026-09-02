@@ -41,6 +41,44 @@ Rules that avoid false failures:
 - Colors normalised to hex + alpha; line-height % → px; tolerance ±1 px (geometry ±2).
 - Font rendering legitimately differs by 1–2 px — that is tolerance, not a bug.
 
+## AJAX content: tabs, modals, virtual pages
+
+The comparison measures whatever is in the DOM, so content that arrives on click has to
+be brought in first. `prepare[]` does that — a list of Playwright steps executed before
+the measurement:
+
+```json
+{ "click": "#tab-reviews" }  { "hover": ".menu" }  { "waitFor": ".panel" }
+{ "scrollTo": ".faq" }  { "fill": "input[name=qty]", "value": "120" }  { "wait": 500 }
+```
+
+Where it goes:
+
+- **page level** — `config/pages.json` → `"prepare": [...]`, runs once after load;
+- **entry level** — `maps/<page>.map.json` → `"prepare": [...]` on a binding, runs before
+  that node (identical step lists run once per page);
+- **MCP** — `pixel_guard_measure` / `pixel_guard_compare` take `prepare` directly.
+
+A tab or a modal whose design lives in its own Figma frame is a **virtual page**: an
+entry in `pages.json` whose `url` is the real page, `frames` point at the component's
+frame (any snapshot), `prepare` opens the tab, and `match` is empty so URL matching keeps
+picking the base page. `qa`, `qa:all`, `automap` and the MCP tools treat it like any other
+page; the extension shows the base page — open the tab by hand and use Inspect.
+
+## React / SPA
+
+- `"spa": true` on a page waits for the network to settle after `load`; `"ready": "<selector>"`
+  waits for that element to be visible (hydration, data fetch) before measuring.
+  `pixel_guard_measure` / `compare` accept `ready` too.
+- Selectors skip generated classes (CSS modules `Button_root__x8f2a`, styled-components
+  `sc-…`, emotion `css-…`, `jsx-…`, MUI hashes) and ids like `:r3:`; `data-testid`,
+  `data-test`, `data-cy`, `data-qa` win when present. Applies to Inspect, "With mouse"
+  and `automap`.
+- Client-side navigation (pushState / popstate / hash) reloads the page map in the
+  extension and re-applies the overlay — no page reload needed.
+- Dev servers: add `http://localhost:5173/...` pages to `pages.json`; the host becomes
+  an allowed site for the extension.
+
 ## Report
 
 `reports/<page>-<viewport>.json` — the contract for Claude: every diff is enough to fix

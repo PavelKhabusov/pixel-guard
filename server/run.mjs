@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { findNode } from './lib/resolve.mjs';
 import { compareNode, DOM_PROPS } from './lib/compare.mjs';
 import { effectivePadding } from './lib/inset.mjs';
+import { runPrepare } from './lib/prepare.mjs';
 import { renderHtml } from './report-html.mjs';
 import { ensureLocalConfigs } from './lib/bootstrap.mjs';
 
@@ -82,17 +83,29 @@ const target = args.fresh ? `${url}${url.includes('?') ? '&' : '?'}pgfresh=${Dat
 const resp = await pg.goto(target, { waitUntil: 'load', timeout: 60000 });
 if (resp && !resp.ok())
   throw new Error(`page responded with HTTP ${resp.status()} — nothing to compare: ${url}`);
+// SPA / React: the markup appears after hydration and data fetches — wait for the
+// network to settle and for the page's "ready" selector (config: "ready": "#root .hero")
+if (pageCfg.spa || pageCfg.ready) await pg.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+if (pageCfg.ready) await pg.locator(pageCfg.ready).first().waitFor({ state: 'visible', timeout: 20000 });
+await pg.evaluate(() => document.fonts?.ready).catch(() => {});
 await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
 await pg.evaluate(async () => {
   for (let y = 0; y < document.body.scrollHeight; y += 800) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
   scrollTo(0, 0);
 });
 await pg.waitForTimeout(400);
+// AJAX content (tabs, modals): page-level steps once, entry-level steps before that node
+const log = (m) => console.log(`  ${m}`);
+if (pageCfg.prepare) await runPrepare(pg, pageCfg.prepare, { log });
 
 const results = [];
 for (const [key, entry] of Object.entries(map)) {
   if (key.startsWith('_')) continue;
   if (entry.skip) { results.push({ key, status: 'skip', reason: entry.skip }); continue; }
+  if (entry.prepare) {
+    try { await runPrepare(pg, entry.prepare, { log }); }
+    catch (e) { results.push({ key, selector: entry.selector, status: 'missing', reason: e.message }); continue; }
+  }
   const fig = findNode(root, key);
   if (!fig) {
     results.push({ key, figmaId: key.startsWith('@') ? null : key, selector: entry.selector, name: entry.name ?? null, status: key.startsWith('@') ? 'absent' : 'map-error' });

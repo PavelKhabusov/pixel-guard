@@ -32,7 +32,9 @@ instance paths `I1310:27371;1310:27233` — the last one is walked segment by se
 4. `pixel_guard_measure { selector: ".pr-pvis li", page: "product" }` → all matches with rects, to check repeated-item spacing.
 
 `page` is a key from `config/pages.json`; `url` overrides it. The browser is launched once
-per MCP process and a page is loaded once per url × viewport.
+per MCP process and a page is loaded once per url × viewport (60 s, `fresh` reloads).
+AJAX content: pass `prepare: [{click: "#tab"}, {waitFor: ".panel"}]` (a page's own
+`prepare[]` from `pages.json` is applied automatically); SPA: `ready: "<selector>"`.
 
 ## Renders
 

@@ -1,5 +1,6 @@
 import { DOM_PROPS } from './compare.mjs';
 import { effectivePadding } from './inset.mjs';
+import { runPrepare } from './prepare.mjs';
 
 /** One headless browser per process, one page per url+viewport — measuring
  *  several selectors on the same page must not reload it every time. */
@@ -8,7 +9,7 @@ const pages = new Map();
 
 const PAGE_TTL = 60000;
 
-async function getPage(url, width, fresh = false) {
+async function getPage(url, width, fresh = false, ready = null) {
   const key = `${width}|${url}`;
   const c = pages.get(key);
   if (c && !fresh && Date.now() - c.at < PAGE_TTL) return c.pg;
@@ -28,6 +29,7 @@ async function getPage(url, width, fresh = false) {
   const resp = await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
   if (resp && !resp.ok()) { await ctx.close(); throw new Error(`HTTP ${resp.status()} for ${url}`); }
   await pg.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  if (ready) await pg.locator(ready).first().waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   await pg.evaluate(() => document.fonts?.ready).catch(() => {});
   await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}' });
   await pg.evaluate(async () => {
@@ -44,8 +46,9 @@ const EXTRA = ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'op
 /** Live measurement of every element matching the selector.
  *  sources: for each returned property, the rule that WON the cascade —
  *  selector, stylesheet file and the declared value (DevTools "Styles" in one call). */
-export async function measure(url, width, selector, props, { fresh = false, sources = false } = {}) {
-  const pg = await getPage(url, width, fresh);
+export async function measure(url, width, selector, props, { fresh = false, sources = false, prepare = null, ready = null } = {}) {
+  const pg = await getPage(url, width, fresh, ready);
+  if (prepare) await runPrepare(pg, prepare);
   const want = props?.length ? props : [...DOM_PROPS, ...EXTRA];
   return pg.evaluate(([sel, list, insetSrc, wantSources]) => {
     const inset = new Function(`return ${insetSrc}`)();

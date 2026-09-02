@@ -8,8 +8,16 @@ export const CANDIDATE_JS = `(() => {
     const r = el.getBoundingClientRect();
     if (r.width >= 8 && r.height >= 8) {
       const nice = (e) => {
-        const cls = [...e.classList].filter((c) => !/^(is-|js-|swiper-|wp-|has-|active|current)/.test(c));
-        return e.tagName.toLowerCase() + (e.id ? '#' + CSS.escape(e.id) : '') + cls.slice(0, 3).map((c) => '.' + CSS.escape(c)).join('');
+        // React / CSS-modules / styled-components produce hashed classes that change
+        // on every build — prefer stable hooks and drop the generated ones
+        const hashed = (c) => /^(sc-|css-|jsx-|emotion-|chakra-|Mui[A-Z]\w*-root-\d|_[a-z0-9]{5,}$)/.test(c) || /__[A-Za-z0-9_-]{5,}$/.test(c) || /[a-z]-[a-z0-9]{6,}$/i.test(c) && /\d/.test(c) && /[a-z]/.test(c) && c.length > 12;
+        const cls = [...e.classList].filter((c) => !/^(is-|js-|swiper-|wp-|has-|active|current)/.test(c) && !hashed(c));
+        for (const a of ['data-testid', 'data-test', 'data-cy', 'data-qa']) {
+          const v = e.getAttribute(a);
+          if (v) return e.tagName.toLowerCase() + '[' + a + '="' + CSS.escape(v) + '"]';
+        }
+        const idOk = e.id && !/\d{3,}|^[a-z]+-[a-z0-9]{6,}$|^:r/.test(e.id);
+        return e.tagName.toLowerCase() + (idOk ? '#' + CSS.escape(e.id) : '') + cls.slice(0, 3).map((c) => '.' + CSS.escape(c)).join('');
       };
       let sel = nice(el);
       if (document.querySelectorAll(sel).length > 1) {

@@ -20,5 +20,37 @@
       "tablet": null,
       "mobile": null
     }
+  },
+  "product-reviews": {
+    "_comment": "virtual page: an AJAX tab measured on the product URL against the reviews component frame; prepare[] runs before the measurement",
+    "url": "https://example.com/product/example-item/",
+    "frames": {
+      "desktop": null,
+      "tablet": null,
+      "mobile": null
+    },
+    "prepare": [
+      {
+        "click": "#tab-reviews"
+      },
+      {
+        "waitFor": ".reviews-panel"
+      }
+    ],
+    "match": []
+  },
+  "app-dashboard": {
+    "_comment": "React / SPA: wait for the network to settle and for the root content to render before measuring",
+    "url": "http://localhost:5173/dashboard",
+    "frames": {
+      "desktop": null,
+      "tablet": null,
+      "mobile": null
+    },
+    "spa": true,
+    "ready": "#root [data-testid=dashboard]",
+    "match": [
+      "/dashboard"
+    ]
   }
 }

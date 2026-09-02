@@ -429,6 +429,13 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'pg-inspect-stopped') { inspectOn = false; $('inspect-go').classList.remove('on'); }
 });
 chrome.tabs.onActivated.addListener(() => { nodeCache = null; if (inspectOn) setInspect(false); });
+// SPA route change: same tab, new page — new map, new design
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type !== 'pg-spa-nav') return;
+  nodeCache = null; ovState.data = null;
+  if (ovState.on) applyOverlay();
+  logLine(`→ ${msg.url}`);
+});
 
 
 // Panel closed — remove the overlay, highlight and viewport emulation.
