@@ -22,7 +22,7 @@
     }
   },
   "product-reviews": {
-    "_comment": "virtual page: an AJAX tab measured on the product URL against the reviews component frame; prepare[] runs before the measurement",
+    "_comment": "virtual page: an AJAX tab measured on the product URL against the reviews component frame; prepare[] runs before the measurement. Add \"anywhere\": true for modals reachable from every page (header buttons) — the extension then offers this design on any URL",
     "url": "https://example.com/product/example-item/",
     "frames": {
       "desktop": null,

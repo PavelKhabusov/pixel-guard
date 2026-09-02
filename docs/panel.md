@@ -40,10 +40,13 @@ whole subtree would move with it.
 
 ## Design selector
 
-When several designs live on one URL — the page itself plus its modals / tabs declared as
-virtual pages in `pages.json` — a **design** dropdown appears under the overlay switch.
-Open the modal on the site by hand, pick its design, and the overlay, Check page and
-Inspect work against that frame and its map.
+When several designs apply to the current URL — the page itself, its modals / tabs
+declared as virtual pages in `pages.json`, and global modals marked `"anywhere": true`
+(header buttons: city, catalog, visualisation) — a **design** dropdown appears under the
+overlay switch. Pick the modal's design and press **open**: the extension runs that
+design's `prepare[]` right in the tab (click the trigger, wait for the modal), then the
+overlay, Check page and Inspect work against that frame and its map. The page's own
+blocks are not drawn while a modal design is selected.
 
 ## Check page
 

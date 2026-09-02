@@ -62,8 +62,9 @@ Where it goes:
 A tab or a modal whose design lives in its own Figma frame is a **virtual page**: an
 entry in `pages.json` whose `url` is the real page, `frames` point at the component's
 frame (any snapshot), `prepare` opens the tab, and `match` is empty so URL matching keeps
-picking the base page. `qa`, `qa:all`, `automap` and the MCP tools treat it like any other
-page; in the extension a **design** dropdown lists the virtual pages of the current URL —
+picking the base page; `"anywhere": true` marks a modal reachable from every page (header
+buttons), so the extension offers its design on any URL. `qa`, `qa:all`, `automap` and the
+MCP tools treat a virtual page like any other page; in the extension a **design** dropdown lists the virtual pages of the current URL —
 open the modal by hand and pick it. `automap` runs the page's `prepare[]`, scopes its
 candidates to the bound frame root (positions relative to it, selectors prefixed with it)
 and pairs containers by the text they carry — a menu item frame ↔ the `<a>` with that label.

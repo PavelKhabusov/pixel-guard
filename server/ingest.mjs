@@ -421,7 +421,7 @@ const handler = (req, res) => {
   if (req.method === 'GET' && url.pathname === '/pages') {
     const cfg = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify(Object.entries(cfg).map(([key, v]) => ({ key, url: v.url, match: v.match ?? [], virtual: !!(v.prepare?.length) || (Array.isArray(v.match) && !v.match.length), title: v.title ?? null }))));
+    return res.end(JSON.stringify(Object.entries(cfg).map(([key, v]) => ({ key, url: v.url, match: v.match ?? [], virtual: !!(v.prepare?.length) || (Array.isArray(v.match) && !v.match.length), anywhere: !!v.anywhere, prepare: v.prepare ?? null, title: v.title ?? null }))));
   }
 
   if (req.method === 'GET' && url.pathname === '/map') {

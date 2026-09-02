@@ -694,7 +694,34 @@ function stopInspect() {
   inspect = null;
 }
 
+/** prepare[] steps from config/pages.json executed in the live tab: opens a
+ *  modal or a tab so its design can be overlaid. Playwright's :has-text("…")
+ *  is honoured by filtering on textContent. */
+function findForStep(sel) {
+  const m = sel.match(/^(.*?):has-text\("(.+?)"\)(.*)$/);
+  if (!m) return document.querySelector(sel);
+  const [, before, txt, after] = m;
+  return [...document.querySelectorAll((before || '*') + (after || ''))].find((e) => (e.textContent ?? '').includes(txt)) ?? null;
+}
+async function runSteps(steps) {
+  const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await new Promise((r) => setTimeout(r, 100)); } return null; };
+  for (const s of steps) {
+    const t = s.timeout ?? 8000;
+    if (s.click) { const el = await until(() => findForStep(s.click), t); if (!el) { if (s.optional) continue; throw new Error(`click: ${s.click} not found`); } el.click(); }
+    else if (s.hover) { const el = findForStep(s.hover); if (el) el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); }
+    else if (s.waitFor) { const el = await until(() => { const e = findForStep(s.waitFor); return e && e.getBoundingClientRect().width > 0 ? e : null; }, t); if (!el && !s.optional) throw new Error(`waitFor: ${s.waitFor} did not appear`); }
+    else if (s.scrollTo) { findForStep(s.scrollTo)?.scrollIntoView({ block: 'center' }); }
+    else if (s.fill) { const el = findForStep(s.fill); if (el) { el.value = String(s.value ?? ''); el.dispatchEvent(new Event('input', { bubbles: true })); } }
+    else if (s.wait) await new Promise((r) => setTimeout(r, Number(s.wait)));
+  }
+  await new Promise((r) => setTimeout(r, 400));
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-prepare') {
+    runSteps(msg.steps ?? []).then(() => reply({ ok: true })).catch((e) => reply({ ok: false, error: e.message }));
+    return true;
+  }
   if (msg.type === 'pg-inspect-start') { startInspect(); reply({ ok: true }); return true; }
   if (msg.type === 'pg-inspect-stop') { stopInspect(); reply({ ok: true }); return true; }
   if (msg.type === 'pg-diff') {

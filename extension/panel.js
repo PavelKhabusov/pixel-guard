@@ -266,25 +266,60 @@ async function fillPages() {
   });
 }
 
-// the page and its virtual pages (modals, tabs) share one URL — let the user pick
+// the page, its virtual pages (modals, tabs on this URL) and the global modals
+// (anywhere: header buttons) — let the user pick which design to overlay
+const pathOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '') || '/'; } catch { return ''; } };
+const patRe = (pattern) => {
+  const esc = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${esc.replace(/\*\*/g, ' ').replace(/\*/g, '[^/]*').replace(/ /g, '.*')}$`);
+};
+function basePageFor(url) {
+  const here = pathOf(url);
+  const exact = curPages.find((p) => !p.virtual && p.url && pathOf(p.url) === here);
+  if (exact) return exact;
+  let best = null;
+  for (const p of curPages) {
+    if (p.virtual) continue;
+    for (const m of p.match ?? []) {
+      const pat = m.replace(/\/+$/, '') || '/';
+      if (!patRe(pat).test(here)) continue;
+      const score = m.replace(/\*/g, '').length;
+      if (!best || score > best.score) best = { ...p, score };
+    }
+  }
+  return best;
+}
 function fillDesignChoice(url) {
   const row = $('ov-page-row');
   const sel = $('ov-page');
-  let pathOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '') || '/'; } catch { return ''; } };
   const here = pathOf(url);
-  const same = curPages.filter((p) => p.url && pathOf(p.url) === here);
-  const base = same.find((p) => !p.virtual) ?? null;
-  if (same.length < 2) { row.hidden = true; pageChoice = null; return; }
-  sel.innerHTML = same.map((p) => `<option value="${esc(p.key)}">${esc(p.title ?? p.key)}${p.virtual ? '' : ' (page)'}</option>`).join('');
-  sel.value = base?.key ?? same[0].key;
+  const base = basePageFor(url);
+  const list = [
+    ...(base ? [base] : []),
+    ...curPages.filter((p) => p.virtual && p.key !== base?.key && (p.anywhere || (p.url && pathOf(p.url) === here))),
+  ];
+  if (list.length < 2) { row.hidden = true; pageChoice = null; return; }
+  const keep = sel.value;
+  sel.innerHTML = list.map((p) => `<option value="${esc(p.key)}">${esc(p.title ?? p.key)}${p.virtual ? '' : ' (page)'}</option>`).join('');
+  sel.value = list.some((p) => p.key === keep) ? keep : (base?.key ?? list[0].key);
   pageChoice = sel.value === base?.key ? null : sel.value;
+  $('ov-page-open').hidden = !curPages.find((p) => p.key === sel.value)?.prepare?.length;
   row.hidden = false;
 }
 $('ov-page').onchange = (e) => {
-  const base = curPages.find((p) => p.key === e.target.value && !p.virtual);
-  pageChoice = base ? null : e.target.value;
+  const chosen = curPages.find((p) => p.key === e.target.value);
+  pageChoice = chosen && chosen.virtual ? e.target.value : null;
+  $('ov-page-open').hidden = !chosen?.prepare?.length;
   ovState.data = null; nodeCache = null;
   if (ovState.on) applyOverlay();
+};
+// run the design's prepare steps right on the page: click the trigger, wait for the modal
+$('ov-page-open').onclick = async () => {
+  const chosen = curPages.find((p) => p.key === $('ov-page').value);
+  if (!chosen?.prepare) return;
+  const r = await toActiveTab({ type: 'pg-prepare', steps: chosen.prepare });
+  $('ov-note').textContent = r?.ok ? `opened: ${chosen.title ?? chosen.key}` : `prepare failed: ${r?.error ?? 'page not responding'}`;
+  if (r?.ok && ovState.on) { ovState.data = null; applyOverlay(); }
 };
 chrome.tabs.onActivated.addListener(() => activeTab().then((t) => fillDesignChoice(t?.url)));
 chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') fillDesignChoice(tab?.url); });
@@ -460,6 +495,7 @@ chrome.tabs.onActivated.addListener(() => { nodeCache = null; if (inspectOn) set
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type !== 'pg-spa-nav') return;
   nodeCache = null; ovState.data = null;
+  fillDesignChoice(msg.url);
   if (ovState.on) applyOverlay();
   logLine(`→ ${msg.url}`);
 });
