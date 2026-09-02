@@ -104,7 +104,7 @@ const TOOLS = [
         selector: { type: 'string', description: 'CSS selector' },
         page: { type: 'string', description: 'page key from config/pages.json' },
         url: { type: 'string', description: 'page URL (overrides page)' },
-        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
+        viewport: { type: 'string', description: 'desktop | tablet | mobile (widths from config/viewports.json) or any width in px, e.g. "600" — for the in-between widths; default desktop' },
         props: { type: 'array', items: { type: 'string' }, description: 'CSS properties to return (default: the comparison set)' },
         include_hidden: { type: 'boolean', description: 'also list display:none / zero-size matches (default false)' },
         fresh: { type: 'boolean', description: 'reload the page instead of reusing the one loaded in the last 60 s' },
@@ -122,7 +122,7 @@ const TOOLS = [
       properties: {
         steps: { type: 'array', items: { type: 'object' }, description: '[{click: "#tab"}, {waitFor: ".panel"}, {fill, value}, {wait: ms}]' },
         page: { type: 'string' }, url: { type: 'string' },
-        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] },
+        viewport: { type: 'string', description: 'desktop | tablet | mobile or a width in px, e.g. "600"' },
         ready: { type: 'string', description: 'SPA: selector to wait for before the steps' },
       },
       required: ['steps'],
@@ -137,7 +137,7 @@ const TOOLS = [
       properties: {
         selector: { type: 'string', description: 'element to shoot; omit for the viewport, full_page for the whole page' },
         page: { type: 'string' }, url: { type: 'string' },
-        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] },
+        viewport: { type: 'string', description: 'desktop | tablet | mobile or a width in px, e.g. "600"' },
         prepare: { type: 'array', items: { type: 'object' } },
         freeze: { type: 'array', items: { type: 'string' }, description: 'abort requests containing these substrings, e.g. ["admin-ajax.php"]' },
         full_page: { type: 'boolean' },
@@ -158,7 +158,7 @@ const TOOLS = [
         selector: { type: 'string', description: 'CSS selector of the element (first match)' },
         page: { type: 'string', description: 'page key from config/pages.json' },
         url: { type: 'string', description: 'page URL (overrides page)' },
-        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'default desktop' },
+        viewport: { type: 'string', description: 'desktop | tablet | mobile (widths from config/viewports.json) or any width in px, e.g. "600" — for the in-between widths; default desktop' },
         ignore: { type: 'array', items: { type: 'string' }, description: 'properties to skip' },
         fresh: { type: 'boolean', description: 'reload the page instead of reusing the one loaded in the last 60 s' },
         prepare: { type: 'array', items: { type: 'object' }, description: 'steps before measuring AJAX content: [{click: "#tab"}, {waitFor: ".panel"}, {hover}, {scrollTo}, {fill, value}, {wait: ms}]; a page from config/pages.json applies its own prepare[] automatically' },
@@ -176,7 +176,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         page: { type: 'string', description: 'page key from config/pages.json, e.g. home' },
-        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] },
+        viewport: { type: 'string', description: 'desktop | tablet | mobile or a width in px, e.g. "600"' },
         only_failed: { type: 'boolean', description: 'mismatches only (default true); false lists every checked property incl. passed ones' },
       },
       required: ['page'],
@@ -281,8 +281,10 @@ async function callTool(name, args = {}) {
   }
 
   if (name === 'pixel_guard_measure' || name === 'pixel_guard_compare' || name === 'pixel_guard_probe' || name === 'pixel_guard_shot') {
-    const vp = args.viewport ?? 'desktop';
-    const width = (readJson(path.join(ROOT, 'config/viewports.json')) ?? { desktop: 1920, tablet: 912, mobile: 357 })[vp];
+    const vp = String(args.viewport ?? 'desktop');
+    // a bare number is a custom width — the site is a continuous range, the design has three points
+    const width = /^\d+$/.test(vp) ? Number(vp) : (readJson(path.join(ROOT, 'config/viewports.json')) ?? { desktop: 1920, tablet: 912, mobile: 357 })[vp];
+    if (!width) return fail(`unknown viewport "${vp}": desktop | tablet | mobile or a width in px`);
     const pages = readJson(path.join(ROOT, 'config/pages.json')) ?? {};
     const url = args.url ?? pages[args.page ?? '']?.url ?? Object.values(pages)[0]?.url;
     if (!url) return fail('no url: pass `url` or a `page` key from config/pages.json');
