@@ -83,6 +83,12 @@
       "command": "./wiki-sync.sh",
       "type": "terminal",
       "group": "pixel-guard"
+    },
+    {
+      "name": "🔁 Remap: page → new frame",
+      "command": "npm run remap -- --page home --from OLD:ID --to NEW:ID",
+      "type": "terminal",
+      "group": "pixel-guard"
     }
   ]
 }

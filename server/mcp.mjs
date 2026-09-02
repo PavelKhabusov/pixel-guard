@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveNode, formatTree, describeNode, searchNodes, lineHeightPx, letterSpacingPx } from './lib/snap.mjs';
-import { measure, closeBrowser } from './lib/measure.mjs';
+import { measure, probe, shot, closeBrowser } from './lib/measure.mjs';
 import { compareNode } from './lib/compare.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -94,9 +94,10 @@ const TOOLS = [
   },
   {
     name: 'pixel_guard_measure',
-    description: 'Measure the LIVE page (headless Chromium): every element matching the selector → document rect, '
-      + 'computed styles (font, line-height, color with alpha, padding, gap, border, radius, margin…) and the effective '
-      + 'content inset. `page` is a key from config/pages.json, or pass `url`.',
+    description: 'Measure the LIVE page by CSS selector — no Figma node needed (headless Chromium): every matching element → '
+      + 'document rect, computed styles (font, line-height, color with alpha, padding, gap, border, radius, margin…), effective '
+      + 'content inset. `sources: true` = the rule that won each property; `cascade: true` = EVERY competing rule per property '
+      + 'in cascade order (winner first, then the losers with their files) — who overrides what. `page` is a key from config/pages.json, or pass `url`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -109,6 +110,40 @@ const TOOLS = [
         fresh: { type: 'boolean', description: 'reload the page instead of reusing the one loaded in the last 60 s' },
       },
       required: ['selector'],
+    },
+  },
+  {
+    name: 'pixel_guard_probe',
+    description: '"Click and tell": run prepare steps on the live page and report what happened — XHR/fetch requests '
+      + '(method, url, POST body, status, ms), console errors / uncaught exceptions, and what appeared or disappeared in the DOM '
+      + '(element count, page height, added/removed nodes). The way to find "click ✓ but zero requests" bugs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        steps: { type: 'array', items: { type: 'object' }, description: '[{click: "#tab"}, {waitFor: ".panel"}, {fill, value}, {wait: ms}]' },
+        page: { type: 'string' }, url: { type: 'string' },
+        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] },
+        ready: { type: 'string', description: 'SPA: selector to wait for before the steps' },
+      },
+      required: ['steps'],
+    },
+  },
+  {
+    name: 'pixel_guard_shot',
+    description: 'Screenshot of an element (selector) or the page after optional prepare steps. `freeze` aborts requests whose '
+      + 'URL contains any of the given substrings, so a skeleton / loading state can be captured. Returns the image or saves it (save_to).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'element to shoot; omit for the viewport, full_page for the whole page' },
+        page: { type: 'string' }, url: { type: 'string' },
+        viewport: { type: 'string', enum: ['desktop', 'tablet', 'mobile'] },
+        prepare: { type: 'array', items: { type: 'object' } },
+        freeze: { type: 'array', items: { type: 'string' }, description: 'abort requests containing these substrings, e.g. ["admin-ajax.php"]' },
+        full_page: { type: 'boolean' },
+        save_to: { type: 'string', description: 'file path; otherwise the PNG is returned inline' },
+        ready: { type: 'string' },
+      },
     },
   },
   {
@@ -245,14 +280,36 @@ async function callTool(name, args = {}) {
     return text(`design "${hit.snap.frameName}" (${hit.snap.file})\n\n${formatTree(hit.node, args.depth ?? 3)}`);
   }
 
-  if (name === 'pixel_guard_measure' || name === 'pixel_guard_compare') {
+  if (name === 'pixel_guard_measure' || name === 'pixel_guard_compare' || name === 'pixel_guard_probe' || name === 'pixel_guard_shot') {
     const vp = args.viewport ?? 'desktop';
     const width = (readJson(path.join(ROOT, 'config/viewports.json')) ?? { desktop: 1920, tablet: 912, mobile: 357 })[vp];
     const pages = readJson(path.join(ROOT, 'config/pages.json')) ?? {};
     const url = args.url ?? pages[args.page ?? '']?.url ?? Object.values(pages)[0]?.url;
     if (!url) return fail('no url: pass `url` or a `page` key from config/pages.json');
+    const readySel = args.ready ?? pages[args.page ?? '']?.ready ?? null;
+
+    if (name === 'pixel_guard_probe') {
+      let r;
+      try { r = await probe(url, width, args.steps, { ready: readySel }); } catch (e) { return fail(`probe failed: ${e.message}`); }
+      const reqs = r.requests.map((q) => `  ${q.method} ${q.url}${q.body ? `\n      body: ${q.body}` : ''}  → ${q.status ?? 'pending'}${typeof q.ms === 'number' && q.status !== null ? ` (${q.ms} ms)` : ''}`);
+      return text(`${url} @ ${vp}\n\nsteps:\n${r.stepLog.map((l) => '  ' + l).join('\n')}${r.stepError ? `\n  ✗ ${r.stepError}` : ''}`
+        + `\n\nrequests (${r.requests.length}):\n${reqs.join('\n') || '  none — nothing was fetched'}`
+        + `\n\nconsole (${r.errors.length}):\n${r.errors.map((e) => '  ' + e).join('\n') || '  clean'}`
+        + `\n\nDOM: ${r.before.elements} → ${r.after.elements} elements · height ${r.before.height} → ${r.after.height}${r.before.url !== r.after.url ? ` · url → ${r.after.url}` : ''}`
+        + `\n  added: ${r.after.added.join(', ') || '—'}\n  removed: ${r.after.removed.join(', ') || '—'}`);
+    }
+
+    if (name === 'pixel_guard_shot') {
+      const prep = [...(pages[args.page ?? '']?.prepare ?? []), ...(Array.isArray(args.prepare) ? args.prepare : [])];
+      let r;
+      try { r = await shot(url, width, { selector: args.selector ?? null, steps: prep.length ? prep : null, freeze: args.freeze ?? null, fullPage: !!args.full_page, ready: readySel }); }
+      catch (e) { return fail(`shot failed: ${e.message}`); }
+      const meta = `${args.selector ?? (args.full_page ? 'full page' : 'viewport')} @ ${vp}${r.box ? ` · ${Math.round(r.box.width)}×${Math.round(r.box.height)} at ${Math.round(r.box.x)},${Math.round(r.box.y)}` : ''}${args.freeze?.length ? ` · frozen: ${args.freeze.join(', ')}` : ''}`;
+      if (args.save_to) { fs.mkdirSync(path.dirname(path.resolve(args.save_to)), { recursive: true }); fs.writeFileSync(path.resolve(args.save_to), r.png); return text(`saved: ${args.save_to} (${Math.round(r.png.length / 1024)} KB) · ${meta}`); }
+      return { content: [{ type: 'text', text: meta }, { type: 'image', data: r.png.toString('base64'), mimeType: 'image/png' }] };
+    }
     const prepare = [...(pages[args.page ?? '']?.prepare ?? []), ...(Array.isArray(args.prepare) ? args.prepare : [])];
-    const mopts = { fresh: !!args.fresh, sources: !!args.sources, prepare: prepare.length ? prepare : null, ready: args.ready ?? pages[args.page ?? '']?.ready ?? null };
+    const mopts = { fresh: !!args.fresh, sources: args.cascade ? 'all' : !!args.sources, prepare: prepare.length ? prepare : null, ready: args.ready ?? pages[args.page ?? '']?.ready ?? null };
     let rows;
     try { rows = await measure(url, width, args.selector, args.props, mopts); } catch (e) { return fail(`measure failed: ${e.message}`); }
     if (!rows.length) return fail(`nothing matches "${args.selector}" on ${url} @ ${vp}`);
@@ -271,7 +328,7 @@ async function callTool(name, args = {}) {
         + `   inset ${d.inset.top}/${d.inset.right}/${d.inset.bottom}/${d.inset.left}`
         + (d.parentGap ? ` · parent ${d.parentGap.display} gap ${d.parentGap.rowGap}/${d.parentGap.columnGap}` : '') + '\n'
         + Object.entries(d.styles).filter(([, v]) => v !== '' && v !== 'none' && v !== 'normal' && v !== '0px' && v !== 'auto')
-          .map(([k, v]) => `   ${k}: ${v}${d.sources?.[k] ? `\n      ↳ ${d.sources[k]}` : ''}`).join('\n');
+          .map(([k, v]) => `   ${k}: ${v}${d.sources?.[k] ? (args.cascade ? `\n${d.sources[k]}` : `\n      ↳ ${d.sources[k]}`) : ''}`).join('\n');
       return text(`${url} @ ${vp} (${width}px) · ${args.selector} · ${rows.length} visible${hiddenCount ? ` (+${hiddenCount} hidden)` : ''}\n\n${rows.map(fmt).join('\n\n')}`);
     }
 

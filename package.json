@@ -16,7 +16,8 @@
     "mcp": "node server/mcp.mjs",
     "start": "./start.sh",
     "shots": "node server/shots.mjs",
-    "verify": "node server/verify.mjs"
+    "verify": "node server/verify.mjs",
+    "remap": "node server/remap.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",

@@ -87,23 +87,23 @@ export async function measure(url, width, selector, props, { fresh = false, sour
       }
       return hits;
     };
-    const sourceMap = (el, propsList) => {
+    const sourceMap = (el, propsList, all) => {
       const hits = rulesFor(el);
       const out = {};
       for (const prop of propsList) {
-        let best = null;
+        const cands = [];
         for (const h of hits) {
           const v = h.style.getPropertyValue(prop);
           if (!v) continue;
           const imp = h.style.getPropertyPriority(prop) === 'important' ? 1 : 0;
-          const rank = [imp, h.spec, h.order];
-          if (!best || rank[0] > best.rank[0] || (rank[0] === best.rank[0] && (rank[1] > best.rank[1] || (rank[1] === best.rank[1] && rank[2] > best.rank[2]))))
-            best = { rank, sel: h.sel, file: h.file, value: v + (imp ? ' !important' : '') };
+          cands.push({ rank: [imp, h.spec, h.order], sel: h.sel, file: h.file, value: v + (imp ? ' !important' : '') });
         }
         const inline = el.style.getPropertyValue(prop);
-        if (inline && (!best || best.rank[0] === 0 || el.style.getPropertyPriority(prop) === 'important'))
-          best = { sel: 'style=""', file: 'inline', value: inline };
-        if (best) out[prop] = `${best.value}  ←  ${best.sel}  (${best.file})`;
+        if (inline) cands.push({ rank: [el.style.getPropertyPriority(prop) === 'important' ? 2 : 0.5, 1e9, 1e9], sel: 'style=""', file: 'inline', value: inline });
+        if (!cands.length) continue;
+        cands.sort((a, b) => b.rank[0] - a.rank[0] || b.rank[1] - a.rank[1] || b.rank[2] - a.rank[2]);
+        const line = (c) => `${c.value}  ←  ${c.sel}  (${c.file})`;
+        out[prop] = all ? cands.map((c, i) => (i ? '   ✗ ' : '   ✓ ') + line(c)).join('\n') : line(cands[0]);
       }
       return out;
     };
@@ -122,10 +122,74 @@ export async function measure(url, width, selector, props, { fresh = false, sour
       return {
         rect: { x: r1(r.left + scrollX), y: r1(r.top + scrollY), width: r1(r.width), height: r1(r.height) },
         styles, inset: inset(el), text, ownText, tag: el.tagName.toLowerCase(), children: el.children.length, hidden, parentGap,
-        ...(wantSources ? { sources: sourceMap(el, list) } : {}),
+        ...(wantSources ? { sources: sourceMap(el, list, wantSources === 'all') } : {}),
       };
     });
   }, [selector, want, effectivePadding.toString(), sources]);
+}
+
+/** "Click and tell": run the steps while recording XHR/fetch, console errors and
+ *  what appeared / disappeared in the DOM. Finds the "click ✓, zero requests" bugs. */
+export async function probe(url, width, steps, { fresh = true, ready = null } = {}) {
+  const pg = await getPage(url, width, fresh, ready);
+  const requests = [];
+  const errors = [];
+  const onReq = (rq) => { const t = rq.resourceType(); if (t === 'xhr' || t === 'fetch' || t === 'document') requests.push({ method: rq.method(), url: rq.url(), body: rq.postData()?.slice(0, 500) ?? null, type: t, status: null, ms: Date.now() }); };
+  const onRes = (rs) => { const r = requests.find((x) => x.url === rs.url() && x.status === null); if (r) { r.status = rs.status(); r.ms = Date.now() - r.ms; } };
+  const onReqFail = (rq) => { const r = requests.find((x) => x.url === rq.url() && x.status === null); if (r) { r.status = 'failed: ' + (rq.failure()?.errorText ?? '?'); } };
+  const onConsole = (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`${m.type()}: ${m.text().slice(0, 300)}`); };
+  const onPageError = (e) => errors.push(`uncaught: ${String(e.message ?? e).slice(0, 300)}`);
+  pg.on('request', onReq); pg.on('response', onRes); pg.on('requestfailed', onReqFail); pg.on('console', onConsole); pg.on('pageerror', onPageError);
+  await pg.evaluate(() => {
+    const sig = (n) => n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + [...n.classList].slice(0, 3).map((c) => '.' + c).join('');
+    window.__pgMut = { added: new Map(), removed: new Map() };
+    window.__pgObs = new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) if (n.nodeType === 1) { const k = sig(n); window.__pgMut.added.set(k, (window.__pgMut.added.get(k) ?? 0) + 1); }
+        for (const n of m.removedNodes) if (n.nodeType === 1) { const k = sig(n); window.__pgMut.removed.set(k, (window.__pgMut.removed.get(k) ?? 0) + 1); }
+      }
+    });
+    window.__pgObs.observe(document.documentElement, { childList: true, subtree: true });
+  });
+  const before = await pg.evaluate(() => ({ elements: document.getElementsByTagName('*').length, height: document.body.scrollHeight, url: location.href }));
+  const stepLog = [];
+  let stepError = null;
+  try { await runPrepare(pg, steps, { log: (m) => stepLog.push(m) }); } catch (e) { stepError = e.message; }
+  await pg.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await pg.waitForTimeout(300);
+  const after = await pg.evaluate(() => {
+    window.__pgObs?.disconnect();
+    const top = (m) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => (v > 1 ? `${k} ×${v}` : k));
+    return { elements: document.getElementsByTagName('*').length, height: document.body.scrollHeight, url: location.href, added: top(window.__pgMut.added), removed: top(window.__pgMut.removed) };
+  });
+  pg.off('request', onReq); pg.off('response', onRes); pg.off('requestfailed', onReqFail); pg.off('console', onConsole); pg.off('pageerror', onPageError);
+  return { stepLog, stepError, requests, errors, before, after };
+}
+
+/** Screenshot after the steps; freeze[] aborts requests matching these substrings
+ *  (e.g. ["/wp-admin/admin-ajax.php"]) so a skeleton / loading state can be captured. */
+export async function shot(url, width, { selector = null, steps = null, freeze = null, fullPage = false, fresh = false, ready = null } = {}) {
+  const pg = await getPage(url, width, fresh || !!freeze, ready);
+  let unroute = null;
+  if (freeze?.length) {
+    const handler = (route) => (freeze.some((f) => route.request().url().includes(f)) ? route.abort() : route.continue());
+    await pg.route('**/*', handler);
+    unroute = () => pg.unroute('**/*', handler);
+  }
+  try {
+    if (steps) await runPrepare(pg, steps);
+    await pg.waitForTimeout(200);
+    if (selector) {
+      const loc = pg.locator(selector).first();
+      await loc.waitFor({ state: 'visible', timeout: 8000 });
+      await loc.scrollIntoViewIfNeeded();
+      const box = await loc.boundingBox();
+      return { png: await loc.screenshot({ type: 'png' }), box };
+    }
+    return { png: await pg.screenshot({ type: 'png', fullPage }), box: null };
+  } finally {
+    if (unroute) await unroute();
+  }
 }
 
 export async function closeBrowser() {
