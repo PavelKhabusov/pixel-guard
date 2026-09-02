@@ -10,6 +10,12 @@ import { loadSnapshots, walk } from './lib/snap.mjs';
  * what could not be paired.
  *
  *   npm run remap -- --page ukladka --from 738:9485 --to 1909:14938 [--write]
+ *
+ * Cross-viewport (desktop map → tablet/mobile frame of the same page): sizes differ by
+ * design, so `--keep` adds the new ids next to the old ones instead of replacing them and
+ * `--cross` trusts path/text matches regardless of the size delta.
+ *
+ *   npm run remap -- --page catalog --from 512:6014 --to 1111:35016 --keep --cross --write
  */
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const args = {};
@@ -18,7 +24,7 @@ for (let i = 2; i < process.argv.length; i++) {
   if (a.startsWith('--')) args[a.slice(2)] = (process.argv[i + 1] ?? '--').startsWith('--') ? true : process.argv[++i];
 }
 if (!args.page || !args.from || !args.to) {
-  console.error('usage: npm run remap -- --page <key> --from <oldFrameId> --to <newFrameId> [--write]');
+  console.error('usage: npm run remap -- --page <key> --from <oldFrameId> --to <newFrameId> [--keep] [--cross] [--write]');
   process.exit(2);
 }
 const mapPath = path.join(ROOT, 'maps', `${args.page}.map.json`);
@@ -79,12 +85,15 @@ for (const [key, entry] of Object.entries(map)) {
   const best = cands[0];
   if (!best) { rows.push({ key, status: 'unmatched', entry, old: old.node }); continue; }
   const dist = sizeDist(best, old.node);
-  const sure = dist <= 4 && (how === 'path' || how === 'path+text');
+  const byPath = how === 'path' || how === 'path+text';
+  // cross-viewport: the same block is a different size by design — trust the structure/text
+  const sure = args.cross ? (byPath || how === 'name+type+text') : (dist <= 4 && byPath);
   used.add(best.id);
   rows.push({ key, status: sure ? 'ok' : 'check', to: best.id, how, dist, entry, old: old.node, neu: best });
   if (best.id !== key) {
-    delete out[key];
-    out[best.id] = { ...entry, ...(sure ? {} : { suspect: true }), migratedFrom: key };
+    if (!args.keep) delete out[key];
+    const { suspect: _s, migratedFrom: _m, ...clean } = entry;
+    out[best.id] = { ...clean, ...(sure ? {} : { suspect: true }), migratedFrom: key };
   }
 }
 
@@ -98,5 +107,7 @@ const n = (st) => rows.filter((r) => r.status === st).length;
 console.log(`\n${n('ok')} ✓ · ${n('check')} ? (marked suspect) · ${n('unmatched')} ✗ · ${n('not-in-old')} not in old frame`);
 if (args.write) {
   fs.writeFileSync(mapPath, JSON.stringify(out, null, 2) + '\n');
-  console.log(`→ maps/${args.page}.map.json rewritten; update frames.<viewport> in config/pages.json to ${args.to} and run npm run verify -- --page ${args.page}`);
+  console.log(args.keep
+    ? `→ maps/${args.page}.map.json: ${rows.filter((r) => r.to).length} bindings added for ${args.to} (old ones kept); run npm run qa -- --page ${args.page} --viewport <tablet|mobile>`
+    : `→ maps/${args.page}.map.json rewritten; update frames.<viewport> in config/pages.json to ${args.to} and run npm run verify -- --page ${args.page}`);
 } else console.log('\nRun with --write to rewrite the map.');
