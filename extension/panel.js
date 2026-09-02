@@ -70,7 +70,20 @@ function alertBox(html, action) {
   box.hidden = false;
 }
 
-const reloadTab = () => chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+// The side panel is opened for ONE tab (background: sidePanel.open({ tabId })).
+// Everything the panel does — overlay, emulation, reload — targets that tab,
+// never "whatever tab is active now": switching tabs must not narrow them.
+let panelTabId = null;
+const panelTabReady = new Promise((res) => {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => { panelTabId = t?.id ?? null; res(t ?? null); });
+});
+const panelTab = async () => {
+  await panelTabReady;
+  if (panelTabId == null) return null;
+  return chrome.tabs.get(panelTabId).catch(() => null);
+};
+
+const reloadTab = () => panelTab().then((t) => {
   if (t) chrome.tabs.reload(t.id);
   alertBox(null);
 });
@@ -96,11 +109,9 @@ async function targetTab() {
 const ovState = { on: false, opacity: 1, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
 const toActiveTab = (msg) =>
-  new Promise((resolve) => {
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
-      if (!t) return resolve(null);
-      chrome.tabs.sendMessage(t.id, msg).then(resolve).catch(() => resolve(null));
-    });
+  panelTab().then((t) => {
+    if (!t) return null;
+    return chrome.tabs.sendMessage(t.id, msg).catch(() => null);
   });
 
 async function applyOverlay() {
@@ -203,9 +214,7 @@ chrome.runtime.onMessage.addListener((msg) => {
   $('ov-split-val').textContent = `${msg.split}%`;
 });
 
-const activeTab = () => new Promise((res) => {
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => res(t));
-});
+const activeTab = () => panelTab();
 
 // Desktop by default: the design is fixed-width, so the page viewport is
 // emulated to the same width and the overlay lands on the pixel. "auto" (no
@@ -230,7 +239,8 @@ async function showVpNote() {
 // mode. The window stays the same, only the content reflows.
 async function emulateViewport(vp) {
   const width = vp === 'auto' ? null : VP_W[vp];
-  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-emulate', width }, res));
+  await panelTabReady;
+  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-emulate', width, tabId: panelTabId }, res));
   if (r?.ok === false) $('vp-note').textContent = `could not narrow: ${r.error}`;
   await new Promise((res) => setTimeout(res, 500));
   return r;
@@ -249,8 +259,9 @@ async function setViewport(vp) {
 document.querySelectorAll('.vp-btn').forEach((b) => { b.onclick = () => setViewport(b.dataset.vp); });
 
 chrome.storage.local.get('vpChoice', (v) => setViewport(v?.vpChoice ?? 'desktop'));
-// a new tab gets the same emulation, otherwise the overlay silently falls back to the window width
-chrome.tabs.onActivated.addListener(() => { if (vpChoice !== 'auto') emulateViewport(vpChoice).then(showVpNote); });
+// back on the panel's own tab — refresh the note (the background re-applies the
+// wanted width itself); other tabs are left alone, they have no panel
+chrome.tabs.onActivated.addListener(({ tabId }) => { if (tabId === panelTabId) showVpNote(); });
 
 // panel is closing — remove emulation, otherwise the page stays narrow
 $('ov-diff').onchange = (e) => { ovState.diff = e.target.checked; if (ovState.on) applyOverlay(); };
@@ -272,7 +283,7 @@ async function fillPages() {
   curPages = list;
   const sel = $('bind-page');
   sel.innerHTML = list.map((p) => `<option value="${p.key}">${p.key}</option>`).join('');
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+  panelTab().then((t) => {
     const g = t && guessPage(t.url);
     if (g) sel.value = g;
     fillDesignChoice(t?.url);

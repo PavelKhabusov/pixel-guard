@@ -300,11 +300,14 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-inspect-done' || msg.type === 'pg-inspect-stopped' || msg.type === 'pg-spa-nav') { toPanel(msg); return; }
   if (msg.type === 'pg-split-moved') { toPanel(msg); return; }
   if (msg.type === 'pg-emulate') {
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
-      if (!t) return reply({ ok: false, error: 'no active tab' });
+    // the panel names its own tab; the active-tab fallback is for old panels only
+    const withTab = (t) => {
+      if (!t) return reply({ ok: false, error: 'no tab' });
       if (!isTarget(t.url)) return reply({ ok: false, error: 'not a project site' });
       emulateWidth(t.id, msg.width).then(reply);
-    });
+    };
+    if (msg.tabId != null) chrome.tabs.get(msg.tabId).then(withTab).catch(() => withTab(null));
+    else chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => withTab(t));
     return true;
   }
   if (msg.type === 'pg-cleanup') {
