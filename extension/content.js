@@ -256,6 +256,8 @@ function boxStyle(b, opts) {
     );
     if (f.letterSpacing) css.push(`letter-spacing:${f.letterSpacing}px`);
     if (f.case === 'UPPER') css.push('text-transform:uppercase');
+    if (f.decoration === 'UNDERLINE') css.push('text-decoration:underline');
+    if (f.decoration === 'STRIKETHROUGH') css.push('text-decoration:line-through');
   }
   return css;
 }

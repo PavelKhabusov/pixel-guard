@@ -218,7 +218,7 @@ const handler = (req, res) => {
             shot: anchor ? (shots[`${pageKey}|${viewport}|${anchor.key}`]?.file ?? null) : null,
             font: n.type === 'TEXT' && n.font ? {
               family: n.font.family, size: n.font.size, weight: n.font.weight,
-              align: n.font.align, case: n.font.case,
+              align: n.font.align, case: n.font.case, decoration: n.font.decoration ?? null,
               lineHeight: n.font.lineHeight?.unit === 'PIXELS' ? n.font.lineHeight.value
                 : n.font.lineHeight?.unit === 'PERCENT' ? (n.font.lineHeight.value / 100) * n.font.size : null,
               letterSpacing: n.font.letterSpacing?.unit === 'PIXELS' ? n.font.letterSpacing.value
