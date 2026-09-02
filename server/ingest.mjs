@@ -108,17 +108,18 @@ const handler = (req, res) => {
 
     const files = fs.existsSync(SNAP) ? fs.readdirSync(SNAP).filter((f) => f.endsWith('.json') && !f.startsWith('_')) : [];
     res.setHeader('Content-Type', 'application/json');
+    const depthLimit = Number(url.searchParams.get('depth') ?? 64);
+    // one design (a frame + its map) → boxes; used for the page and for its extras
+    const buildFor = (want, pageKey, matchedPage) => {
     for (const f of files) {
       const j = readJsonSafe(path.join(SNAP, f));
       if (!j?.tree) continue;
       const root = want ? findById(j.tree, want) : j.tree;
       if (!root) continue;
       const png = path.join(SNAP, f.replace(/\.json$/, '.png'));
-      const depthLimit = Number(url.searchParams.get('depth') ?? 64);
 
       // this page's map — so the overlay is applied block by block,
       // each block onto its own DOM element, not as one flat layer on top.
-      const pageKey = matchedPage?.key ?? url.searchParams.get('page');
       const pageMap = pageKey ? readJsonSafe(path.join(ROOT, 'maps', `${pageKey}.map.json`)) ?? {} : {};
       const sharedMap = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
       // pre-rendered block PNGs (npm run shots) — for per-container pixel comparison
@@ -241,15 +242,43 @@ const handler = (req, res) => {
       };
       const parentBox = new Map();
       walk(root, 0, null);
-      return res.end(JSON.stringify({
-        frame: j.frameName, page: matchedPage?.key, matchedBy: matchedPage?.how,
+      return {
+        frame: j.frameName, frameId: root.id, page: pageKey, matchedBy: matchedPage?.how,
         w: root.w, h: root.h, boxes,
         svgLib: j.svgLib ?? {},
         shotsBase: '/shot?file=',
         hasShots: Object.keys(shots).length > 0,
         anchored: boxes.filter((b) => b.anchor).length,
         png: fs.existsSync(png) ? `/png?file=${encodeURIComponent(path.basename(png))}` : null,
-      }));
+      };
+    }
+    return null;
+    };
+
+    const base = buildFor(want, matchedPage?.key ?? url.searchParams.get('page'), matchedPage);
+    if (base) {
+      // auto mode: the page plus every design that may show up on it (tabs,
+      // modals, global modals) — the extension draws an extra only while its
+      // root element is visible
+      const extras = [];
+      if (url.searchParams.get('auto') === '1' && forUrl) {
+        const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
+        const pathOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '') || '/'; } catch { return ''; } };
+        const here = pathOf(forUrl);
+        for (const [key, cfg] of Object.entries(pages)) {
+          if (key === base.page) continue;
+          const virtual = !!(cfg.prepare?.length) || (Array.isArray(cfg.match) && !cfg.match.length);
+          if (!virtual || !(cfg.anywhere || (cfg.url && pathOf(cfg.url) === here))) continue;
+          const fid = cfg.frames?.[viewport];
+          if (!fid) continue;
+          const m = { ...(readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {}), ...(readJsonSafe(path.join(ROOT, 'maps', `${key}.map.json`)) ?? {}) };
+          const rootSel = m[fid]?.selector;
+          if (!rootSel) continue;
+          const d = buildFor(fid, key, { key, how: 'extra' });
+          if (d) extras.push({ ...d, title: cfg.title ?? key, root: rootSel });
+        }
+      }
+      return res.end(JSON.stringify({ ...base, extras }));
     }
     return res.writeHead(404).end(JSON.stringify({
       ok: false,

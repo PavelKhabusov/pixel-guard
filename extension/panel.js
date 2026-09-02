@@ -81,7 +81,8 @@ setInterval(poll, 3000);
 
 // which design to use when several pages share the URL (the page + its modals/tabs)
 let pageChoice = null;
-const pageParam = () => (pageChoice ? `&page=${encodeURIComponent(pageChoice)}` : '');
+// null = auto: the page plus whatever extra design (tab, modal) is visible right now
+const pageParam = () => (pageChoice ? `&page=${encodeURIComponent(pageChoice)}` : '&auto=1');
 const ovState = { on: false, opacity: 1, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
 const toActiveTab = (msg) =>
@@ -126,7 +127,8 @@ async function applyOverlay() {
   const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ window ${tab?.width}px`;
   const sc = r.scale && r.scale !== 1 ? ` · scale ${Math.round(r.scale * 100)}%` : '';
   const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} blocks${r.missing ? `, ${r.missing} missing` : ''}${sc}`;
-  note.textContent = `${d.page ? d.page + ' · ' : ''}${d.frame} · ${d.w}px${fit}${anch}`;
+  const live = r.extras?.length ? ` · showing: ${r.extras.join(', ')}${r.modalOpen ? ' (page hidden under the modal)' : ''}` : '';
+  note.textContent = `${d.page ? d.page + ' · ' : ''}${d.frame} · ${d.w}px${fit}${anch}${live}`;
 
   // Explain WHY the page is empty instead of leaving the user guessing
   if (r.mode === 'shots' && r.anchored && !d.hasShots) {
@@ -300,15 +302,17 @@ function fillDesignChoice(url) {
   ];
   if (list.length < 2) { row.hidden = true; pageChoice = null; return; }
   const keep = sel.value;
-  sel.innerHTML = list.map((p) => `<option value="${esc(p.key)}">${esc(p.title ?? p.key)}${p.virtual ? '' : ' (page)'}</option>`).join('');
-  sel.value = list.some((p) => p.key === keep) ? keep : (base?.key ?? list[0].key);
-  pageChoice = sel.value === base?.key ? null : sel.value;
+  sel.innerHTML = `<option value="__auto">auto — page + whatever is open</option>`
+    + list.map((p) => `<option value="${esc(p.key)}">${esc(p.title ?? p.key)}${p.virtual ? '' : ' (page)'}</option>`).join('');
+  sel.value = list.some((p) => p.key === keep) ? keep : '__auto';
+  pageChoice = sel.value === '__auto' || sel.value === base?.key ? null : sel.value;
   $('ov-page-open').hidden = !curPages.find((p) => p.key === sel.value)?.prepare?.length;
   row.hidden = false;
 }
 $('ov-page').onchange = (e) => {
   const chosen = curPages.find((p) => p.key === e.target.value);
   pageChoice = chosen && chosen.virtual ? e.target.value : null;
+  if (e.target.value !== '__auto' && chosen && !chosen.virtual) pageChoice = chosen.key;
   $('ov-page-open').hidden = !chosen?.prepare?.length;
   ovState.data = null; nodeCache = null;
   if (ovState.on) applyOverlay();

@@ -331,55 +331,9 @@ const isFixed = (el) => {
  * fluid, the design is fixed), fixed/sticky blocks are drawn in the same
  * coordinate layer.
  */
-function showOverlay(data, opts) {
-  buildOverlay();
-  lastOverlay = { data, opts };
-  const off = { x: opts.offsetX ?? 0, y: opts.offsetY ?? 0 };
-  const layerOpacity = opts.split != null ? 1 : (opts.opacity ?? 0.5);
-  Object.assign(ov.style, {
-    top: '0px', left: '0px', width: '100%', height: '0px',
-    opacity: String(layerOpacity), display: 'block',
-  });
-  ov.classList.toggle('pg-diff', !!opts.diff);
-  ov.classList.toggle('pg-outline', opts.mode === 'outline');
-
-  // Curtain: show the design only to the left of the line — like a
-  // "before/after" comparison widget. 100% = whole design, 0% = site only.
-  const split = opts.split;
-  ov.style.clipPath = split == null ? '' : `inset(0 ${100 - split}% 0 0)`;
-  // the left side must show ONLY the design: dim the site under the curtain,
-  // otherwise the layers blend and the curtain seems not to work
-  document.documentElement.style.setProperty('--pg-split', `${split ?? 0}%`);
-  document.documentElement.classList.toggle('pg-split-on', split != null);
-  if (split == null) { splitDim?.remove(); splitDim = null; }
-  else {
-    if (!splitDim) {
-      splitDim = document.createElement('div');
-      splitDim.className = 'pg-split-dim';
-      document.documentElement.appendChild(splitDim);
-    }
-  }
-  applySplitLine(split, opts);
-
-  ov.innerHTML = '';
-  if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
-
-  // "design only": dim the page itself, otherwise its text reads mixed with
-  // the design text and the header seems to contain foreign items
-  document.documentElement.classList.toggle('pg-solo', !!opts.solo);
-
-  if (data.png && opts.mode === 'image') {
-    const anchor = document.querySelector(opts.anchor || 'body');
-    const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
-    const img = document.createElement('img');
-    img.src = `http://localhost:8971${data.png}`;
-    img.style.cssText = `position:absolute;left:${off.x}px;top:${top + off.y}px;width:${data.w}px;display:block`;
-    ov.appendChild(img);
-    return { boxes: 0, png: true, mode: 'image', anchored: 0, placed: 1, scale: 1 };
-  }
-
-  const frag = document.createDocumentFragment();
-  let fixedFrag = null;
+/** Places one design (the page or an extra: a tab, a modal) onto its bound
+ *  elements. Boxes are appended to frag; fixed/sticky ones to fx.frag. */
+function drawDesign(data, opts, off, frag, fx) {
 
   // one DOM element = one layer: if several keys point to it (the hero and
   // the whole product component both bound to section.pr-phero), keep the
@@ -470,8 +424,8 @@ function showOverlay(data, opts) {
 
     let target = frag;
     if (fixed) {
-      if (!fixedFrag) fixedFrag = document.createDocumentFragment();
-      target = fixedFrag;
+      if (!fx.frag) fx.frag = document.createDocumentFragment();
+      target = fx.frag;
     }
     target.appendChild(makeBox(a, opts, baseL, baseT, k, data.svgLib));
     if (opts.mode === 'shots' && a.shot) continue;
@@ -494,6 +448,82 @@ function showOverlay(data, opts) {
     }
   }
 
+  return { anchored: anchored.length, placed, missing, scaleSum };
+}
+
+// an extra design is drawn only while its root element is actually on screen
+const rootVisible = (sel) => {
+  const el = sel ? document.querySelector(sel) : null;
+  if (!el) return null;
+  const cs = getComputedStyle(el);
+  const r = el.getBoundingClientRect();
+  return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0' && r.width > 0 && r.height > 0 ? el : null;
+};
+const isModalLike = (el) => !!(el.closest('.modal, [role=dialog], dialog, .offcanvas, [class*=modal]') || isFixed(el));
+
+function showOverlay(data, opts) {
+  buildOverlay();
+  lastOverlay = { data, opts };
+  const off = { x: opts.offsetX ?? 0, y: opts.offsetY ?? 0 };
+  const layerOpacity = opts.split != null ? 1 : (opts.opacity ?? 0.5);
+  Object.assign(ov.style, {
+    top: '0px', left: '0px', width: '100%', height: '0px',
+    opacity: String(layerOpacity), display: 'block',
+  });
+  ov.classList.toggle('pg-diff', !!opts.diff);
+  ov.classList.toggle('pg-outline', opts.mode === 'outline');
+
+  // Curtain: show the design only to the left of the line — like a
+  // "before/after" comparison widget. 100% = whole design, 0% = site only.
+  const split = opts.split;
+  ov.style.clipPath = split == null ? '' : `inset(0 ${100 - split}% 0 0)`;
+  // the left side must show ONLY the design: dim the site under the curtain,
+  // otherwise the layers blend and the curtain seems not to work
+  document.documentElement.style.setProperty('--pg-split', `${split ?? 0}%`);
+  document.documentElement.classList.toggle('pg-split-on', split != null);
+  if (split == null) { splitDim?.remove(); splitDim = null; }
+  else {
+    if (!splitDim) {
+      splitDim = document.createElement('div');
+      splitDim.className = 'pg-split-dim';
+      document.documentElement.appendChild(splitDim);
+    }
+  }
+  applySplitLine(split, opts);
+
+  ov.innerHTML = '';
+  if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
+
+  // "design only": dim the page itself, otherwise its text reads mixed with
+  // the design text and the header seems to contain foreign items
+  document.documentElement.classList.toggle('pg-solo', !!opts.solo);
+
+  if (data.png && opts.mode === 'image') {
+    const anchor = document.querySelector(opts.anchor || 'body');
+    const top = anchor ? anchor.getBoundingClientRect().top + scrollY : 0;
+    const img = document.createElement('img');
+    img.src = `http://localhost:8971${data.png}`;
+    img.style.cssText = `position:absolute;left:${off.x}px;top:${top + off.y}px;width:${data.w}px;display:block`;
+    ov.appendChild(img);
+    return { boxes: 0, png: true, mode: 'image', anchored: 0, placed: 1, scale: 1 };
+  }
+
+  const frag = document.createDocumentFragment();
+  const fx = { frag: null };
+
+  // auto mode: extras (tabs, modals) whose root is visible right now; an open
+  // modal covers the page, so the page's own blocks are not drawn under it
+  const live = (data.extras ?? []).map((e) => ({ e, el: rootVisible(e.root) })).filter((x) => x.el);
+  const modalOpen = live.some((x) => isModalLike(x.el));
+  const stats = { anchored: 0, placed: 0, missing: 0, scaleSum: 0 };
+  const add = (r) => { for (const k of Object.keys(stats)) stats[k] += r[k]; };
+  if (!modalOpen) add(drawDesign(data, opts, off, frag, fx));
+  for (const { e } of live) add(drawDesign(e, opts, off, frag, fx));
+  const fixedFrag = fx.frag;
+  const anchored = { length: stats.anchored };
+  const placed = stats.placed, missing = stats.missing, scaleSum = stats.scaleSum;
+  activeExtras = live.map((x) => x.e.title ?? x.e.page);
+
   ov.appendChild(frag);
   if (fixedFrag) {
     fixedLayer = document.createElement('div');
@@ -509,8 +539,21 @@ function showOverlay(data, opts) {
     boxes: data.boxes.length, png: !!data.png, mode: opts.mode,
     anchored: anchored.length, placed, missing,
     scale: placed ? Math.round((scaleSum / placed) * 1000) / 1000 : 1,
+    extras: activeExtras, modalOpen,
   };
 }
+
+let activeExtras = [];
+
+/** Tabs open, modals appear, accordions expand — the overlay follows the DOM
+ *  instead of waiting for a click in the panel. Our own layers live outside
+ *  <body>, so observing body does not feed back. */
+let domRedraw = null;
+new MutationObserver(() => {
+  if (!lastOverlay || !ov || ov.style.display === 'none') return;
+  clearTimeout(domRedraw);
+  domRedraw = setTimeout(() => showOverlay(lastOverlay.data, lastOverlay.opts), 250);
+}).observe(document.body ?? document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'open'] });
 
 let splitLine = null;
 let splitDim = null;
