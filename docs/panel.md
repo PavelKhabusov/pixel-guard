@@ -38,6 +38,13 @@ Blocks are placed on their **bound elements** (footer on footer), so a height di
 higher up the page does not shift anything. A small text node is never an anchor — its
 whole subtree would move with it.
 
+## Design selector
+
+When several designs live on one URL — the page itself plus its modals / tabs declared as
+virtual pages in `pages.json` — a **design** dropdown appears under the overlay switch.
+Open the modal on the site by hand, pick its design, and the overlay, Check page and
+Inspect work against that frame and its map.
+
 ## Check page
 
 Compares the page against the snapshot on disk — Figma does not need to be open. The

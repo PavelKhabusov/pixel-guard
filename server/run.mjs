@@ -56,7 +56,8 @@ if (rootId && root.id !== rootId) {
   }
   root = sub;
 }
-if (root.w && Math.abs(root.w - width) > 1) {
+// a virtual page (modal, tab) is measured against a component frame — its width is not the viewport's
+if (root.w && Math.abs(root.w - width) > 1 && !pageCfg.prepare?.length) {
   console.warn(`⚠ frame width ${root.w}px ≠ viewport ${width}px — check frames.${viewport} in config/pages.json`);
 }
 

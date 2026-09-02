@@ -1,3 +1,4 @@
+import { runPrepare } from './lib/prepare.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,9 +62,20 @@ await pg.evaluate(async () => {
   scrollTo(0, 0);
 });
 await pg.waitForTimeout(400);
-const domNodes = await pg.evaluate(CANDIDATE_JS);
-const domRootW = await pg.evaluate(() => document.body.getBoundingClientRect().width);
-const domRootH = await pg.evaluate(() => document.body.scrollHeight);
+if (pageCfg.prepare) await runPrepare(pg, pageCfg.prepare, { log: (m) => console.log(`  ${m}`) });
+// The frame root is bound (a modal, a tab panel): candidates come from inside
+// that element, selectors are scoped to it and positions are relative to it
+const rootSel = existing[root.id]?.selector ?? shared[root.id]?.selector;
+const rr = rootSel ? await pg.evaluate((sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height }; }, rootSel) : null;
+if (rr) await pg.evaluate((sel) => { window.__pgRoot = sel; }, rootSel);
+let domNodes = await pg.evaluate(CANDIDATE_JS);
+let domRootW = await pg.evaluate(() => document.body.getBoundingClientRect().width);
+let domRootH = await pg.evaluate(() => document.body.scrollHeight);
+if (rr) {
+  domNodes = domNodes.map((d) => ({ ...d, x: d.x - rr.x, y: d.y - rr.y }));
+  domRootW = rr.w; domRootH = rr.h;
+  console.log(`  root ${rootSel}: ${Math.round(rr.w)}×${Math.round(rr.h)} — candidates inside it: ${domNodes.length}`);
+}
 await browser.close();
 
 const figNodes = collectFigmaNodes(root, { maxDepth: depth })

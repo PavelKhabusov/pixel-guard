@@ -84,9 +84,11 @@ const handler = (req, res) => {
     const viewport = url.searchParams.get('viewport') ?? 'desktop';
     let matchedPage = null;
 
-    if (!want && forUrl) {
+    const explicitPage = url.searchParams.get('page');
+    if (!want && (forUrl || explicitPage)) {
       const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
-      const hit = matchPage(pages, forUrl);
+      // an explicit page (a virtual page: modal / tab measured on the same URL) beats URL matching
+      const hit = explicitPage && pages[explicitPage] ? { key: explicitPage, cfg: pages[explicitPage], how: 'page param' } : matchPage(pages, forUrl);
       if (!hit) {
         res.setHeader('Content-Type', 'application/json');
         return res.writeHead(404).end(JSON.stringify({
@@ -260,8 +262,9 @@ const handler = (req, res) => {
     const forUrl = url.searchParams.get('url');
     const viewport = url.searchParams.get('viewport') ?? 'desktop';
     const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
-    const hit = forUrl ? matchPage(pages, forUrl) : null;
-    const pageKey = hit?.key ?? url.searchParams.get('page') ?? 'home';
+    const explicit = url.searchParams.get('page');
+    const hit = explicit && pages[explicit] ? { key: explicit, cfg: pages[explicit] } : forUrl ? matchPage(pages, forUrl) : null;
+    const pageKey = hit?.key ?? explicit ?? 'home';
     const frameId = hit?.cfg?.frames?.[viewport] ?? pages[pageKey]?.frames?.[viewport];
     res.setHeader('Content-Type', 'application/json');
     if (!frameId) return res.writeHead(404).end(JSON.stringify({ ok: false, error: `no frame for ${pageKey}/${viewport}` }));
@@ -418,7 +421,7 @@ const handler = (req, res) => {
   if (req.method === 'GET' && url.pathname === '/pages') {
     const cfg = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify(Object.entries(cfg).map(([key, v]) => ({ key, url: v.url }))));
+    return res.end(JSON.stringify(Object.entries(cfg).map(([key, v]) => ({ key, url: v.url, match: v.match ?? [], virtual: !!(v.prepare?.length) || (Array.isArray(v.match) && !v.match.length), title: v.title ?? null }))));
   }
 
   if (req.method === 'GET' && url.pathname === '/map') {

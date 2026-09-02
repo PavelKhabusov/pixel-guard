@@ -63,7 +63,11 @@ A tab or a modal whose design lives in its own Figma frame is a **virtual page**
 entry in `pages.json` whose `url` is the real page, `frames` point at the component's
 frame (any snapshot), `prepare` opens the tab, and `match` is empty so URL matching keeps
 picking the base page. `qa`, `qa:all`, `automap` and the MCP tools treat it like any other
-page; the extension shows the base page — open the tab by hand and use Inspect.
+page; in the extension a **design** dropdown lists the virtual pages of the current URL —
+open the modal by hand and pick it. `automap` runs the page's `prepare[]`, scopes its
+candidates to the bound frame root (positions relative to it, selectors prefixed with it)
+and pairs containers by the text they carry — a menu item frame ↔ the `<a>` with that label.
+Same-named frames no longer overwrite each other's snapshot (`name-<id>.json`).
 
 ## React / SPA
 

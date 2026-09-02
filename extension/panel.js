@@ -79,6 +79,9 @@ const poll = () => chrome.runtime.sendMessage({ type: 'pg-status' }, (s) => s &&
 poll();
 setInterval(poll, 3000);
 
+// which design to use when several pages share the URL (the page + its modals/tabs)
+let pageChoice = null;
+const pageParam = () => (pageChoice ? `&page=${encodeURIComponent(pageChoice)}` : '');
 const ovState = { on: false, opacity: 1, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
 const toActiveTab = (msg) =>
@@ -95,7 +98,7 @@ async function applyOverlay() {
   if (!ovState.data) {
     const tab = await activeTab();
     const vp = viewportFor(tab?.width);
-    const path = `/overlay?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}`;
+    const path = `/overlay?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}${pageParam()}`;
     const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
     if (!d || d.ok === false || d.error) { note.textContent = d?.error ?? 'snapshot not found'; return; }
     ovState.data = d;
@@ -259,8 +262,32 @@ async function fillPages() {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
     const g = t && guessPage(t.url);
     if (g) sel.value = g;
+    fillDesignChoice(t?.url);
   });
 }
+
+// the page and its virtual pages (modals, tabs) share one URL — let the user pick
+function fillDesignChoice(url) {
+  const row = $('ov-page-row');
+  const sel = $('ov-page');
+  let pathOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '') || '/'; } catch { return ''; } };
+  const here = pathOf(url);
+  const same = curPages.filter((p) => p.url && pathOf(p.url) === here);
+  const base = same.find((p) => !p.virtual) ?? null;
+  if (same.length < 2) { row.hidden = true; pageChoice = null; return; }
+  sel.innerHTML = same.map((p) => `<option value="${esc(p.key)}">${esc(p.title ?? p.key)}${p.virtual ? '' : ' (page)'}</option>`).join('');
+  sel.value = base?.key ?? same[0].key;
+  pageChoice = sel.value === base?.key ? null : sel.value;
+  row.hidden = false;
+}
+$('ov-page').onchange = (e) => {
+  const base = curPages.find((p) => p.key === e.target.value && !p.virtual);
+  pageChoice = base ? null : e.target.value;
+  ovState.data = null; nodeCache = null;
+  if (ovState.on) applyOverlay();
+};
+chrome.tabs.onActivated.addListener(() => activeTab().then((t) => fillDesignChoice(t?.url)));
+chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') fillDesignChoice(tab?.url); });
 
 function showBind(node, found) {
   curNode = node;
@@ -304,7 +331,7 @@ async function runAudit() {
   note.textContent = 'reading design…';
   const tab = await activeTab();
   const vp = viewportFor(tab?.width);
-  const path = `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}`;
+  const path = `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}${pageParam()}`;
   const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
   if (!data || data.ok === false) { note.textContent = data?.error ?? 'no data'; return; }
 
@@ -319,7 +346,7 @@ async function runAudit() {
 
   const n = (s) => rows.filter((r) => r.status === s).length;
   note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} not in DOM · ${n('skip')} skip`;
-  post('/report', { page: data.page, viewport: vp, url: tab?.url, frame: data.frame, frameId: data.frameId, rows })
+  post('/report', { page: pageChoice ?? data.page, viewport: vp, url: tab?.url, frame: data.frame, frameId: data.frameId, rows })
     .then((r) => { if (r?.ok) note.textContent += ` · saved ${r.file}`; });
 
   const order = { failed: 0, missing: 1, nofig: 2, pass: 3, skip: 4 };
@@ -353,7 +380,7 @@ async function nodesForTab() {
   const vp = viewportFor(tab?.width);
   const key = `${tab?.url}|${vp}`;
   if (nodeCache?.key === key) return nodeCache.data;
-  const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}` }, res));
+  const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}${pageParam()}` }, res));
   nodeCache = { key, data: data?.ok === false ? null : data };
   return nodeCache.data;
 }

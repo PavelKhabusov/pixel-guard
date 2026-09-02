@@ -2,6 +2,9 @@ const norm = (s) => (s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 export const CANDIDATE_JS = `(() => {
   const out = [];
+  const ROOT = window.__pgRoot ? document.querySelector(window.__pgRoot) : null;
+  const scope = ROOT ?? document;
+  const prefix = window.__pgRoot ? window.__pgRoot + ' ' : '';
   const skip = /^(script|style|meta|link|head|br|noscript)$/i;
   const walk = (el, depth) => {
     if (depth > 22 || skip.test(el.tagName)) return;
@@ -20,19 +23,20 @@ export const CANDIDATE_JS = `(() => {
         return e.tagName.toLowerCase() + (idOk ? '#' + CSS.escape(e.id) : '') + cls.slice(0, 3).map((c) => '.' + CSS.escape(c)).join('');
       };
       let sel = nice(el);
-      if (document.querySelectorAll(sel).length > 1) {
-        for (let p = el.parentElement, hops = 0; p && p !== document.body && hops < 3; p = p.parentElement, hops++) {
+      if (scope.querySelectorAll(sel).length > 1) {
+        for (let p = el.parentElement, hops = 0; p && p !== document.body && p !== ROOT && hops < 3; p = p.parentElement, hops++) {
           sel = nice(p) + ' ' + sel;
-          if (document.querySelectorAll(sel).length === 1) break;
+          if (scope.querySelectorAll(sel).length === 1) break;
         }
       }
-      if (document.querySelectorAll(sel).length > 1) {
+      if (scope.querySelectorAll(sel).length > 1) {
         const sibs = [...el.parentElement.children].filter((s) => s.tagName === el.tagName);
         if (sibs.length > 1) sel += ':nth-of-type(' + (sibs.indexOf(el) + 1) + ')';
       }
+      const unique = scope.querySelectorAll(sel).length === 1;
       out.push({
-        sel,
-        unique: document.querySelectorAll(sel).length === 1,
+        sel: prefix + sel,
+        unique,
         tag: el.tagName.toLowerCase(),
         w: Math.round(r.width * 10) / 10,
         h: Math.round(r.height * 10) / 10,
@@ -45,7 +49,7 @@ export const CANDIDATE_JS = `(() => {
     }
     for (const c of el.children) walk(c, depth + 1);
   };
-  walk(document.body, 0);
+  if (ROOT) { for (const c of ROOT.children) walk(c, 1); } else walk(document.body, 0);
   return out;
 })()`;
 
@@ -58,7 +62,13 @@ export function collectFigmaNodes(root, { maxDepth = 6 } = {}) {
     const absY = depth === 0 ? (n.y ?? 0) : parentY + (n.y ?? 0);
     const small = (n.w ?? 0) < 60 && (n.h ?? 0) < 60;
     if (depth > 0 && (n.w ?? 0) >= 8 && (n.h ?? 0) >= 8 && n.type !== 'VECTOR' && !n.icon && !(small && n.type !== 'TEXT')) {
-      out.push({ ...n, path: p, depth, absY: absY - baseY });
+      // the text a container carries (a menu item frame with one label inside):
+      // on the site that label is often a bare text node, so the container is
+      // the element that has to be matched — by that text
+      const texts = [];
+      const grab = (m, d) => { if (m.type === 'TEXT' && m.text) texts.push(m.text); else if (d < 3) for (const c of m.children ?? []) grab(c, d + 1); };
+      if (n.type !== 'TEXT') grab(n, 0);
+      out.push({ ...n, path: p, depth, absY: absY - baseY, innerText: texts.length ? texts.join(' ') : null });
     }
     if (depth < maxDepth) for (const c of n.children ?? []) walk(c, depth + 1, p, depth === 0 ? 0 : absY);
   };
@@ -80,9 +90,13 @@ function scoreOne(fig, dom, rootW, domRootW, rootH, domRootH, rootY) {
       else if (b.includes(a)) { score += 22; why.push('text inside'); }
     }
     if (dom.kids === 0) score += 6;
-  } else if (fig.text) {
-    const a = norm(fig.text);
-    if (a && norm(dom.text).includes(a)) { score += 12; why.push('text in subtree'); }
+  } else if (fig.innerText) {
+    const a = norm(fig.innerText);
+    const b = norm(dom.text);
+    if (a && b) {
+      if (a === b) { score += 45; why.push('inner text exact'); }
+      else if (b.includes(a) || a.includes(b)) { score += 15; why.push('inner text'); }
+    }
   }
 
   const dw = Math.abs(dom.w - fig.w * scale);
@@ -112,7 +126,7 @@ function scoreOne(fig, dom, rootW, domRootW, rootH, domRootH, rootY) {
   }
   if (fig.layout && dom.kids > 0) score += 4;
   if (dom.unique) score += 8; else score -= 20;
-  if (fig.type !== 'TEXT' && !fig.name.match(/[a-z\u0430-\u044f]{3}/i)) score -= 14;
+  if (fig.type !== 'TEXT' && !fig.innerText && !fig.name.match(/[a-z\u0430-\u044f]{3}/i)) score -= 14;
 
   return { score, why };
 }
