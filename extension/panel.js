@@ -82,7 +82,17 @@ setInterval(poll, 3000);
 // which design to use when several pages share the URL (the page + its modals/tabs)
 let pageChoice = null;
 // null = auto: the page plus whatever extra design (tab, modal) is visible right now
-const pageParam = () => (pageChoice ? `&page=${encodeURIComponent(pageChoice)}` : '&auto=1');
+let anyHost = false;
+const pageParam = () => (pageChoice ? `&page=${encodeURIComponent(pageChoice)}` : '&auto=1') + (anyHost ? '&anyhost=1' : '');
+
+// the panel outlives a tab that navigates to a foreign site — never touch such a page
+async function targetTab() {
+  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-is-target' }, res));
+  anyHost = !!r?.userAdded;
+  if (r?.target) return true;
+  $('ov-note').textContent = `${r?.host ?? 'this site'} is not an allowed site — nothing is drawn here`;
+  return false;
+}
 const ovState = { on: false, opacity: 1, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
 const toActiveTab = (msg) =>
@@ -96,6 +106,7 @@ const toActiveTab = (msg) =>
 async function applyOverlay() {
   const note = $('ov-note');
   if (!ovState.on) { await toActiveTab({ type: 'pg-overlay-hide' }); note.textContent = ''; return; }
+  if (!(await targetTab())) { await toActiveTab({ type: 'pg-overlay-hide' }); return; }
   if (!ovState.data) {
     const tab = await activeTab();
     const vp = viewportFor(tab?.width);
@@ -367,6 +378,7 @@ fillPages();
 
 async function runAudit() {
   const note = $('audit-note');
+  if (!(await targetTab())) { note.textContent = 'not an allowed site'; return; }
   note.textContent = 'reading design…';
   const tab = await activeTab();
   const vp = viewportFor(tab?.width);
@@ -425,6 +437,7 @@ async function nodesForTab() {
 }
 
 async function setInspect(on) {
+  if (on && !(await targetTab())) return;
   inspectOn = on;
   $('inspect-go').classList.toggle('on', on);
   await toActiveTab({ type: on ? 'pg-inspect-start' : 'pg-inspect-stop' });

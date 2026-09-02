@@ -88,7 +88,7 @@ const handler = (req, res) => {
     if (!want && (forUrl || explicitPage)) {
       const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
       // an explicit page (a virtual page: modal / tab measured on the same URL) beats URL matching
-      const hit = explicitPage && pages[explicitPage] ? { key: explicitPage, cfg: pages[explicitPage], how: 'page param' } : matchPage(pages, forUrl);
+      const hit = explicitPage && pages[explicitPage] ? { key: explicitPage, cfg: pages[explicitPage], how: 'page param' } : matchPage(pages, forUrl, { ignoreHost: url.searchParams.get('anyhost') === '1' });
       if (!hit) {
         res.setHeader('Content-Type', 'application/json');
         return res.writeHead(404).end(JSON.stringify({
@@ -292,7 +292,7 @@ const handler = (req, res) => {
     const viewport = url.searchParams.get('viewport') ?? 'desktop';
     const pages = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
     const explicit = url.searchParams.get('page');
-    const hit = explicit && pages[explicit] ? { key: explicit, cfg: pages[explicit] } : forUrl ? matchPage(pages, forUrl) : null;
+    const hit = explicit && pages[explicit] ? { key: explicit, cfg: pages[explicit] } : forUrl ? matchPage(pages, forUrl, { ignoreHost: url.searchParams.get('anyhost') === '1' }) : null;
     const pageKey = hit?.key ?? explicit ?? 'home';
     const frameId = hit?.cfg?.frames?.[viewport] ?? pages[pageKey]?.frames?.[viewport];
     res.setHeader('Content-Type', 'application/json');
@@ -457,7 +457,7 @@ const handler = (req, res) => {
     // the content script asks by its own URL — the page map is picked via match[]
     const forUrl = url.searchParams.get('url');
     const pagesCfg = readJsonSafe(path.join(ROOT, 'config/pages.json')) ?? {};
-    const pageKey = url.searchParams.get('page') ?? (forUrl ? matchPage(pagesCfg, forUrl)?.key : null) ?? 'home';
+    const pageKey = url.searchParams.get('page') ?? (forUrl ? matchPage(pagesCfg, forUrl, { ignoreHost: url.searchParams.get('anyhost') === '1' })?.key : null) ?? 'home';
     const p = path.join(ROOT, 'maps', `${pageKey}.map.json`);
     const shared = readJsonSafe(path.join(ROOT, 'maps', '_shared.map.json')) ?? {};
     res.setHeader('Content-Type', 'application/json');

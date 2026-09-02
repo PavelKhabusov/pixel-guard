@@ -87,7 +87,13 @@ function applyPanelFor(tab) {
 }
 const refreshPanels = () => chrome.tabs.query({}, (tabs) => tabs.forEach(applyPanelFor));
 chrome.sidePanel?.setOptions({ enabled: false }).catch(() => {});
-chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') applyPanelFor(tab); });
+chrome.tabs.onUpdated.addListener((id, info, tab) => {
+  if (info.url || info.status === 'complete') applyPanelFor(tab);
+  if (info.url && !isTarget(info.url)) {
+    for (const type of ['pg-overlay-hide', 'pg-pick-stop', 'pg-inspect-stop', 'pg-unhighlight']) chrome.tabs.sendMessage(id, { type }).catch(() => {});
+    applyEmulation(id, null);
+  }
+});
 chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId).then(async (tab) => {
   applyPanelFor(tab);
   if (isTarget(tab.url)) {
@@ -263,6 +269,13 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (msg.type === 'pg-reconnect') { connect(); reply({ ok: true }); return true; }
   if (msg.type === 'pg-hosts') { reply({ server: serverHosts, user: userHosts }); return true; }
+  if (msg.type === 'pg-is-target') {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
+      let host = null; try { host = new URL(t?.url ?? '').host; } catch {}
+      reply({ target: isTarget(t?.url), host, userAdded: !!host && userHosts.includes(host) && !serverHosts.includes(host) });
+    });
+    return true;
+  }
   if (msg.type === 'pg-emit') {
     fetch(`${BASE}/emit`, {
       method: 'POST',
