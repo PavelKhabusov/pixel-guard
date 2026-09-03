@@ -17,6 +17,7 @@ const IDLE_SWEEP = 15000;
 // renderers (2.6 GB). Now: idle pages are swept, the count is capped, and the
 // browser itself goes away once nothing is cached.
 let sweeper = null;
+let inflight = 0; // getPage() in progress — the browser must not go away underneath it
 async function closeEntry(key, c) {
   pages.delete(key);
   await c.pg.context().close().catch(() => {});
@@ -24,7 +25,7 @@ async function closeEntry(key, c) {
 async function sweep() {
   const now = Date.now();
   for (const [k, c] of [...pages]) if (now - c.used > PAGE_TTL) await closeEntry(k, c);
-  if (pages.size) return;
+  if (pages.size || inflight) return;
   if (sweeper) { clearInterval(sweeper); sweeper = null; }
   if (browser) { const b = browser; browser = null; await b.close().catch(() => {}); }
 }
@@ -45,6 +46,15 @@ async function getPage(url, width, fresh = false, ready = null) {
   const c = pages.get(key);
   if (c && !fresh && Date.now() - c.at < PAGE_TTL) { c.used = Date.now(); return c.pg; }
   if (c) await closeEntry(key, c);
+  inflight++;
+  try {
+    return await openPage(key, url, width, ready);
+  } finally {
+    inflight--;
+  }
+}
+
+async function openPage(key, url, width, ready) {
   if (!browser) {
     const { chromium } = await import('playwright');
     browser = await chromium.launch();
