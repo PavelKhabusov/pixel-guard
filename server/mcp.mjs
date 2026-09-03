@@ -10,7 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveNode, formatTree, describeNode, searchNodes, lineHeightPx, letterSpacingPx } from './lib/snap.mjs';
-import { measure, probe, shot, closeBrowser } from './lib/measure.mjs';
+import { measure, probe, shot, closeBrowser, killBrowserNow } from './lib/measure.mjs';
+import { killOrphanBrowsers, installShutdown } from './lib/lifecycle.mjs';
 import { compareNode } from './lib/compare.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -476,6 +477,7 @@ process.stdin.on('data', (chunk) => {
   }
 });
 
-process.on('exit', () => { closeBrowser().catch(() => {}); });
+killOrphanBrowsers();
+installShutdown({ close: closeBrowser, killNow: killBrowserNow });
 process.stdin.on('end', () => closeBrowser().finally(() => process.exit(0)));
 process.stderr.write(`pixel-guard MCP ready · server ${BASE}\n`);

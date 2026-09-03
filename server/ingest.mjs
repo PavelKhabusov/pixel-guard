@@ -1,3 +1,4 @@
+import { killOrphanBrowsers, installShutdown } from './lib/lifecycle.mjs';
 import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
@@ -604,7 +605,13 @@ async function transformPage() {
   _tfTimer.unref?.();
   return _tfPage;
 }
-process.on('exit', () => { closeTransformBrowser().catch(() => {}); });
+function killTransformBrowserNow() {
+  const b = _tfBrowser; _tfPage = null; _tfBrowser = null;
+  if (_tfTimer) { clearTimeout(_tfTimer); _tfTimer = null; }
+  try { b?.process()?.kill('SIGKILL'); } catch {}
+}
+killOrphanBrowsers();
+installShutdown({ close: closeTransformBrowser, killNow: killTransformBrowserNow });
 async function transformImage(base64, { width, webp, bg }) {
   const pg = await transformPage();
   const head = Buffer.from(base64.slice(0, 12), 'base64');

@@ -229,5 +229,13 @@ export async function closeBrowser() {
   if (sweeper) { clearInterval(sweeper); sweeper = null; }
   for (const [k, c] of [...pages]) await closeEntry(k, c);
   pages.clear();
-  if (browser) { await browser.close().catch(() => {}); browser = null; }
+  if (browser) { const b = browser; browser = null; await b.close().catch(() => {}); }
+}
+
+/** Synchronous kill for process 'exit' — async close never finishes there. */
+export function killBrowserNow() {
+  if (sweeper) { clearInterval(sweeper); sweeper = null; }
+  pages.clear();
+  const b = browser; browser = null;
+  try { b?.process()?.kill('SIGKILL'); } catch {}
 }
