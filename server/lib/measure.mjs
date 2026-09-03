@@ -7,13 +7,44 @@ import { runPrepare } from './prepare.mjs';
 let browser = null;
 const pages = new Map();
 
-const PAGE_TTL = 60000;
+const PAGE_TTL = 60000;   // reuse a loaded page this long after its load
+const MAX_PAGES = 4;      // more live pages = more renderer processes (~120 MB each)
+const IDLE_SWEEP = 15000;
+
+// Every cached page is a Chromium renderer that keeps its memory until the
+// context is closed. Pages used to be closed only when the same url+width was
+// requested again, so hours of measuring different pages piled up dozens of
+// renderers (2.6 GB). Now: idle pages are swept, the count is capped, and the
+// browser itself goes away once nothing is cached.
+let sweeper = null;
+async function closeEntry(key, c) {
+  pages.delete(key);
+  await c.pg.context().close().catch(() => {});
+}
+async function sweep() {
+  const now = Date.now();
+  for (const [k, c] of [...pages]) if (now - c.used > PAGE_TTL) await closeEntry(k, c);
+  if (pages.size) return;
+  if (sweeper) { clearInterval(sweeper); sweeper = null; }
+  if (browser) { const b = browser; browser = null; await b.close().catch(() => {}); }
+}
+function armSweeper() {
+  if (sweeper) return;
+  sweeper = setInterval(() => sweep().catch(() => {}), IDLE_SWEEP);
+  sweeper.unref?.();
+}
+async function evictOverflow() {
+  while (pages.size > MAX_PAGES) {
+    const [k, c] = [...pages].sort((a, b) => a[1].used - b[1].used)[0];
+    await closeEntry(k, c);
+  }
+}
 
 async function getPage(url, width, fresh = false, ready = null) {
   const key = `${width}|${url}`;
   const c = pages.get(key);
-  if (c && !fresh && Date.now() - c.at < PAGE_TTL) return c.pg;
-  if (c) { await c.pg.context().close().catch(() => {}); pages.delete(key); }
+  if (c && !fresh && Date.now() - c.at < PAGE_TTL) { c.used = Date.now(); return c.pg; }
+  if (c) await closeEntry(key, c);
   if (!browser) {
     const { chromium } = await import('playwright');
     browser = await chromium.launch();
@@ -37,7 +68,9 @@ async function getPage(url, width, fresh = false, ready = null) {
     scrollTo(0, 0);
   });
   await pg.waitForTimeout(300);
-  pages.set(key, { pg, at: Date.now() });
+  pages.set(key, { pg, at: Date.now(), used: Date.now() });
+  await evictOverflow();
+  armSweeper();
   return pg;
 }
 
@@ -193,7 +226,8 @@ export async function shot(url, width, { selector = null, steps = null, freeze =
 }
 
 export async function closeBrowser() {
-  for (const { pg } of pages.values()) await pg.context().close().catch(() => {});
+  if (sweeper) { clearInterval(sweeper); sweeper = null; }
+  for (const [k, c] of [...pages]) await closeEntry(k, c);
   pages.clear();
   if (browser) { await browser.close().catch(() => {}); browser = null; }
 }

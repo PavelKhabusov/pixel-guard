@@ -35,6 +35,7 @@ instance paths `I1310:27371;1310:27233` — the last one is walked segment by se
 
 `page` is a key from `config/pages.json`; `url` overrides it. The browser is launched once
 per MCP process and a page is loaded once per url × viewport (60 s, `fresh` reloads).
+Idle pages are closed after 60 s, at most 4 stay cached, and the browser itself is closed once nothing is cached — a cached page is a Chromium renderer (~120 MB) that keeps its memory until closed. The image-transform browser (`figma_render_node` downscale/WEBP) closes after 60 s idle too.
 Any width: `viewport: "600"` (a number in px) instead of the three presets — for checking the in-between widths.
 AJAX content: pass `prepare: [{click: "#tab"}, {waitFor: ".panel"}]` (a page's own
 `prepare[]` from `pages.json` is applied automatically); SPA: `ready: "<selector>"`.

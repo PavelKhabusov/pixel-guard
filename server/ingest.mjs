@@ -582,16 +582,34 @@ const MIME = { PNG: 'image/png', JPG: 'image/jpeg', SVG: 'image/svg+xml', PDF: '
 
 /** Downscale / convert to WEBP in a headless page: a 13 MB source photo
  *  becomes a ready-to-use image in a second, with no native image deps. */
-let _tfPage = null;
-async function transformImage(base64, { width, webp, bg }) {
+// The browser is launched on demand and closed after a minute of idling:
+// a page kept for the whole process life is a renderer that never gives its
+// memory back (decoded photos stay in it).
+let _tfPage = null, _tfBrowser = null, _tfTimer = null;
+const TF_IDLE = 60000;
+async function closeTransformBrowser() {
+  const b = _tfBrowser;
+  _tfPage = null; _tfBrowser = null;
+  if (_tfTimer) { clearTimeout(_tfTimer); _tfTimer = null; }
+  if (b) await b.close().catch(() => {});
+}
+async function transformPage() {
   if (!_tfPage) {
     const { chromium } = await import('playwright');
-    const b = await chromium.launch();
-    _tfPage = await (await b.newContext()).newPage();
+    _tfBrowser = await chromium.launch();
+    _tfPage = await (await _tfBrowser.newContext()).newPage();
   }
+  if (_tfTimer) clearTimeout(_tfTimer);
+  _tfTimer = setTimeout(() => closeTransformBrowser().catch(() => {}), TF_IDLE);
+  _tfTimer.unref?.();
+  return _tfPage;
+}
+process.on('exit', () => { closeTransformBrowser().catch(() => {}); });
+async function transformImage(base64, { width, webp, bg }) {
+  const pg = await transformPage();
   const head = Buffer.from(base64.slice(0, 12), 'base64');
   const mime = head[0] === 0xff && head[1] === 0xd8 ? 'image/jpeg' : 'image/png';
-  return _tfPage.evaluate(async ([b64, w, webp, bg, mime]) => {
+  return pg.evaluate(async ([b64, w, webp, bg, mime]) => {
     const img = new Image();
     img.src = `data:${mime};base64,${b64}`;
     await img.decode();
