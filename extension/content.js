@@ -491,8 +491,10 @@ function showOverlay(data, opts) {
   }
   applySplitLine(split, opts);
 
-  ov.innerHTML = '';
-  if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
+  // The old boxes stay in place while the new ones are measured and built:
+  // emptying the layer first shrinks the document (the boxes extend its
+  // scrollable height), the browser clamps scrollTop and the page jumps up
+  // on every redraw — visible as a scroll "twitch" on mobile with a sticky header.
 
   // "design only": dim the page itself, otherwise its text reads mixed with
   // the design text and the header seems to contain foreign items
@@ -524,7 +526,9 @@ function showOverlay(data, opts) {
   const placed = stats.placed, missing = stats.missing, scaleSum = stats.scaleSum;
   activeExtras = live.map((x) => x.e.title ?? x.e.page);
 
-  ov.appendChild(frag);
+  ov.replaceChildren(frag);
+  const oldFixed = fixedLayer;
+  fixedLayer = null;
   if (fixedFrag) {
     fixedLayer = document.createElement('div');
     fixedLayer.className = 'pg-overlay pg-fixed' + (opts.diff ? ' pg-diff' : '') + (opts.mode === 'outline' ? ' pg-outline' : '');
@@ -534,6 +538,7 @@ function showOverlay(data, opts) {
     fixedLayer.appendChild(fixedFrag);
     document.documentElement.appendChild(fixedLayer);
   }
+  if (oldFixed) oldFixed.remove();
 
   return {
     boxes: data.boxes.length, png: !!data.png, mode: opts.mode,
@@ -549,8 +554,12 @@ let activeExtras = [];
  *  instead of waiting for a click in the panel. Our own layers live outside
  *  <body>, so observing body does not feed back. */
 let domRedraw = null;
-new MutationObserver(() => {
+new MutationObserver((muts) => {
   if (!lastOverlay || !ov || ov.style.display === 'none') return;
+  // a sticky header flipping its classes on every scroll tick is not "content
+  // changed" — the fixed layer already follows it via the scroll handler
+  const all = muts.every((m) => { const el = m.target.nodeType === 1 ? m.target : m.target.parentElement; return el && isFixed(el); });
+  if (all) return;
   clearTimeout(domRedraw);
   domRedraw = setTimeout(() => showOverlay(lastOverlay.data, lastOverlay.opts), 250);
 }).observe(document.body ?? document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'open'] });
