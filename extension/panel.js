@@ -83,6 +83,17 @@ const panelTab = async () => {
   return chrome.tabs.get(panelTabId).catch(() => null);
 };
 
+// the real page URL: on the device frame page it is the framed site's location
+const FRAME_URL = chrome.runtime.getURL('frame.html');
+const isFramePage = (u) => !!u && u.startsWith(FRAME_URL);
+async function pageUrl() {
+  const t = await panelTab();
+  if (!t?.url) return null;
+  if (!isFramePage(t.url)) return t.url;
+  const w = await toActiveTab({ type: 'pg-where' });
+  return w?.url ?? new URL(t.url).searchParams.get('url');
+}
+
 const reloadTab = () => panelTab().then((t) => {
   if (t) chrome.tabs.reload(t.id);
   alertBox(null);
@@ -100,7 +111,8 @@ const pageParam = () => (pageChoice ? `&page=${encodeURIComponent(pageChoice)}` 
 
 // the panel outlives a tab that navigates to a foreign site — never touch such a page
 async function targetTab() {
-  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-is-target' }, res));
+  await panelTabReady;
+  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-is-target', tabId: panelTabId }, res));
   anyHost = !!r?.userAdded;
   if (r?.target) return true;
   $('ov-note').textContent = `${r?.host ?? 'this site'} is not an allowed site — nothing is drawn here`;
@@ -108,10 +120,11 @@ async function targetTab() {
 }
 const ovState = { on: false, opacity: 1, mode: 'render', diff: false, data: null, offsetX: 0, offsetY: 0, loose: false, autoScale: true, solo: false, split: null };
 
+// routed through the background: it knows which frame holds the site's content script
 const toActiveTab = (msg) =>
   panelTab().then((t) => {
     if (!t) return null;
-    return chrome.tabs.sendMessage(t.id, msg).catch(() => null);
+    return new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-to-page', tabId: t.id, msg }, (r) => res(r ?? null)));
   });
 
 async function applyOverlay() {
@@ -121,7 +134,7 @@ async function applyOverlay() {
   if (!ovState.data) {
     const tab = await activeTab();
     const vp = viewportFor(tab?.width);
-    const path = `/overlay?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}${pageParam()}`;
+    const path = `/overlay?url=${encodeURIComponent(await pageUrl() ?? '')}&viewport=${vp}${pageParam()}`;
     const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
     if (!d || d.ok === false || d.error) { note.textContent = d?.error ?? 'snapshot not found'; return; }
     ovState.data = d;
@@ -146,7 +159,7 @@ async function applyOverlay() {
   alertBox(null);
   const d = ovState.data;
   const tab = await activeTab();
-  const fit = Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ window ${tab?.width}px`;
+  const fit = (await inFrame()) || Math.abs((tab?.width ?? d.w) - d.w) <= 40 ? '' : ` ⚠ window ${tab?.width}px`;
   const sc = r.scale && r.scale !== 1 ? ` · scale ${Math.round(r.scale * 100)}%` : '';
   const anch = r.mode === 'image' ? '' : ` · ${r.placed}/${r.anchored} blocks${r.missing ? `, ${r.missing} missing` : ''}${sc}`;
   const live = r.extras?.length ? ` · showing: ${r.extras.join(', ')}${r.modalOpen ? ' (page hidden under the modal)' : ''}` : '';
@@ -225,14 +238,42 @@ const VP_W = { desktop: 1920, tablet: 912, mobile: 357 };
 const autoViewport = (w) => (!w ? 'desktop' : w <= 600 ? 'mobile' : w <= 1100 ? 'tablet' : 'desktop');
 const viewportFor = (w) => (vpChoice === 'auto' ? autoViewport(w) : vpChoice);
 
+// ── device frame mode ──
+let posChoice = 'center';
+async function inFrame() { const t = await panelTab(); return isFramePage(t?.url); }
+async function syncFrameUi() {
+  const on = await inFrame();
+  $('frame-toggle').classList.toggle('on', on);
+  $('frame-toggle').textContent = on ? 'exit frame' : 'device frame';
+  document.querySelectorAll('.pos-btn').forEach((b) => { b.hidden = !on; b.classList.toggle('on', b.dataset.pos === posChoice); });
+}
+$('frame-toggle').onclick = async () => {
+  await panelTabReady;
+  const on = await inFrame();
+  const r = await new Promise((res) => chrome.runtime.sendMessage({ type: on ? 'pg-frame-close' : 'pg-frame-open', tabId: panelTabId, w: vpChoice === 'auto' ? 357 : VP_W[vpChoice], pos: posChoice }, res));
+  if (r?.ok === false) { $('vp-note').textContent = `device frame: ${r.error}`; return; }
+  ovState.data = null; nodeCache = null;
+  setTimeout(syncFrameUi, 600);
+};
+document.querySelectorAll('.pos-btn').forEach((b) => {
+  b.onclick = async () => {
+    posChoice = b.dataset.pos;
+    try { chrome.storage.local.set({ posChoice }); } catch {}
+    document.querySelectorAll('.pos-btn').forEach((x) => x.classList.toggle('on', x === b));
+    await chrome.runtime.sendMessage({ type: 'pg-frame-set', tabId: panelTabId, pos: posChoice }).catch(() => {});
+    if (ovState.on) applyOverlay();
+  };
+});
+chrome.storage.local.get('posChoice', (v) => { posChoice = v?.posChoice ?? 'center'; syncFrameUi(); });
+
 async function showVpNote() {
   const tab = await activeTab();
   const vp = viewportFor(tab?.width);
   const ref = VP_W[vp];
   const diff = tab?.width && ref ? Math.abs(tab.width - ref) : 0;
-  $('vp-note').textContent = `${vp} · design ${ref}px · viewport ${tab?.width ?? '?'}px`
-    + (vpChoice === 'auto' ? ' · by window width' : ' · DevTools emulation')
-    + (diff > 80 && vpChoice === 'auto' ? ' — mismatch, blocks are scaled' : '');
+  const framed = await inFrame();
+  $('vp-note').textContent = `${vp} · design ${ref}px · ${framed ? `device frame ${ref ?? 357}px · ${posChoice}` : `viewport ${tab?.width ?? '?'}px` + (vpChoice === 'auto' ? ' · by window width' : ' · DevTools emulation')}`
+    + (diff > 80 && vpChoice === 'auto' && !framed ? ' — mismatch, blocks are scaled' : '');
 }
 
 // Narrow the page VIEWPORT, not the browser window — like DevTools responsive
@@ -240,6 +281,10 @@ async function showVpNote() {
 async function emulateViewport(vp) {
   const width = vp === 'auto' ? null : VP_W[vp];
   await panelTabReady;
+  if (await inFrame()) {
+    const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-frame-set', tabId: panelTabId, w: width ?? 357, pos: posChoice }, res));
+    return r;
+  }
   const r = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-emulate', width, tabId: panelTabId }, res));
   if (r?.ok === false) $('vp-note').textContent = `could not narrow: ${r.error}`;
   await new Promise((res) => setTimeout(res, 500));
@@ -251,8 +296,8 @@ async function setViewport(vp) {
   document.querySelectorAll('.vp-btn').forEach((x) => x.classList.toggle('on', x.dataset.vp === vpChoice));
   try { chrome.storage.local.set({ vpChoice }); } catch {}
   ovState.data = null;
-  await emulateViewport(vpChoice);
-  showVpNote();
+  const r = await emulateViewport(vpChoice);
+  if (r?.ok !== false) showVpNote();
   if (ovState.on) applyOverlay();
 }
 
@@ -347,8 +392,8 @@ $('ov-page-open').onclick = async () => {
   $('ov-note').textContent = r?.ok ? `opened: ${chosen.title ?? chosen.key}` : `prepare failed: ${r?.error ?? 'page not responding'}`;
   if (r?.ok && ovState.on) { ovState.data = null; applyOverlay(); }
 };
-chrome.tabs.onActivated.addListener(() => activeTab().then((t) => fillDesignChoice(t?.url)));
-chrome.tabs.onUpdated.addListener((id, info, tab) => { if (info.url || info.status === 'complete') fillDesignChoice(tab?.url); });
+chrome.tabs.onActivated.addListener(() => pageUrl().then(fillDesignChoice));
+chrome.tabs.onUpdated.addListener((id, info) => { if (id === panelTabId && (info.url || info.status === 'complete')) { pageUrl().then(fillDesignChoice); syncFrameUi(); } });
 
 function showBind(node, found) {
   curNode = node;
@@ -393,7 +438,7 @@ async function runAudit() {
   note.textContent = 'reading design…';
   const tab = await activeTab();
   const vp = viewportFor(tab?.width);
-  const path = `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}${pageParam()}`;
+  const path = `/nodes?url=${encodeURIComponent(await pageUrl() ?? '')}&viewport=${vp}${pageParam()}`;
   const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
   if (!data || data.ok === false) { note.textContent = data?.error ?? 'no data'; return; }
 
@@ -408,7 +453,7 @@ async function runAudit() {
 
   const n = (s) => rows.filter((r) => r.status === s).length;
   note.textContent = `${data.page} @ ${vp} · ${n('pass')} ✓ · ${n('failed')} ✗ · ${n('missing')} not in DOM · ${n('skip')} skip`;
-  post('/report', { page: pageChoice ?? data.page, viewport: vp, url: tab?.url, frame: data.frame, frameId: data.frameId, rows })
+  post('/report', { page: pageChoice ?? data.page, viewport: vp, url: await pageUrl(), frame: data.frame, frameId: data.frameId, rows })
     .then((r) => { if (r?.ok) note.textContent += ` · saved ${r.file}`; });
 
   const order = { failed: 0, missing: 1, nofig: 2, pass: 3, skip: 4 };
@@ -440,9 +485,10 @@ let nodeCache = null;
 async function nodesForTab() {
   const tab = await activeTab();
   const vp = viewportFor(tab?.width);
-  const key = `${tab?.url}|${vp}`;
+  const url = await pageUrl();
+  const key = `${url}|${vp}`;
   if (nodeCache?.key === key) return nodeCache.data;
-  const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/nodes?url=${encodeURIComponent(tab?.url ?? '')}&viewport=${vp}${pageParam()}` }, res));
+  const data = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/nodes?url=${encodeURIComponent(url ?? '')}&viewport=${vp}${pageParam()}` }, res));
   nodeCache = { key, data: data?.ok === false ? null : data };
   return nodeCache.data;
 }

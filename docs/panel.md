@@ -18,6 +18,21 @@ pixel. `tablet` / `phone` do the same. `auto` is the fourth mode: no emulation, 
 design is picked by the window width and blocks get scaled. The choice is remembered;
 emulation is removed when the panel closes.
 
+## Device frame
+
+CDP emulation can only render the narrowed page in the leftmost `width` px of the tab —
+that is why "center / right" cannot be done with the debugger, and why DevTools uses a
+private placement API for its device mode. **device frame** does what Responsively-style
+tools do: the tab navigates to the extension's own page, the site is loaded into an
+`<iframe>` of the design width on a dark ground, and a **left / center / right** row places
+it. Inside the iframe media queries, fixed bars and scrollbars behave exactly like a
+window of that width; no debugger is attached. The site's `X-Frame-Options` / CSP
+`frame-ancestors` are removed by a session `declarativeNetRequest` rule scoped to that
+tab and to sub-frames only, for as long as the frame is open. Breakpoint buttons resize the
+iframe; overlay, Check page, Inspect and the live bridge talk to the framed page. **exit
+frame** returns the tab to the site. Caveat: cookies scoped `SameSite=Lax` are not sent
+in a cross-site iframe, so per-site state (chosen city, cart) may reset in the frame.
+
 ## Overlay design
 
 Three modes:

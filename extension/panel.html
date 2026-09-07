@@ -83,6 +83,7 @@
   .okwrap summary { color: #71767d; font-size: 10px; cursor: pointer; font-family: Inter, sans-serif; }
 
   .btn.on { background: #7ba7d4; color: #15171a; }
+  .pos-btn { padding: 5px 4px !important; font-size: 10px !important; }
   .insp { margin-bottom: 10px; }
   .insp .kv { display: flex; align-items: center; gap: 6px; margin: 3px 0; font: 12px ui-monospace, Menlo, monospace; }
   .insp .kv .k { color: #71767d; font: 10px Inter, sans-serif; width: 44px; flex: none; }
@@ -114,6 +115,12 @@
     <button class="vp-btn" data-vp="tablet">tablet</button>
     <button class="vp-btn" data-vp="mobile">phone</button>
     <button class="vp-btn" data-vp="auto" title="no emulation — the design is chosen by the window width">auto</button>
+  </div>
+  <div class="seg" style="margin-top:5px">
+    <button class="btn ghost" id="frame-toggle" style="flex:1;padding:5px 6px;font-size:11px" title="open the page in an iframe of the design width on a dark ground — left / center / right, real media queries, no debugger">device frame</button>
+    <button class="pos-btn" data-pos="left" hidden>left</button>
+    <button class="pos-btn on" data-pos="center" hidden>center</button>
+    <button class="pos-btn" data-pos="right" hidden>right</button>
   </div>
   <div class="step-sub" id="vp-note" style="text-align:left;margin-top:5px"></div>
 </div>

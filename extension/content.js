@@ -1,3 +1,6 @@
+// Runs in the top frame, or inside the pixel-guard device frame (an iframe named
+// pg-device). Foreign iframes on a site (metrics, widgets) stay untouched.
+if (window === top || window.name === 'pg-device') (() => {
 let map = {};
 let box = null;
 let lastEl = null;
@@ -883,3 +886,15 @@ function watchContext() {
   });
 }
 watchContext();
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg.type === 'pg-where') { reply({ url: location.href, framed: window !== top }); return true; }
+});
+if (window !== top) {
+  // inside the device frame: tell the frame page where we are (it shows the URL and keeps ?url= current)
+  const tell = () => chrome.runtime.sendMessage({ type: 'pg-frame-url', url: location.href }).catch(() => {});
+  tell();
+  addEventListener('popstate', tell);
+  addEventListener('pageshow', tell);
+}
+})();

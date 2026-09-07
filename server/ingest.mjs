@@ -12,6 +12,10 @@ import { matchPage } from './lib/pagematch.mjs';
 import { flattenPng } from './lib/flatten.mjs';
 import { renderHtml } from './report-html.mjs';
 
+// one bad render or a malformed request must not take the whole server down
+process.on('uncaughtException', (e) => console.error('[ingest] uncaught:', e));
+process.on('unhandledRejection', (e) => console.error('[ingest] unhandled:', e));
+
 const PORT = Number(process.env.PORT || 8971);
 const TLS_PORT = Number(process.env.TLS_PORT || PORT + 1);
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -356,6 +360,10 @@ const handler = (req, res) => {
 
     const cacheKey = `${id}:${format}:${scale}:${bg}:${source ? 's' : ''}`;
     const deliver = async (result) => {
+      if (!result?.bytes) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.writeHead(502).end(JSON.stringify({ ok: false, error: 'plugin returned no image data', id, format }));
+      }
       if ((toWebp || maxW) && (result.format === 'PNG' || result.fallback)) {
         try {
           const t = await transformImage(result.bytes, { width: maxW, webp: toWebp, bg: bg === 'none' ? null : bg });
@@ -380,9 +388,11 @@ const handler = (req, res) => {
             ok: false, error: msg.error, reqId, stage: msg.stage ?? 'lost', id, format,
           }));
         }
-        renderCache.set(cacheKey, msg.result);
-        if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
-        deliver(msg.result);
+        if (msg.result?.bytes) {
+          renderCache.set(cacheKey, msg.result);
+          if (renderCache.size > 200) renderCache.delete(renderCache.keys().next().value);
+        }
+        deliver(msg.result).catch((e) => { console.error('[render] deliver', e); try { res.writeHead(500).end(JSON.stringify({ ok: false, error: String(e?.message ?? e) })); } catch {} });
       },
     });
     if (queued > 1) console.log(`[render] ${id} queued (${queued})`);

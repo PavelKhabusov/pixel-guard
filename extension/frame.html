@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pixel-guard · device frame</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #17191c; overflow: hidden; }
+  #wrap { height: 100%; display: flex; align-items: stretch; justify-content: center; }
+  #wrap.left { justify-content: flex-start; }
+  #wrap.right { justify-content: flex-end; }
+  iframe { border: 0; height: 100%; background: #fff; display: block; flex: none; }
+</style>
+<div id="wrap"><iframe id="page" name="pg-device"></iframe></div>
+<script src="frame.js"></script>

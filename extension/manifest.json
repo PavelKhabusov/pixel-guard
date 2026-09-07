@@ -4,11 +4,13 @@
   "version": "0.1.0",
   "description": "Live bridge Figma ↔ site: element highlighting and style comparison with the design",
   "permissions": [
+    "tabs",
     "activeTab",
     "scripting",
     "storage",
     "sidePanel",
-    "debugger"
+    "debugger",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "http://localhost:8971/*",
@@ -30,7 +32,8 @@
       "css": [
         "overlay.css"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "icons": {
