@@ -76,9 +76,11 @@ async function loadHosts() {
 }
 
 const allHosts = () => [...new Set([...serverHosts, ...userHosts])];
+// geo/regional subdomains (goryachiy-klyuch.plitka-propress.ru) are the same site
+const sameSite = (host, allowed) => host === allowed || host.endsWith('.' + allowed);
 const isTarget = (url) => {
   if (!url || SKIP.test(url)) return false;
-  try { return allHosts().includes(new URL(url).host); } catch { return false; }
+  try { const h = new URL(url).host; return allHosts().some((a) => sameSite(h, a)); } catch { return false; }
 };
 
 function applyPanelFor(tab) {
@@ -272,7 +274,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-is-target') {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => {
       let host = null; try { host = new URL(t?.url ?? '').host; } catch {}
-      reply({ target: isTarget(t?.url), host, userAdded: !!host && userHosts.includes(host) && !serverHosts.includes(host) });
+      reply({ target: isTarget(t?.url), host, userAdded: !!host && userHosts.some((a) => sameSite(host, a)) && !serverHosts.some((a) => sameSite(host, a)) });
     });
     return true;
   }
