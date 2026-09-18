@@ -599,7 +599,11 @@ function applySplitLine(split, opts) {
 }
 
 function hideOverlay() {
-  if (ov) ov.style.display = 'none';
+  // lastOverlay must go first: the scroll handler and the DOM observer redraw
+  // from it, so leaving it set brought the boxes straight back
+  lastOverlay = null;
+  activeExtras = [];
+  if (ov) { ov.replaceChildren(); ov.style.display = 'none'; }
   if (fixedLayer) { fixedLayer.remove(); fixedLayer = null; }
   if (splitLine) { splitLine.remove(); splitLine = null; }
   if (splitDim) { splitDim.remove(); splitDim = null; }
@@ -609,6 +613,10 @@ function hideOverlay() {
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'pg-overlay-show') { reply(showOverlay(msg.data, msg.opts ?? {})); return true; }
   if (msg.type === 'pg-overlay-hide') { hideOverlay(); reply({ ok: true }); return true; }
+  if (msg.type === 'pg-overlay-state') {
+    reply({ ok: true, visible: !!(ov && ov.childElementCount) || !!fixedLayer || !!lastOverlay, inspect: !!inspect });
+    return true;
+  }
 });
 
 let pick = null;
@@ -694,7 +702,7 @@ function startInspect() {
   document.documentElement.appendChild(hi);
   const tip = document.createElement('div');
   tip.className = 'pg-pick-tip';
-  tip.textContent = 'Inspect: click an element · Esc to exit';
+  tip.textContent = 'Inspect: click an element · Esc or click here to exit';
   document.documentElement.appendChild(tip);
 
   const onMove = (e) => {
@@ -733,18 +741,35 @@ function startInspect() {
     });
     lastEl = el; place(el);
   };
-  const onKey = (e) => { if (e.key === 'Escape') { chrome.runtime.sendMessage({ type: 'pg-inspect-stopped' }); stopInspect(); } };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); exitInspect(); } };
+  // clicking the tip is the way out when the keyboard focus is elsewhere
+  tip.style.pointerEvents = 'auto';
+  tip.style.cursor = 'pointer';
+  const onTip = (e) => { e.preventDefault(); e.stopPropagation(); exitInspect(); };
+  tip.addEventListener('mousedown', onTip, true);
   inspect = { hi, tip, onMove, onClick, onKey, el: null };
   addEventListener('mousemove', onMove, true);
   addEventListener('click', onClick, true);
   addEventListener('keydown', onKey, true);
+  document.addEventListener('keydown', onKey, true);
+  chrome.runtime.sendMessage({ type: 'pg-inspect-started' }).catch(() => {});
+}
+
+function exitInspect() {
+  stopInspect();
+  chrome.runtime.sendMessage({ type: 'pg-inspect-stopped' }).catch(() => {});
 }
 
 function stopInspect() {
+  // the frame left on the last clicked element is part of the mode: it stays
+  // glued to the page (and follows scroll) long after Inspect is off
+  if (box) box.classList.remove('pg-on');
+  lastEl = null;
   if (!inspect) return;
   removeEventListener('mousemove', inspect.onMove, true);
   removeEventListener('click', inspect.onClick, true);
   removeEventListener('keydown', inspect.onKey, true);
+  document.removeEventListener('keydown', inspect.onKey, true);
   inspect.hi.remove(); inspect.tip.remove();
   inspect = null;
 }

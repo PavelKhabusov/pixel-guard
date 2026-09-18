@@ -127,18 +127,35 @@ const toActiveTab = (msg) =>
     return new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-to-page', tabId: t.id, msg }, (r) => res(r ?? null)));
   });
 
+// Every run is stamped: an older run that resumes after an await must not
+// draw over a newer state (toggling the checkbox twice left the overlay on).
+let ovRun = 0;
+async function hideOverlay() {
+  for (let i = 0; i < 3; i++) {
+    const r = await toActiveTab({ type: 'pg-overlay-hide' });
+    if (r?.ok) return true;
+    await new Promise((res) => setTimeout(res, 150));
+  }
+  return false;
+}
+
 async function applyOverlay() {
   const note = $('ov-note');
-  if (!ovState.on) { await toActiveTab({ type: 'pg-overlay-hide' }); note.textContent = ''; return; }
-  if (!(await targetTab())) { await toActiveTab({ type: 'pg-overlay-hide' }); return; }
+  const run = ++ovRun;
+  const stale = () => run !== ovRun;
+  if (!ovState.on) { await hideOverlay(); if (!stale()) note.textContent = ''; return; }
+  if (!(await targetTab())) { await hideOverlay(); return; }
+  if (stale()) return;
   if (!ovState.data) {
     const tab = await activeTab();
     const vp = viewportFor(tab?.width);
     const path = `/overlay?url=${encodeURIComponent(await pageUrl() ?? '')}&viewport=${vp}${pageParam()}`;
     const d = await new Promise((res) => chrome.runtime.sendMessage({ type: 'pg-fetch', path }, res));
+    if (stale()) return;
     if (!d || d.ok === false || d.error) { note.textContent = d?.error ?? 'snapshot not found'; return; }
     ovState.data = d;
   }
+  if (stale() || !ovState.on) return;
   const r = await toActiveTab({
     type: 'pg-overlay-show',
     data: ovState.data,
@@ -149,6 +166,7 @@ async function applyOverlay() {
       solo: ovState.solo, split: ovState.split,
     },
   });
+  if (stale()) return;
   if (!r) {
     alertBox('<b>Page not responding.</b><br>The extension was updated, but the open '
       + 'tab still runs the old version — it only lives until a reload.',
@@ -193,6 +211,12 @@ $('ov-on').onchange = (e) => {
   ovState.data = null;
   applyOverlay();
 };
+// the checkbox is the truth: whatever the page ends up with, make it match
+setInterval(async () => {
+  if (ovState.on || document.hidden) return;
+  const r = await toActiveTab({ type: 'pg-overlay-state' });
+  if (r?.visible) hideOverlay();
+}, 2000);
 chrome.tabs.onActivated.addListener(() => { ovState.data = null; if (ovState.on) applyOverlay(); });
 chrome.tabs.onUpdated.addListener((id, info) => { if (info.status === 'complete') { ovState.data = null; if (ovState.on) applyOverlay(); } });
 ovState.opacity = $('ov-op').value / 100;
@@ -495,12 +519,26 @@ async function nodesForTab() {
 
 async function setInspect(on) {
   if (on && !(await targetTab())) return;
-  inspectOn = on;
-  $('inspect-go').classList.toggle('on', on);
-  await toActiveTab({ type: on ? 'pg-inspect-start' : 'pg-inspect-stop' });
-  if (on) $('body').innerHTML = '<div class="empty">Click an element on the page. Esc exits.</div>';
+  const r = await toActiveTab({ type: on ? 'pg-inspect-start' : 'pg-inspect-stop' });
+  // if the page did not confirm, the mode is not on — the button must not lie
+  inspectOn = on && !!r?.ok;
+  $('inspect-go').classList.toggle('on', inspectOn);
+  if (inspectOn) $('body').innerHTML = '<div class="empty">Click an element on the page. Esc exits — from the page or from here.</div>';
+  else if (on) $('body').innerHTML = '<div class="empty">The page did not respond — reload the tab and try again.</div>';
+  else $('body').innerHTML = '<div class="empty">Open a site page and press "Check page".</div>';
 }
-$('inspect-go').onclick = () => setInspect(!inspectOn);
+// the page is the truth: after a reload (or a dead content script) the panel
+// thought the mode was still on, so the button turned it ON again instead of off
+async function inspectLive() {
+  const r = await toActiveTab({ type: 'pg-overlay-state' });
+  if (r) {
+    inspectOn = !!r.inspect;
+    $('inspect-go').classList.toggle('on', inspectOn);
+  }
+  return inspectOn;
+}
+$('inspect-go').onclick = async () => setInspect(!(await inspectLive()));
+addEventListener('keydown', (e) => { if (e.key === 'Escape') setInspect(false); });
 
 // clipboard API refuses when the panel document is not focused (the click
 // came from the page a moment ago) — fall back to a hidden textarea
@@ -563,8 +601,14 @@ async function showInspect(msg) {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'pg-inspect-done') showInspect(msg);
   if (msg.type === 'pg-inspect-stopped') { inspectOn = false; $('inspect-go').classList.remove('on'); }
+  if (msg.type === 'pg-inspect-started') { inspectOn = true; $('inspect-go').classList.add('on'); }
 });
 chrome.tabs.onActivated.addListener(() => { nodeCache = null; if (inspectOn) setInspect(false); });
+// a reload kills the content script: the mode is gone, the button must follow
+chrome.tabs.onUpdated.addListener((id, info) => {
+  if (id === panelTabId && info.status === 'complete' && inspectOn) inspectLive();
+});
+setInterval(() => { if (inspectOn && !document.hidden) inspectLive(); }, 3000);
 // SPA route change: same tab, new page — new map, new design
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type !== 'pg-spa-nav') return;

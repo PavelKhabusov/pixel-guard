@@ -397,7 +397,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return;
   }
   if (msg.type === 'pg-pick-cancel') { toPanel({ type: 'pg-pick-cancelled' }); return; }
-  if (msg.type === 'pg-inspect-done' || msg.type === 'pg-inspect-stopped' || msg.type === 'pg-spa-nav') { toPanel(msg); return; }
+  if (msg.type === 'pg-inspect-done' || msg.type === 'pg-inspect-stopped' || msg.type === 'pg-inspect-started' || msg.type === 'pg-spa-nav') { toPanel(msg); return; }
   if (msg.type === 'pg-split-moved') { toPanel(msg); return; }
   if (msg.type === 'pg-emulate') {
     // the panel names its own tab; the active-tab fallback is for old panels only
