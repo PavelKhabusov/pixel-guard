@@ -19,7 +19,9 @@ const page = args.page ?? 'home';
 const viewport = args.viewport ?? 'desktop';
 const min = Number(args.min ?? 45);
 const write = !!args.write;
-const depth = Number(args.depth ?? 5);
+// 5 обходило только шапку и футер: контент страницы лежит глубже (карточка
+// статьи — 8, её заголовок и рубрика — 12), и automap его просто не видел
+const depth = Number(args.depth ?? 14);
 
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const pages = readJson(path.join(ROOT, 'config/pages.json'));
