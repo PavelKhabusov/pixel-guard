@@ -17,7 +17,8 @@
     "start": "./start.sh",
     "shots": "node server/shots.mjs",
     "verify": "node server/verify.mjs",
-    "remap": "node server/remap.mjs"
+    "remap": "node server/remap.mjs",
+    "resync": "node server/resync.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",
