@@ -432,8 +432,10 @@ function drawDesign(data, opts, off, frag, fx) {
     }
     target.appendChild(makeBox(a, opts, baseL, baseT, k, data.svgLib));
     if (opts.mode === 'shots' && a.shot) continue;
+    // bottom-aligned column (Figma "MAX"): its content follows the element's bottom edge
+    const dy = a.alignEnd === 'y' ? r.height - a.h * k : 0;
     for (const b of children.get(a) ?? []) {
-      target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + (b.y - a.y) * k, k, data.svgLib));
+      target.appendChild(makeBox(b, opts, baseL + (b.x - a.x) * k, baseT + dy + (b.y - a.y) * k, k, data.svgLib));
     }
   }
 

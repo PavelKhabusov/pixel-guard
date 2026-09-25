@@ -221,6 +221,9 @@ const handler = (req, res) => {
             text: n.type === 'TEXT' ? n.text ?? '' : null,
             segments: n.type === 'TEXT' && Array.isArray(n.segments) ? n.segments : null,
             svgRef: n.svgRef ?? null,
+            // column with content pushed to the bottom: on a shorter/taller element
+            // the content sits at its bottom edge, not at the top
+            alignEnd: n.layout?.mode === 'VERTICAL' && n.layout.align === 'MAX' ? 'y' : null,
             shot: anchor ? (shots[`${pageKey}|${viewport}|${anchor.key}`]?.file ?? null) : null,
             font: n.type === 'TEXT' && n.font ? {
               family: n.font.family, size: n.font.size, weight: n.font.weight,
