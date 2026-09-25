@@ -398,6 +398,62 @@ async function exportProject(png: boolean) {
  *  several heavy exports at once all stall past the server timeout. */
 let renderChain: Promise<unknown> = Promise.resolve();
 
+/**
+ * exportAsync hung on a node whose subtree has an image Figma cannot rasterise.
+ * Export a temporary clone instead: every image fill is re-created from its bytes
+ * (a fresh createImage rasterises reliably), unreadable ones become a grey
+ * placeholder. The clone lives off-canvas on the page root and is removed after.
+ */
+async function exportReembedded(
+  node: SceneNode, settings: any, images: Record<string, Uint8Array>,
+  withTimeout: <T>(p: Promise<T>, ms: number, what: string) => Promise<T>,
+): Promise<{ bytes: Uint8Array; note: string } | null> {
+  let clone: SceneNode | null = null;
+  try {
+    clone = (node as any).clone() as SceneNode;
+    figma.currentPage.appendChild(clone);
+    const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
+    clone.x = (box ? box.x : 0) - 100000;
+    clone.y = box ? box.y : 0;
+    const fresh: Record<string, string> = {};
+    let placeholders = 0;
+    let reused = 0;
+    const targets = [clone, ...('findAll' in clone ? (clone as any).findAll(() => true) : [])];
+    for (const n of targets) {
+      const fills = (n as any).fills;
+      if (!Array.isArray(fills) || !fills.some((f: any) => f.type === 'IMAGE')) continue;
+      const next = [];
+      for (const f of fills) {
+        if (f.type !== 'IMAGE') { next.push(f); continue; }
+        let data = f.imageHash ? images[f.imageHash] : undefined;
+        if (!data && f.imageHash) {
+          try {
+            const img = figma.getImageByHash(f.imageHash);
+            if (img) data = images[f.imageHash] = await withTimeout(img.getBytesAsync(), 15000, 'image timeout');
+          } catch (_) { /* stays a placeholder */ }
+        }
+        if (data) {
+          if (!fresh[f.imageHash]) fresh[f.imageHash] = figma.createImage(data).hash;
+          next.push({ ...f, imageHash: fresh[f.imageHash] });
+          reused++;
+        } else {
+          next.push({ type: 'SOLID', color: { r: 0.85, g: 0.85, b: 0.85 }, opacity: f.opacity ?? 1, visible: f.visible !== false });
+          placeholders++;
+        }
+      }
+      try { (n as any).fills = next; } catch (_) { /* locked instance sublayer — leave as is */ }
+    }
+    const bytes = await withTimeout(
+      (clone as any).exportAsync(settings) as Promise<Uint8Array>, 60000, 'clone export hung',
+    );
+    const note = `exportAsync hung on the original — rendered a copy with ${reused} image(s) re-embedded`
+      + (placeholders ? `, ${placeholders} unreadable image(s) as grey placeholders` : '');
+    return { bytes, note };
+  } finally {
+    try { if (clone && !clone.removed) clone.remove(); } catch (_) { /* already gone */ }
+  }
+}
+
 async function renderNode(id: string, format: string, scale: number, source = false) {
   const node = await figma.getNodeByIdAsync(id) as SceneNode | null;
   if (!node) throw new Error(`node ${id} not found`);
@@ -467,11 +523,17 @@ async function renderNode(id: string, format: string, scale: number, source = fa
       `exportAsync hung on "${node.name}" (${node.type}) — an image fill Figma could not rasterise`,
     );
   } catch (e: any) {
-    // a single image rectangle: hand over the source picture instead of nothing
-    const own = Array.isArray((node as any).fills) ? (node as any).fills.find((f: any) => f.type === 'IMAGE' && images[f.imageHash]) : null;
-    if (!own || format === 'SVG' || format === 'PDF') throw e;
-    bytes = images[own.imageHash];
-    fallback = 'source image (exportAsync hung) — the original raster, not the cropped/scaled node';
+    const reembedded = hashes.length ? await exportReembedded(node, settings, images, withTimeout).catch(() => null) : null;
+    if (reembedded) {
+      bytes = reembedded.bytes;
+      fallback = reembedded.note;
+    } else {
+      // a single image rectangle: hand over the source picture instead of nothing
+      const own = Array.isArray((node as any).fills) ? (node as any).fills.find((f: any) => f.type === 'IMAGE' && images[f.imageHash]) : null;
+      if (!own || format === 'SVG' || format === 'PDF') throw e;
+      bytes = images[own.imageHash];
+      fallback = 'source image (exportAsync hung) — the original raster, not the cropped/scaled node';
+    }
   }
 
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
