@@ -10,22 +10,23 @@
 <meta property="og:image" content="https://pavelkhabusov.github.io/pixel-guard/og.png">
 <link rel="icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 @property --cx{syntax:'<percentage>';inherits:true;initial-value:50%}
 :root{
-  --bg:#15171a;--bg2:#17191c;--panel:#1f2226;--panel2:#2a2e33;--line:#33383e;--line2:#3d434a;
+  --bg:#101215;--bg2:#131518;--panel:#191c20;--panel2:#22262b;--line:#2b3035;--line2:#373c43;
   --fg:#dcdfe3;--mute:#a8aeb6;--dim:#8b939c;--faint:#71767d;
   --ok:#7fb08a;--ok2:#9ec9a8;--bad:#c98b8b;--bad2:#e8a0a0;--warn:#d4b483;
   --r:8px;
 }
 *{box-sizing:border-box;margin:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html,body{overflow-x:clip}
 a{color:var(--fg);text-decoration:none}
 code,pre,kbd{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px}
 code{background:var(--panel2);padding:1px 6px;border-radius:4px}
-.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
 .ok{color:var(--ok2)} .bad{color:var(--bad2)} .warn{color:var(--warn)} .dim{color:var(--faint)}
 svg.i{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em;flex:none}
 
@@ -34,24 +35,25 @@ svg.i{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.75;strok
 .rv.in{opacity:1;transform:none}
 .rv.d1{transition-delay:.08s}.rv.d2{transition-delay:.16s}.rv.d3{transition-delay:.24s}.rv.d4{transition-delay:.32s}
 
-nav{position:sticky;top:0;z-index:5;background:#15171acc;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
-.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px}
-.brand img{width:22px;height:22px}
+nav{position:sticky;top:0;z-index:20;background:#15171acc;backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:15px;letter-spacing:-.2px;white-space:nowrap}
+.brand img{width:24px;height:24px;border-radius:6px}
 nav .links{display:flex;gap:2px;align-items:center}
-nav .links a{color:var(--mute);font-size:13px;padding:6px 10px;border-radius:6px}
+nav .links a{color:var(--dim);font-size:13.5px;padding:7px 11px;border-radius:8px;transition:color .2s,background .2s}
 nav .links a:hover{background:var(--panel2);color:var(--fg)}
-nav .links a.gh{display:inline-flex;gap:7px;align-items:center;background:var(--panel2);color:var(--fg);margin-left:8px;font-size:16px}
-nav .links a.gh span{font-size:13px}
+nav .links a.gh{display:inline-flex;gap:7px;align-items:center;color:var(--fg);border:1px solid var(--line2);margin-left:8px;font-size:13.5px}
+nav .links a.gh span{font-size:13.5px}
 
 /* hero */
-.hero{padding:88px 0 40px;text-align:center;position:relative}
+.hero{padding:110px 0 40px;text-align:center;position:relative}
+.hero::after{content:"";position:absolute;inset:-60px 0 auto;height:760px;pointer-events:none;z-index:-2;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:radial-gradient(60% 55% at 50% 30%,#000 10%,transparent 75%);mask-image:radial-gradient(60% 55% at 50% 30%,#000 10%,transparent 75%);opacity:.55}
 .hero::before{content:"";position:absolute;inset:-60px 0 auto;height:520px;background:
   radial-gradient(60% 55% at 50% 0%,#2a2e33 0%,transparent 70%);pointer-events:none;z-index:-1}
 .hero .pill{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;color:var(--mute);background:#1f222699}
 .hero .pill b{margin-left:-6px;background:var(--panel2);color:var(--fg);padding:2px 8px;border-radius:999px;font-weight:600;font-size:11.5px}
-.hero h1{font-size:64px;line-height:1.08;letter-spacing:-2.2px;margin:24px 0 18px;padding-bottom:6px;font-weight:800;background:linear-gradient(180deg,#f0f2f5,#a8aeb6);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero p.lead{font-size:18px;color:var(--mute);max-width:640px;margin:0 auto 28px}
+.hero h1{font-size:clamp(40px,6.4vw,74px);line-height:1.04;letter-spacing:-0.04em;margin:24px 0 18px;padding-bottom:6px;font-weight:800;background:linear-gradient(180deg,#f0f2f5,#a8aeb6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:clamp(17px,1.5vw,19px);color:var(--mute);max-width:640px;margin:0 auto 28px}
 .btns{display:flex;gap:10px;justify-content:center}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:var(--r);font-weight:500;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);transition:background .15s,transform .15s}
 .btn:hover{background:var(--panel2);transform:translateY(-1px)}
@@ -242,7 +244,71 @@ pre b{color:var(--fg);font-weight:500} pre .k{color:#9ec9a8} pre .s{color:#d4b48
 footer{padding:34px 0;color:var(--faint);font-size:13px;border-top:1px solid var(--line)}
 footer .wrap{display:flex;justify-content:space-between;align-items:center}
 footer a{display:inline-flex;gap:7px;align-items:center;color:var(--dim)}
-@media(max-width:900px){.hero h1{font-size:42px}.frame .body{grid-template-columns:1fr}.side{display:none}.stats{grid-template-columns:1fr 1fr}.bento{grid-template-columns:1fr}.b.w2,.b.w3,.b.w4{grid-column:span 1}.steps,.vs{grid-template-columns:1fr}.step::after{display:none}nav .links a:not(.gh){display:none}.page .cards{display:none}}
+@media(max-width:900px){.hero h1{font-size:clamp(36px,9vw,48px)}.frame .body{grid-template-columns:1fr}.side{display:none}.stats{grid-template-columns:1fr 1fr}.bento{grid-template-columns:1fr}.b.w2,.b.w3,.b.w4{grid-column:span 1}.steps,.vs{grid-template-columns:1fr}.step::after{display:none}nav .links a:not(.gh){display:none}.page .cards{display:none}}
+.more{padding-top:40px;padding-bottom:72px}
+.more .mh{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.more .mh .eyebrow{margin:0}
+.mt b{color:var(--fg)}
+.mgh{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--dim)}.mgh:hover{color:var(--fg)}
+.mg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.mt{display:flex;align-items:center;gap:16px;padding:18px 20px;border:1px solid var(--line);border-radius:16px;background:var(--panel);transition:border-color .25s,transform .25s,background .25s}
+.mt:hover{border-color:var(--line2);transform:translateY(-2px);background:var(--panel2)}
+.mt img{width:44px;height:44px;border-radius:11px;flex:none}
+.mt span{display:grid;gap:2px;min-width:0}
+.mt b{font-size:16px;font-weight:620;letter-spacing:-.01em}
+.mt small{font-size:13.5px;color:var(--dim);line-height:1.45}
+.mt>svg.i{margin-left:auto;color:var(--faint);font-size:18px;transition:color .25s,transform .25s}
+.mt:hover>svg.i{color:var(--fg);transform:translate(2px,-2px)}
+@media(max-width:680px){.mg{grid-template-columns:minmax(0,1fr)}.more{padding-top:80px}}
+p,li,.sub,.lead{text-wrap:pretty}
+h1,h2,h3{text-wrap:balance}
+.b p,.sub{max-width:64ch}
+
+:root{--acc:#9fcbab}
+.hand{font-family:Caveat,cursive;font-weight:700;color:var(--acc);-webkit-text-fill-color:var(--acc);display:inline-block;transform:rotate(-2.5deg);font-size:1.18em;letter-spacing:0;line-height:.8;position:relative;padding:0 .06em;white-space:nowrap}
+.hand svg{position:absolute;left:2%;bottom:-.06em;width:96%;height:.26em;overflow:visible}
+.hand path{fill:none;stroke:var(--acc);stroke-width:2.6;stroke-linecap:round;vector-effect:non-scaling-stroke;stroke-dasharray:420;stroke-dashoffset:420;opacity:.85}
+.in .hand path{animation:hdraw 1.1s .5s cubic-bezier(.6,.1,.3,1) forwards}
+@keyframes hdraw{to{stroke-dashoffset:0}}
+.steps{gap:40px}
+.step{display:flex;flex-direction:column;transition:border-color .25s}.step:hover{border-color:var(--line2)}
+.step .k small{font:600 36px/1 Inter,sans-serif;letter-spacing:-1.5px;color:transparent;-webkit-text-stroke:1px var(--line2);margin-left:auto}
+.step::after{right:-34px;top:46px;width:28px;height:12px;background:no-repeat center/100% 100% url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 12'%3E%3Cpath d='M1 6h24M20 1l5 5-5 5' fill='none' stroke='%238b939c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.step .fm{margin-top:auto;padding-top:16px;display:grid;gap:6px}
+.fl2{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#101214;font:12px "JetBrains Mono",monospace;color:var(--mute);min-width:0;white-space:nowrap;overflow:hidden}
+.fl2 em{font-style:normal;margin-left:auto;color:var(--faint)}
+.fl2 code{font-size:11.5px}
+code{white-space:nowrap}
+.cta2{position:relative;overflow:hidden;isolation:isolate;border:1px solid var(--line2);border-radius:24px;padding:64px 40px;text-align:center;background:radial-gradient(120% 90% at 50% 0%,var(--panel2),var(--panel) 60%)}
+.cta2 .sub{margin-left:auto;margin-right:auto}
+.cta2::before{content:"";position:absolute;inset:-35%;z-index:-2;filter:blur(40px);pointer-events:none;background:radial-gradient(28% 32% at 28% 72%,#9fcbab3d,transparent 70%),radial-gradient(26% 30% at 74% 78%,#a8aeb62e,transparent 70%),radial-gradient(22% 22% at 58% 26%,#9ec9a81a,transparent 70%);animation:aurora 16s ease-in-out infinite alternate}
+@keyframes aurora{0%{transform:translate(-5%,3%) rotate(-4deg)}100%{transform:translate(5%,-4%) rotate(6deg)}}
+.cta2::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.5;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(70% 70% at 50% 60%,#000,transparent 75%);mask-image:radial-gradient(70% 70% at 50% 60%,#000,transparent 75%)}
+.cta2 .wm{position:absolute;right:-60px;bottom:-80px;width:320px;opacity:.06;transform:rotate(-14deg);z-index:-1;pointer-events:none}
+.cta2 pre.gbox{text-align:left;max-width:760px;margin:24px auto 0;background:#101214;border-color:transparent;box-shadow:0 0 0 1px #9ec9a855,0 24px 70px -24px #9ec9a866}
+.cta2 h2{font-size:clamp(30px,4vw,52px)}
+@media(max-width:900px){.step::after{display:block;right:auto;left:50%;top:auto;bottom:-32px;width:12px;height:26px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 26'%3E%3Cpath d='M6 1v22M1 18l5 5 5-5' fill='none' stroke='%238b939c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}.cta2{padding:48px 18px}.cta2 h2{font-size:34px}}
+@media(max-width:680px){.wrap{padding:0 16px}}
+.step:last-child::after{display:none!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}.hand path{stroke-dashoffset:0}}
+
+/* install (shared component) */
+.inst{position:relative;overflow:hidden;isolation:isolate;max-width:100%;border:1px solid var(--line2);border-radius:24px;padding:72px 32px 64px;text-align:center;background:var(--panel)}
+.inst::before{content:"";position:absolute;inset:-35%;z-index:-2;pointer-events:none;filter:blur(40px);background:radial-gradient(28% 32% at 28% 72%,rgba(160,168,180,.16),transparent 70%),radial-gradient(26% 30% at 74% 78%,rgba(160,168,180,.10),transparent 70%),radial-gradient(22% 22% at 58% 26%,rgba(160,168,180,.07),transparent 70%);animation:inst-aurora 16s ease-in-out infinite alternate}
+@keyframes inst-aurora{0%{transform:translate(-5%,3%) rotate(-4deg)}100%{transform:translate(5%,-4%) rotate(6deg)}}
+.inst::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.5;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(70% 70% at 50% 60%,#000,transparent 75%);mask-image:radial-gradient(70% 70% at 50% 60%,#000,transparent 75%)}
+.inst-wm{position:absolute;right:-56px;bottom:-72px;width:320px;height:320px;object-fit:contain;filter:grayscale(1);opacity:.07;transform:rotate(-14deg);z-index:-1;pointer-events:none}
+.inst-eb{display:inline-block;font:500 12px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:16px}
+.inst h2{font-size:clamp(30px,4vw,52px);letter-spacing:-.04em;line-height:1.08;font-weight:720;margin:0 auto 14px;max-width:760px;text-wrap:balance}
+.inst p{color:var(--dim);font-size:16px;line-height:1.6;max-width:600px;margin:0 auto 28px;text-wrap:pretty}
+.inst-code{text-align:left;max-width:720px;margin:0 auto 28px;background:#0d0f12;color:#c4c9cf;border:1px solid #2a2f35;border-radius:14px;padding:18px 20px;overflow:auto;font:12.5px/1.75 "JetBrains Mono",ui-monospace,monospace;white-space:pre}
+.inst-code .p{color:#6b737c}.inst-code .c{color:#6b737c}.inst-code b{color:#eceef1;font-weight:500}
+.inst-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.inst-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:11px;font:550 14.5px Inter,sans-serif;border:1px solid var(--line2);background:var(--panel2);color:var(--fg);transition:transform .2s,background .2s}
+.inst-btn:hover{transform:translateY(-1px)}
+.inst-btn.p{background:var(--fg);color:var(--bg);border-color:transparent}
+@media(max-width:680px){.inst{padding:52px 18px 44px;border-radius:20px}.inst-code{font-size:11.5px;padding:14px}.inst-wm{width:220px;height:220px;right:-40px;bottom:-50px}}
+@media (prefers-reduced-motion:reduce){.inst::before{animation:none}}
 </style>
 </head>
 <body>
@@ -254,7 +320,7 @@ footer a{display:inline-flex;gap:7px;align-items:center;color:var(--dim)}
 <div class="wrap">
 <div class="hero">
   <span class="pill rv in"><b id="ver" hidden>v0.x</b> Figma plugin · Chrome extension · CLI · MCP</span>
-  <h1 class="rv in d1">Pixel-perfect QA<br>against Figma designs</h1>
+  <h1 class="rv in d1">Pixel-perfect QA<br>against <span class="hand">Figma<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9C40 3 86 2 122 6S170 11 197 5"/></svg></span> designs</h1>
   <p class="lead rv in d2">Compares a live page with its design element by element — computed CSS and geometry, not screenshots. A companion plugin reads the file from inside Figma: no REST API, no rate limits.</p>
   <div class="btns rv in d3"><a class="btn primary" href="#install"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19h8" /> <path d="m4 17 6-6-6-6" /></svg> Install</a><a class="btn" href="https://github.com/PavelKhabusov/pixel-guard"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /> <path d="M9 18c-4.51 2-5-2-7-2" /></svg> Source</a></div>
 
@@ -353,11 +419,11 @@ footer a{display:inline-flex;gap:7px;align-items:center;color:var(--dim)}
 </section>
 
 <section id="how">
-  <div class="center rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z" /> <circle cx="12" cy="12" r="10" /></svg> How it works</span><h2>Figma once. Everything else from disk.</h2><p class="sub">The snapshot is a plain JSON you can commit. CLI, browser panel and the MCP server all read the same file.</p></div>
+  <div class="center rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z" /> <circle cx="12" cy="12" r="10" /></svg> How it works</span><h2>Figma once. Everything else <span class="hand">from disk.<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9C40 3 86 2 122 6S170 11 197 5"/></svg></span></h2><p class="sub">The snapshot is a plain JSON you can commit. CLI, browser panel and the MCP server all read the same file.</p></div>
   <div class="steps">
-    <div class="step rv"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H12v7H8.5A3.5 3.5 0 0 1 5 5.5z" /> <path d="M12 2h3.5a3.5 3.5 0 1 1 0 7H12V2z" /> <path d="M12 12.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 1 1-7 0z" /> <path d="M5 19.5A3.5 3.5 0 0 1 8.5 16H12v3.5a3.5 3.5 0 1 1-7 0z" /> <path d="M5 12.5A3.5 3.5 0 0 1 8.5 9H12v7H8.5A3.5 3.5 0 0 1 5 12.5z" /></svg></span><small>01</small></div><h3>Capture</h3><p>Select frames in Figma, press <b>Capture</b>. Or export the whole project in one go — pages plus shared modules.</p></div>
-    <div class="step rv d1"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" /> <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" /></svg></span><small>02</small></div><h3>Map</h3><p><code>npm run automap</code> pairs nodes with selectors; the rest is a click in the panel or a line in <code>maps/page.map.json</code>.</p></div>
-    <div class="step rv d2"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2" /> <path d="M17 3h2a2 2 0 0 1 2 2v2" /> <path d="M21 17v2a2 2 0 0 1-2 2h-2" /> <path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg></span><small>03</small></div><h3>Check</h3><p><code>npm run qa</code> in CI, <b>Check page</b> in the browser, or let an agent do it over MCP. Same report either way.</p></div>
+    <div class="step rv"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H12v7H8.5A3.5 3.5 0 0 1 5 5.5z" /> <path d="M12 2h3.5a3.5 3.5 0 1 1 0 7H12V2z" /> <path d="M12 12.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 1 1-7 0z" /> <path d="M5 19.5A3.5 3.5 0 0 1 8.5 16H12v3.5a3.5 3.5 0 1 1-7 0z" /> <path d="M5 12.5A3.5 3.5 0 0 1 8.5 9H12v7H8.5A3.5 3.5 0 0 1 5 12.5z" /></svg></span><small>01</small></div><h3>Capture</h3><p>Select frames in Figma, press <b>Capture</b> — or export the whole project.</p><div class="fm"><div class="fl2"><span class="ok">✓</span> snapshots/home.json<em>214 nodes</em></div><div class="fl2"><span class="ok">✓</span> snapshots/_project.json<em>12 pages</em></div></div></div>
+    <div class="step rv d1"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" /> <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" /></svg></span><small>02</small></div><h3>Map</h3><p><code>automap</code> pairs nodes with selectors; the rest is a click.</p><div class="fm"><div class="fl2"><code>hero/title</code><span class="dim">↔</span><code>.hero h1</code></div><div class="fl2"><code>hero/cta</code><span class="dim">↔</span><code>.hero .btn</code></div></div></div>
+    <div class="step rv d2"><div class="k"><span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2" /> <path d="M17 3h2a2 2 0 0 1 2 2v2" /> <path d="M21 17v2a2 2 0 0 1-2 2h-2" /> <path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg></span><small>03</small></div><h3>Check</h3><p>CLI, browser panel or MCP — the same report.</p><div class="fm"><div class="fl2"><span class="ok">✓</span> 41 properties match</div><div class="fl2"><span class="bad">✕</span> .hero h1 font-size<em>52 → 56px</em></div></div></div>
   </div>
 </section>
 
@@ -403,17 +469,15 @@ footer a{display:inline-flex;gap:7px;align-items:center;color:var(--dim)}
   </div>
 </section>
 
-<section id="install">
-  <div class="rv"><span class="eyebrow"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19h8" /> <path d="m4 17 6-6-6-6" /></svg> Install</span><h2>Up in a minute</h2><p class="sub">Node ≥ 20, Chrome, Figma desktop app for snapshots.</p></div>
-<pre class="rv d1"><span class="dim">$</span> <b>git clone https://github.com/PavelKhabusov/pixel-guard && cd pixel-guard</b>
-<span class="dim">$</span> <b>npm install</b>
-<span class="dim">$</span> <b>./start.sh</b>            <span class="dim"># Figma ↔ browser bridge + panel</span>
+<section id="install"><div class="inst rv"><img class="inst-wm" src="icon.svg" alt=""><span class="inst-eb">Install</span><h2>Up in a <span class="hand">minute<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9C40 3 86 2 122 6S170 11 197 5"/></svg></span></h2><p>Node ≥ 20, Chrome, Figma desktop app for snapshots.</p><pre class="inst-code"><span class="p">$</span> <b>git clone https://github.com/PavelKhabusov/pixel-guard &amp;&amp; cd pixel-guard</b>
+<span class="p">$</span> <b>npm install</b>
+<span class="p">$</span> <b>./start.sh</b>            <span class="c"># Figma ↔ browser bridge + panel</span>
 
-<span class="dim"># Figma  → Plugins → Development → Import plugin from manifest… → plugin/manifest.json</span>
-<span class="dim"># Chrome → chrome://extensions → Load unpacked → extension/</span></pre>
-</section>
+<span class="c"># Figma  → Plugins → Development → Import plugin from manifest… → plugin/manifest.json</span>
+<span class="c"># Chrome → chrome://extensions → Load unpacked → extension/</span></pre><div class="inst-btns"><a class="inst-btn p" href="https://github.com/PavelKhabusov/pixel-guard">Get it on GitHub <svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a><a class="inst-btn" href="https://github.com/PavelKhabusov/pixel-guard/tree/main/docs">Read the docs</a></div></div></section>
 </div>
 
+<div class="wrap"><section id="more" class="more"><div class="mh rv"><span class="eyebrow">More by me</span></div><div class="mg rv d1"><a class="mt" href="https://pavelkhabusov.github.io/CommandsExtension/"><img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgdmlld0JveD0iMCAwIDI1NiAyNTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiIHJ4PSI1MSIgcnk9IjUxIiBmaWxsPSIjMUUxRTFFIi8+CiAgPHBhdGggZD0iTTU2IDE3NkwxMDQgMTI4TDU2IDgwIiBzdHJva2U9IiM1NjlDRDYiIHN0cm9rZS13aWR0aD0iMTQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgZmlsbD0ibm9uZSIvPgogIDxwYXRoIGQ9Ik0xMjAgMTc2SDIwMCIgc3Ryb2tlPSIjRENEQ0FBIiBzdHJva2Utd2lkdGg9IjE0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiLz4KPC9zdmc+Cg==" alt=""><span><b>Commands Extension</b><small>One-click buttons, multi-step operations and FTP/SFTP deploys in VS Code.</small></span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></a><a class="mt" href="https://pavelkhabusov.github.io/Unity-Builder-Dash/"><img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iNTMxIiBoZWlnaHQ9IjUzMSIgdmlld0JveD0iMCAwIDUzMSA1MzEiPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJsaW5lYXItcGF0dGVybi0wIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjUyLjY2NTU5NyIgeTE9IjE5Ljc0IiB4Mj0iNDc4LjMzNDQwMyIgeTI9IjI2NS41Ij4KPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSJyZ2IoODQlLCA4NCUsIDg4JSkiIHN0b3Atb3BhY2l0eT0iMSIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9InJnYig3NiUsIDc2JSwgODAlKSIgc3RvcC1vcGFjaXR5PSIxIi8+CjwvbGluZWFyR3JhZGllbnQ+CjxsaW5lYXJHcmFkaWVudCBpZD0ibGluZWFyLXBhdHRlcm4tMSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIHgxPSI1Mi42NjU1OTciIHkxPSIxNDIuNjIiIHgyPSIyNjUuNSIgeTI9IjUxMS4yNiI+CjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0icmdiKDYyJSwgNjIlLCA2NyUpIiBzdG9wLW9wYWNpdHk9IjEiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSJyZ2IoNTIlLCA1MiUsIDU3JSkiIHN0b3Atb3BhY2l0eT0iMSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9ImxpbmVhci1wYXR0ZXJuLTIiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiB4MT0iMjY1LjUiIHkxPSIxNDIuNjIiIHgyPSI0NzguMzM0NDAzIiB5Mj0iNTExLjI2Ij4KPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSJyZ2IoNDglLCA0OCUsIDU0JSkiIHN0b3Atb3BhY2l0eT0iMSIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9InJnYigzOCUsIDM4JSwgNDQlKSIgc3RvcC1vcGFjaXR5PSIxIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHBhdGggZmlsbC1ydWxlPSJub256ZXJvIiBmaWxsPSJ1cmwoI2xpbmVhci1wYXR0ZXJuLTApIiBkPSJNIDI2NS41IDE5LjczODI4MSBMIDQ3OC4zMzU5MzggMTQyLjYyMTA5NCBMIDI2NS41IDI2NS41IEwgNTIuNjY0MDYyIDE0Mi42MjEwOTQgWiBNIDI2NS41IDE5LjczODI4MSAiLz4KPHBhdGggZmlsbC1ydWxlPSJub256ZXJvIiBmaWxsPSJ1cmwoI2xpbmVhci1wYXR0ZXJuLTEpIiBkPSJNIDUyLjY2NDA2MiAxNDIuNjIxMDk0IEwgMjY1LjUgMjY1LjUgTCAyNjUuNSA1MTEuMjYxNzE5IEwgNTIuNjY0MDYyIDM4OC4zNzg5MDYgWiBNIDUyLjY2NDA2MiAxNDIuNjIxMDk0ICIvPgo8cGF0aCBmaWxsLXJ1bGU9Im5vbnplcm8iIGZpbGw9InVybCgjbGluZWFyLXBhdHRlcm4tMikiIGQ9Ik0gNDc4LjMzNTkzOCAxNDIuNjIxMDk0IEwgNDc4LjMzNTkzOCAzODguMzc4OTA2IEwgMjY1LjUgNTExLjI2MTcxOSBMIDI2NS41IDI2NS41IFogTSA0NzguMzM1OTM4IDE0Mi42MjEwOTQgIi8+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iMi41NiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49Im1pdGVyIiBzdHJva2U9InJnYigxMDAlLCAxMDAlLCAxMDAlKSIgc3Ryb2tlLW9wYWNpdHk9IjAuMjUiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgZD0iTSAyNjUuNSAxOS43MzgyODEgTCA1Mi42NjQwNjIgMTQyLjYyMTA5NCAiLz4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIyLjU2IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZT0icmdiKDEwMCUsIDEwMCUsIDEwMCUpIiBzdHJva2Utb3BhY2l0eT0iMC4xNSIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNIDI2NS41IDE5LjczODI4MSBMIDQ3OC4zMzU5MzggMTQyLjYyMTA5NCAiLz4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxLjUzNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49Im1pdGVyIiBzdHJva2U9InJnYigwJSwgMCUsIDAlKSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNIDI2NS41IDI2NS41IEwgMjY1LjUgNTExLjI2MTcxOSAiLz4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxLjUzNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49Im1pdGVyIiBzdHJva2U9InJnYigwJSwgMCUsIDAlKSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNIDI2NS41IDI2NS41IEwgNTIuNjY0MDYyIDE0Mi42MjEwOTQgIi8+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iMS41MzYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgc3Ryb2tlPSJyZ2IoMCUsIDAlLCAwJSkiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgZD0iTSAyNjUuNSAyNjUuNSBMIDQ3OC4zMzU5MzggMTQyLjYyMTA5NCAiLz4KPHBhdGggZmlsbC1ydWxlPSJub256ZXJvIiBmaWxsPSJyZ2IoMjIlLCAyMiUsIDI3JSkiIGZpbGwtb3BhY2l0eT0iMSIgZD0iTSA1Mi42NjQwNjIgMjIxLjI2MTcxOSBMIDI2NS41IDM0NC4xNDQ1MzEgTCAyNjUuNSAzODguMzc4OTA2IEwgNTIuNjY0MDYyIDI2NS41IFogTSA1Mi42NjQwNjIgMjIxLjI2MTcxOSAiLz4KPHBhdGggZmlsbC1ydWxlPSJub256ZXJvIiBmaWxsPSJyZ2IoMTglLCAxOCUsIDIzJSkiIGZpbGwtb3BhY2l0eT0iMSIgZD0iTSAyNjUuNSAzNDQuMTQ0NTMxIEwgNDc4LjMzNTkzOCAyMjEuMjYxNzE5IEwgNDc4LjMzNTkzOCAyNjUuNSBMIDI2NS41IDM4OC4zNzg5MDYgWiBNIDI2NS41IDM0NC4xNDQ1MzEgIi8+CjxwYXRoIGZpbGwtcnVsZT0ibm9uemVybyIgZmlsbD0icmdiKDgyJSwgODIlLCA4NiUpIiBmaWxsLW9wYWNpdHk9IjEiIGQ9Ik0gMTIxLjM3ODkwNiAyODguNjcxODc1IEMgMTE4LjM1NTQ2OSAyOTAuNDE3OTY5IDExMy43MjY1NjIgMjg4LjA1ODU5NCAxMTEuMDM5MDYyIDI4My40MDYyNSBDIDEwOC4zNTU0NjkgMjc4Ljc1MzkwNiAxMDguNjI4OTA2IDI3My41NjY0MDYgMTExLjY1MjM0NCAyNzEuODIwMzEyIEMgMTE0LjY3NTc4MSAyNzAuMDc0MjE5IDExOS4zMDQ2ODggMjcyLjQyOTY4OCAxMjEuOTkyMTg4IDI3Ny4wODU5MzggQyAxMjQuNjc5Njg4IDI4MS43MzgyODEgMTI0LjQwMjM0NCAyODYuOTI1NzgxIDEyMS4zNzg5MDYgMjg4LjY3MTg3NSAiLz4KPHBhdGggZmlsbC1ydWxlPSJub256ZXJvIiBmaWxsPSJyZ2IoODIlLCA4MiUsIDg2JSkiIGZpbGwtb3BhY2l0eT0iMC41NSIgZD0iTSAxNjMuOTQ1MzEyIDMxMy4yNDYwOTQgQyAxNjAuOTIxODc1IDMxNC45OTIxODggMTU2LjI5Mjk2OSAzMTIuNjM2NzE5IDE1My42MDU0NjkgMzA3Ljk4NDM3NSBDIDE1MC45MjE4NzUgMzAzLjMzMjAzMSAxNTEuMTk1MzEyIDI5OC4xNDQ1MzEgMTU0LjIxODc1IDI5Ni4zOTg0MzggQyAxNTcuMjQyMTg4IDI5NC42NTIzNDQgMTYxLjg3MTA5NCAyOTcuMDA3ODEyIDE2NC41NTg1OTQgMzAxLjY2MDE1NiBDIDE2Ny4yNDYwOTQgMzA2LjMxMjUgMTY2Ljk3MjY1NiAzMTEuNSAxNjMuOTQ1MzEyIDMxMy4yNDYwOTQgIi8+CjxwYXRoIGZpbGwtcnVsZT0ibm9uemVybyIgZmlsbD0icmdiKDgyJSwgODIlLCA4NiUpIiBmaWxsLW9wYWNpdHk9IjAuMjUiIGQ9Ik0gMjA2LjUxNTYyNSAzMzcuODI0MjE5IEMgMjAzLjQ4ODI4MSAzMzkuNTcwMzEyIDE5OC44NTkzNzUgMzM3LjIxMDkzOCAxOTYuMTcxODc1IDMzMi41NTg1OTQgQyAxOTMuNDg4MjgxIDMyNy45MDYyNSAxOTMuNzYxNzE5IDMyMi43MTg3NSAxOTYuNzg1MTU2IDMyMC45NzI2NTYgQyAxOTkuODA4NTk0IDMxOS4yMjY1NjIgMjA0LjQzNzUgMzIxLjU4MjAzMSAyMDcuMTI1IDMyNi4yMzQzNzUgQyAyMDkuODEyNSAzMzAuODkwNjI1IDIwOS41MzkwNjIgMzM2LjA3ODEyNSAyMDYuNTE1NjI1IDMzNy44MjQyMTkgIi8+Cjwvc3ZnPgo=" alt=""><span><b>Unity Builder Dash</b><small>Unity builds for Android and iOS, devices and profiler — with a CLI for agents.</small></span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></a></div></section></div>
 <footer><div class="wrap"><span>pixel-guard · MIT</span><a href="https://github.com/PavelKhabusov"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /> <path d="M9 18c-4.51 2-5-2-7-2" /></svg> Pavel Khabusov</a></div></footer>
 
 <script>

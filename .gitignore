@@ -8,3 +8,5 @@ config/cert/
 config/pages.json
 maps/*.map.json
 !maps/*.example.map.json
+
+docs/_screens/
