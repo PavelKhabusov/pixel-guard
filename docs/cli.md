@@ -19,6 +19,7 @@ All commands run from the project root; `--page` is a key from `config/pages.jso
 | `npm run compare -- --page home --viewport tablet [--chunk 1600] [--fresh]` | visual review: the breakpoint frame rendered by the plugin through the running server (cached in `snapshots/frames/`) next to a full-page site screenshot (fixed layers hidden), sliced into `reports/compare/<page>-<viewport>-NN.png` (left = design, right = site) with pixelmatch % per chunk |
 | `npm run sweep [-- --page X] [--widths 320,768] [--bp 576,768,992] [--all]` | adaptive sweep: every preset width plus each breakpoint ±1px; reports horizontal page scroll, elements out of the viewport, clipped and spilling text; each hit is re-checked on a page loaded fresh at that width (`--all` keeps unconfirmed) → `reports/sweep-*.json` |
 | `npm run peek -- <url> <width> '<js expression>'` | quick live measurement: opens the page at that width and prints what the expression returns as JSON (`getBoundingClientRect`, `getComputedStyle`…) |
+| `npm run overlay -- --page X --viewport tablet [--mode split\|diff\|outline\|render] [--opacity 0.5] [--from Y --to Y] [--chunk 1400]` | the panel's overlay without a human: loads the extension into Playwright (full Chromium, headless), sends it the server's `/overlay` for the page and screenshots it slice by slice → `reports/overlay/<page>-<viewport>-<mode>-NN.png` |
 | `npm run modules [-- --shared]` | reusable blocks found by the project export |
 | `npm run import -- <file.pg.json>` | import a snapshot downloaded from the plugin |
 | `npm run repair` | fill empty component references in old snapshots from other snapshots |
@@ -37,4 +38,4 @@ All commands run from the project root; `--page` is a key from `config/pages.jso
 - `automap --min`: 80+ is nearly false-positive-free, 45 needs proofreading.
 
 
-Behind HTTP basic auth (a dev copy): set `PG_HTTP_AUTH=user:password` for `qa`, `sweep`, `compare` and `peek`.
+Behind HTTP basic auth (a dev copy): set `PG_HTTP_AUTH=user:password` for `qa`, `sweep`, `compare`, `peek` and `overlay`.

@@ -60,6 +60,28 @@ function probe() {
   const docW = document.documentElement.scrollWidth;
   if (docW > vw + 1) out.push({ type: 'page-scroll', sel: 'html', px: docW - vw });
 
+  // controls: a button that wraps its label onto several lines, a row of buttons that broke into ragged lines
+  const isCtl = (e) => e.matches('button, a[class*="btn"], a[class*="button"], .button, [role="button"], input[type="submit"]');
+  for (const b of document.body.querySelectorAll('button, a[class*="btn"], a[class*="button"], .button, [role="button"]')) {
+    if (b.closest('.modal:not(.show),.dropdown-menu:not(.show),[hidden],[aria-hidden="true"]')) continue;
+    const r = b.getBoundingClientRect(), cs = getComputedStyle(b);
+    if (!r.width || cs.visibility === 'hidden' || cs.whiteSpace === 'nowrap' || !b.textContent.trim()) continue;
+    const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+    const rg = document.createRange(); rg.selectNodeContents(b);
+    const lines = new Set([...rg.getClientRects()].filter((q) => q.width > 2).map((q) => Math.round(q.top / (lh * 0.6))));
+    if (lines.size > 1 && b.textContent.trim().split(/\s+/).length <= 4) out.push({ type: 'button-text-wrap', sel: sel(b), px: lines.size });
+  }
+  for (const c of document.body.querySelectorAll('*')) {
+    const cs = getComputedStyle(c);
+    if (!cs.display.includes('flex') || cs.flexDirection.startsWith('column') || cs.flexWrap === 'nowrap') continue;
+    const kids = [...c.children].filter((k) => k.getBoundingClientRect().width > 0);
+    if (kids.length < 2 || kids.length > 4 || !kids.every(isCtl)) continue;
+    const rows = {};
+    for (const k of kids) { const t = Math.round(k.getBoundingClientRect().top); rows[t] = (rows[t] || 0) + 1; }
+    const counts = Object.values(rows);
+    if (counts.length > 1 && new Set(counts).size > 1) out.push({ type: 'buttons-ragged', sel: sel(c), px: counts.length });
+  }
+
   const all = document.body.querySelectorAll('*');
   for (const el of all) {
     if (el.closest('script,style,svg,noscript,iframe,.modal:not(.show),.dropdown-menu:not(.show),.visually-hidden,.sr-only,.screen-reader-text,[hidden],[aria-hidden="true"]')) continue;
@@ -108,7 +130,8 @@ for (const page of list) {
     await pg.waitForTimeout(250);
     for (const it of await pg.evaluate(probe)) {
       const k = it.type + ' ' + it.sel;
-      (issues[k] ??= { type: it.type, sel: it.sel, widths: [], maxPx: 0 }).widths.push(w);
+      const rec = (issues[k] ??= { type: it.type, sel: it.sel, widths: [], maxPx: 0 });
+      if (rec.widths[rec.widths.length - 1] !== w) rec.widths.push(w);
       issues[k].maxPx = Math.max(issues[k].maxPx, it.px);
     }
   }
