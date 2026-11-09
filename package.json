@@ -20,7 +20,8 @@
     "remap": "node server/remap.mjs",
     "resync": "node server/resync.mjs",
     "sweep": "node server/sweep.mjs",
-    "compare": "node server/compare.mjs"
+    "compare": "node server/compare.mjs",
+    "peek": "node server/peek.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",
