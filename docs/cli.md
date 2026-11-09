@@ -16,6 +16,8 @@ All commands run from the project root; `--page` is a key from `config/pages.jso
 | `npm run shots [-- --page X --viewport Y --blocksOnly --scale 2 --force --retries N]` | renders every bound block to PNG for the overlay → `snapshots/shots/` + `_shots.json` |
 | `npm run patch -- --page home --viewport desktop` | CSS from the report's diffs → `reports/<page>-<viewport>.css` — a **proposal**, cascade not considered |
 | `npm run pixdiff -- --page home --viewport desktop` | fullPage screenshot vs design PNG (pixelmatch): %, 10 horizontal bands, diff image |
+| `npm run compare -- --page home --viewport tablet [--chunk 1600] [--fresh]` | visual review: the breakpoint frame rendered by the plugin through the running server (cached in `snapshots/frames/`) next to a full-page site screenshot (fixed layers hidden), sliced into `reports/compare/<page>-<viewport>-NN.png` (left = design, right = site) with pixelmatch % per chunk |
+| `npm run sweep [-- --page X] [--widths 320,768] [--bp 576,768,992] [--all]` | adaptive sweep: every preset width plus each breakpoint ±1px; reports horizontal page scroll, elements out of the viewport, clipped and spilling text; each hit is re-checked on a page loaded fresh at that width (`--all` keeps unconfirmed) → `reports/sweep-*.json` |
 | `npm run modules [-- --shared]` | reusable blocks found by the project export |
 | `npm run import -- <file.pg.json>` | import a snapshot downloaded from the plugin |
 | `npm run repair` | fill empty component references in old snapshots from other snapshots |
@@ -32,3 +34,6 @@ All commands run from the project root; `--page` is a key from `config/pages.jso
   files are skipped). "node not found" — the snapshot is from another copy of the file:
   re-export the project, then `automap --write`.
 - `automap --min`: 80+ is nearly false-positive-free, 45 needs proofreading.
+
+
+Behind HTTP basic auth (a dev copy): set `PG_HTTP_AUTH=user:password` for `qa`, `sweep` and `compare`.

@@ -18,7 +18,9 @@
     "shots": "node server/shots.mjs",
     "verify": "node server/verify.mjs",
     "remap": "node server/remap.mjs",
-    "resync": "node server/resync.mjs"
+    "resync": "node server/resync.mjs",
+    "sweep": "node server/sweep.mjs",
+    "compare": "node server/compare.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",

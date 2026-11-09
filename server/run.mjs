@@ -74,6 +74,7 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({
   viewport: { width, height: 1000 },
   userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36 pixel-guard',
+  ...(process.env.PG_HTTP_AUTH ? { httpCredentials: { username: process.env.PG_HTTP_AUTH.split(':')[0], password: process.env.PG_HTTP_AUTH.split(':').slice(1).join(':') } } : {}),
 });
 const pg = await ctx.newPage();
 // dev servers and CDNs love to serve yesterday: no HTTP cache, and --fresh
