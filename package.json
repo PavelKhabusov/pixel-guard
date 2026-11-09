@@ -22,7 +22,8 @@
     "sweep": "node server/sweep.mjs",
     "compare": "node server/compare.mjs",
     "peek": "node server/peek.mjs",
-    "overlay": "node server/overlay-shot.mjs"
+    "overlay": "node server/overlay-shot.mjs",
+    "rhythm": "node server/rhythm.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",

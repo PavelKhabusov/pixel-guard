@@ -39,3 +39,11 @@ All commands run from the project root; `--page` is a key from `config/pages.jso
 
 
 Behind HTTP basic auth (a dev copy): set `PG_HTTP_AUTH=user:password` for `qa`, `sweep`, `compare`, `peek` and `overlay`.
+## rhythm — ритм блоков и отступы плашек
+
+`npm run rhythm -- --page catalog [--widths 357,912,1100] [--shots]`
+
+То, чего не видят qa и sweep: зазоры между блоками страницы (сверять с gap/padding фрейма в макете),
+отступы плашек против их формы (вертикальная плашка — боковой отступ не больше вертикального,
+горизонтальная — наоборот), метки и табы в несколько строк, заголовки длиннее трёх строк, текст мельче 12px.
+`--shots` — по скриншоту вьюпорта на каждый блок в `reports/rhythm/` (смотреть глазами рядом с макетом).
