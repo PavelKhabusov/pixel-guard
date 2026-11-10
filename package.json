@@ -23,7 +23,8 @@
     "compare": "node server/compare.mjs",
     "peek": "node server/peek.mjs",
     "overlay": "node server/overlay-shot.mjs",
-    "rhythm": "node server/rhythm.mjs"
+    "rhythm": "node server/rhythm.mjs",
+    "blocks": "node server/blocks.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.2",
