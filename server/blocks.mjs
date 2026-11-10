@@ -47,7 +47,10 @@ if (args.fresh || !fs.existsSync(designPath)) {
   fs.writeFileSync(designPath, Buffer.from(await r.arrayBuffer()));
 }
 const design = PNG.sync.read(fs.readFileSync(designPath));
-const dScale = design.width / frame.w;
+// a frame that does not clip is rendered with its spilling shadows: extra pixels on the sides and on top are an offset, not a scale
+const spill = Math.abs(design.width / frame.w - design.height / frame.h) > 0.003 && design.width - frame.w < 80;
+const dScale = spill ? 1 : design.width / frame.w;
+const dOx = spill ? (design.width - frame.w) / 2 : 0, dOy = spill ? Math.max(0, design.height - frame.h) : 0;
 
 const texts = (n, out = []) => { if (n.type === 'TEXT' && (n.text ?? n.characters)) out.push(String(n.text ?? n.characters).replace(/\s+/g, ' ').trim()); for (const c of n.children ?? []) texts(c, out); return out; };
 const kids = (n) => (n.children ?? []).filter((c) => c.visible !== false && c.h > 24 && c.w > 40);
@@ -56,7 +59,7 @@ const collect = (n, depth) => {
   for (const c of kids(n)) {
     const k = kids(c);
     const wrapper = k.length >= 2 && c.h > 900 && depth < 3 && !(c.fills ?? []).length && !c.cornerRadius;
-    if (wrapper || (k.length === 1 && k[0].h > c.h * 0.9 && depth < 3)) collect(c, depth + 1);
+    if (wrapper || (k.length === 1 && k[0].h > c.h * 0.9 && depth < 3) || (k.length >= 2 && c.h > 1300 && depth < 7)) collect(c, depth + 1);
     else dBlocks.push({ id: c.id, name: c.name, x: c.x - frame.x, y: c.y - frame.y, w: c.w, h: c.h, texts: texts(c) });
   }
 };
@@ -70,7 +73,7 @@ function probe() {
   const kids = (e) => [...e.children].filter((k) => vis(k) && !['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(k.tagName) && getComputedStyle(k).position !== 'fixed');
   const out = [];
   const push = (e) => { const r = e.getBoundingClientRect(); e.setAttribute('data-pg-block', out.length); out.push({ sel: sel(e), y: Math.round(r.top + scrollY), h: Math.round(r.height), text: e.innerText.replace(/\s+/g, ' ').trim().slice(0, 4000) }); };
-  const walk = (n, depth) => { for (const c of kids(n)) { const k = kids(c); const cs = getComputedStyle(c); const plain = cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none' && parseFloat(cs.borderTopLeftRadius) === 0; if ((k.length >= 2 && c.getBoundingClientRect().height > 900 && depth < 4 && plain) || (k.length === 1 && depth < 5 && plain)) walk(c, depth + 1); else push(c); } };
+  const walk = (n, depth) => { for (const c of kids(n)) { const k = kids(c); const cs = getComputedStyle(c); const plain = cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none' && parseFloat(cs.borderTopLeftRadius) === 0; const ch = c.getBoundingClientRect().height; if ((k.length >= 2 && ch > 900 && depth < 4 && plain) || (k.length === 1 && depth < 5 && plain) || (k.length >= 1 && ch > 1300 && depth < 9)) walk(c, depth + 1); else push(c); } };
   const header = document.querySelector('.header-wrap'); if (header && vis(header)) push(header);
   walk(document.querySelector('#pp-main, main, #main, .site-content') || document.body, 0);
   for (const q of ['.pr-footer, footer', '.mobil.footer_menu']) { const e = document.querySelector(q); if (e && e.getBoundingClientRect().height > 24 && !e.hasAttribute('data-pg-block')) push(e); }
@@ -82,7 +85,8 @@ const ctx = await browser.newContext({ viewport: { width, height: 1000 }, ...(au
 const pg = await ctx.newPage();
 await pg.goto(url, { waitUntil: 'load', timeout: 90000 });
 // fixed bars would sit on top of every block screenshot
-await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}#cookie-law-div,.mobil.footer_menu,.pr-ftab{display:none!important}.header-wrap{position:absolute!important}' });
+await pg.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}#cookie-law-div,.mobil.footer_menu,.pr-ftab{display:none!important}.header-wrap{position:absolute!important}' + (width < 576 ? 'html{scrollbar-width:none!important;scrollbar-gutter:auto!important}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important}' : '') });
+// phones have overlay scrollbars: the theme's reserved scrollbar gutter would eat layout width in desktop Chromium
 await pg.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 90)); } scrollTo(0, 0); });
 await pg.waitForTimeout(600);
 const sBlocks = await pg.evaluate(probe);
@@ -112,7 +116,7 @@ fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 const MAXH = 1700;
 const crop = (b) => {
-  const x = Math.max(0, Math.round(b.x * dScale)), y = Math.max(0, Math.round(b.y * dScale));
+  const x = Math.max(0, Math.round(b.x * dScale + dOx)), y = Math.max(0, Math.round(b.y * dScale + dOy));
   const w = Math.min(design.width - x, Math.round(b.w * dScale)), h = Math.min(design.height - y, Math.round(Math.min(b.h, MAXH) * dScale));
   if (w <= 0 || h <= 0) return null;
   const o = new PNG({ width: w, height: h });
