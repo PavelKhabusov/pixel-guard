@@ -59,7 +59,7 @@ const collect = (n, depth) => {
   for (const c of kids(n)) {
     const k = kids(c);
     const wrapper = k.length >= 2 && c.h > 900 && depth < 3 && !(c.fills ?? []).length && !c.cornerRadius;
-    if (wrapper || (k.length === 1 && k[0].h > c.h * 0.9 && depth < 3) || (k.length >= 2 && c.h > 1300 && depth < 7)) collect(c, depth + 1);
+    if (wrapper || (k.length === 1 && k[0].h > c.h * 0.9 && depth < 3) || (k.length >= 2 && c.h > 1300 && depth < 7 && !/^(footer|header|menu)/i.test(c.name ?? ''))) collect(c, depth + 1);
     else dBlocks.push({ id: c.id, name: c.name, x: c.x - frame.x, y: c.y - frame.y, w: c.w, h: c.h, texts: texts(c) });
   }
 };

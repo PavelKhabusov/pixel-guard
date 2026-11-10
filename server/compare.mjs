@@ -31,12 +31,13 @@ const frameId = cfg.frames?.[viewport];
 if (!frameId) { console.error(`No frames.${viewport} for ${page}`); process.exit(2); }
 
 // render the whole breakpoint frame (with header/footer), even if the map points at its inner 'main'
-let renderId = frameId;
+let renderId = frameId, renderNode = null;
 for (const f of fs.readdirSync(path.join(ROOT, 'snapshots')).filter((f) => f.endsWith('.json') && !f.startsWith('_'))) {
   const j = readJson(path.join(ROOT, 'snapshots', f));
   if (!j.tree || !findNode(j.tree, frameId)) continue;
+  renderNode = findNode(j.tree, frameId);
   const bp = (j.breakpoints ?? []).find((b) => b.viewport === viewport && (b.id === frameId || findNode(findNode(j.tree, b.id) ?? {}, frameId)));
-  if (bp) renderId = bp.id;
+  if (bp) { renderId = bp.id; renderNode = findNode(j.tree, bp.id); }
   break;
 }
 
@@ -87,7 +88,16 @@ const scaleTo = (img, w) => {
   }
   return out;
 };
-const D = scaleTo(design, width), S = scaleTo(site, width);
+// shadow bleed around the frame is an offset, not a scale: cut it off instead of squeezing the render
+const unbleed = (img) => {
+  const bx = img.width - (renderNode?.w ?? img.width);
+  if (!renderNode || bx <= 0 || bx >= renderNode.w * 0.15) return img;
+  const ox = Math.round(bx / 2), oy = Math.round(Math.max(0, Math.min(img.height - renderNode.h, bx / 2)));
+  const out = new PNG({ width: Math.round(renderNode.w), height: img.height - oy });
+  PNG.bitblt(img, out, ox, oy, out.width, out.height, 0, 0);
+  return out;
+};
+const D = scaleTo(unbleed(design), width), S = scaleTo(site, width);
 const H = Math.max(D.height, S.height), GAP = 16;
 
 const outDir = path.join(ROOT, 'reports', 'compare');
