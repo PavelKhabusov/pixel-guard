@@ -176,6 +176,7 @@ const loadMap = (page) =>
   new Promise((resolve) => {
     const q = page ? `page=${encodeURIComponent(page)}` : `url=${encodeURIComponent(location.href)}`;
     chrome.runtime.sendMessage({ type: 'pg-fetch', path: `/map?${q}` }, (m) => {
+      void chrome.runtime.lastError;
       if (m && !m.error) map = m;
       resolve(map);
     });
@@ -280,6 +281,7 @@ function makeBox(b, opts, left, top, scale, lib) {
     if (cached) img.src = cached;
     else {
       chrome.runtime.sendMessage({ type: 'pg-shot', file: b.shot }, (r) => {
+        void chrome.runtime.lastError;
         if (r?.ok) { shotCache.set(b.shot, r.dataUrl); img.src = r.dataUrl; }
       });
     }
@@ -907,6 +909,7 @@ function watchContext() {
   let port;
   try { port = chrome.runtime.connect({ name: 'pg-content' }); } catch { teardown(); return; }
   port.onDisconnect.addListener(() => {
+    void chrome.runtime.lastError;
     // the service worker merely went idle — reconnect; the extension is gone — clean up
     if (chrome.runtime?.id) setTimeout(watchContext, 500);
     else teardown();

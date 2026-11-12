@@ -39,6 +39,7 @@ $('host').onkeydown = (e) => { if (e.key === 'Enter') add($('host').value); };
 $('add-cur').onclick = () => chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([t]) => add(t?.url));
 
 chrome.runtime.sendMessage({ type: 'pg-hosts' }, (r) => {
+  void chrome.runtime.lastError;
   serverHosts = r?.server ?? [];
   userHosts = r?.user ?? [];
   draw();
