@@ -481,6 +481,16 @@ async function renderNode(id: string, format: string, scale: number, source = fa
   // A node with image fills exports only after Figma has loaded its rasters —
   // and it loads them for what is on screen. So bring the node into view first
   // (what the docs used to ask the user to do by hand).
+  // вид пользователя возвращаем после экспорта, иначе Figma запомнит его у отрендеренной ноды
+  const prevPage = figma.currentPage;
+  const prevView = { center: figma.viewport.center, zoom: figma.viewport.zoom };
+  const restoreView = async () => {
+    try {
+      if (figma.currentPage.id !== prevPage.id) await figma.setCurrentPageAsync(prevPage);
+      figma.viewport.center = prevView.center;
+      figma.viewport.zoom = prevView.zoom;
+    } catch (_) { /* headless */ }
+  };
   try {
     let page: BaseNode | null = node;
     while (page && page.type !== 'PAGE') page = page.parent;
@@ -518,6 +528,7 @@ async function renderNode(id: string, format: string, scale: number, source = fa
   let bytes: Uint8Array;
   let fallback: string | null = null;
   try {
+  try {
     bytes = await withTimeout(
       (node as any).exportAsync(settings) as Promise<Uint8Array>, 90000,
       `exportAsync hung on "${node.name}" (${node.type}) — an image fill Figma could not rasterise`,
@@ -534,6 +545,9 @@ async function renderNode(id: string, format: string, scale: number, source = fa
       bytes = images[own.imageHash];
       fallback = 'source image (exportAsync hung) — the original raster, not the cropped/scaled node';
     }
+  }
+  } finally {
+    await restoreView();
   }
 
   const box = 'absoluteBoundingBox' in node ? node.absoluteBoundingBox : null;
